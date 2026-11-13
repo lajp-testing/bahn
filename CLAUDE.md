@@ -22,6 +22,7 @@ Our entry for Spread, Bahn's challenge at Junction 2026. The system plays a car 
 | `dispatch/fees.py` | The fees: a gig's fee schedule. Track 3. |
 | `dispatch/notes.py` | The notes: what a dealer's note means. Track 4. |
 | `dispatch/policies/` | A policy is one choice of the four parts. `base` is the kit starter's behaviour. |
+| `dispatch/live.py` | Plays the final from the live stream, with the same desk. The orchestrator's. |
 | `harness/` | The slot broker, the runner and the compare tool. |
 | `tracks/<track>/` | A track's findings and its research scripts. |
 

@@ -127,3 +127,42 @@ def test_only_the_orchestrator_plays_ranking_runs_and_holdout():
         raise AssertionError("a track played what only the orchestrator may play")
     slots._check("orch", "hold-01", False)
     slots._check("t1", "dev-01", False)
+
+
+class FakeLiveWorld(FakeWorld):
+    """The same week from a stream: the win has already happened when the desk starts, and no gig is posted yet."""
+
+    def snapshot(self):
+        return {"now": 600, "endsAt": 1440, "orders": [ORDER], "gigs": [], "openRequests": []}
+
+    def events(self, after=-1):
+        return [event for _, events in FakeWorld().script[:2] for event in events]
+
+    def roster(self):
+        return []
+
+    def stream(self, after=None, idle=None):
+        assert after == 1  # from the last event of the history
+        yield {"seq": 3, "at": 820, "kind": "deadline_close", "orderId": "R1", "lastPickupAt": 1000}
+        yield {"seq": 4, "at": 1440, "kind": "ledger", "line": {}}
+
+    def score(self):
+        return {"marginCents": 0, "revenueCents": 0, "wonOrders": 1, "onTimeShare": 1.0, "undeliveredShare": 0.0, "ranked": True}
+
+
+def test_the_live_desk_rejoins_and_answers_the_stream():
+    from dispatch.live import play_live
+
+    world = FakeLiveWorld()
+    seen = []
+
+    def build(context):
+        parts = load("base")(context)
+        parts.quoter.observe = lambda event, desk, replay: seen.append((event["kind"], replay))
+        return parts
+
+    world_map = {"places": [], "roads": []}
+    play_live(world, 8, world_map, build, clock=lambda: 1440)
+    kinds = [action["type"] for _, action in world.sent]
+    assert kinds == ["post", "reprice"]  # the order without a gig is posted on rejoin; the warning makes it urgent
+    assert seen[:2] == [("price_request", True), ("order_won", True)] and ("deadline_close", False) in seen
