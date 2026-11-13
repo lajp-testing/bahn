@@ -321,3 +321,51 @@ def test_practice_runs_have_no_way_to_make_a_ranking_run():
     source = inspect.getsource(ranked)
     assert 'os.environ.get("SPREAD_TEST_KEY"' in source and 'CountingClient(key=test_key)' in source
     assert 'environ.get("SPREAD_KEY"' not in source and 'environ["SPREAD_KEY"' not in source
+
+
+def reach_desk(**params):
+    from dispatch.desk import Desk
+
+    context = Context.build(8, two_towns(), [{"id": f"d{i}", "homePlaceId": "helsinki", "rating": 4.9, "licence": "manual",
+                                              "completedGigs": 80, "drops": 0} for i in range(25)])
+    return Desk(None, context, load("reach")(context, **params), 600)
+
+
+def test_future_same_day_quotes_a_car_ready_tomorrow_but_not_today():
+    request = {**REQUEST, "note": None, "options": [{"kind": "same_day", "deadline": 1200 + 1440, "listPriceCents": 20000}]}
+    for future, expected in ((False, {"same_day": 100000}), (True, {"same_day": 30000})):
+        desk = reach_desk(future_same_day=future)
+        desk.quote(request)
+        assert desk.outbox[-1]["prices"] == expected
+    desk = reach_desk(future_same_day=True)
+    desk.quote({**REQUEST, "options": REQUEST["options"][:1]})  # ready today: still declined
+    assert desk.outbox[-1]["prices"] == {"same_day": 100000}
+
+
+def test_the_late_budget_brakes_intake_once_late_and_at_risk_orders_reach_it():
+    desk = reach_desk(late_budget=0.1, budget_after=10, brake_drivers=30)
+    intake = desk.parts.intake
+    request = {**REQUEST, "note": None}
+    for i in range(10):
+        intake.observe({"kind": "order_won", "order": {"id": f"O{i}"}}, desk, False)
+    assert not intake.braking(desk)
+    desk.quote(request)
+    assert desk.outbox[-1]["prices"] == {"next_day": 22500}
+    intake.observe({"kind": "ledger", "line": {"kind": "late_refund", "orderId": "O1", "cents": -100}}, desk, False)
+    assert intake.braking(desk)  # 1 late of 10 won is the 10% budget
+    desk.quote(request)  # Helsinki has 25 drivers near, under the brake's 30: declined
+    assert desk.outbox[-1]["prices"] == {"same_day": 100000}
+
+
+def test_density_fees_stay_flat_near_drivers_and_climb_slowly_elsewhere():
+    order = {**ORDER, "legs": [{**LEG, "delivery": {**PLACE, "placeId": "helsinki"}}]}  # 25 drivers live in Helsinki
+    far = {**ORDER}  # delivery in Tampere, where nobody lives
+    desk = reach_desk(density=True, open=0.85)
+    desk.requests["R1"] = REQUEST
+    assert desk.fees_for(order, 1) == [{"at": 600, "feeCents": 8500}]
+    assert desk.fees_for(far, 1) == [{"at": 600, "feeCents": 8500}, {"at": 900, "feeCents": 11500}, {"at": 1080, "feeCents": 13000}]
+    desk.urgent.add("R1")
+    assert desk.fees_for(order, 1)[0] == {"at": 600, "feeCents": 15000}  # the warning brings the urgent schedule
+    plain = reach_desk(open=0.85)
+    plain.requests["R1"] = REQUEST
+    assert len(plain.fees_for(order, 1)) == 6  # without density=true: the starter's hourly climb
