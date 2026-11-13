@@ -10,6 +10,26 @@ The complete `t1-limit15-later-price16-fee13` control (opening 1.3, 0.1 steps ho
 
 Fork scans on 39 single-car wins in three `t3-study-*` weeks give a two-hour mean least retained-booking fee of 0.64 times typical among 38 with a booking at 3.0; one found none at 3.0. Fewer than 30 drivers within 30 km of pickup: 0.75 (16 measured, one none); 30 or more: 0.57 (22). These are selected orders, not delivery costs or representative estimates: the parent continues alone, copies receive no further desk actions, and a retained booking is only observed through the horizon. Trade-ins were excluded and private addresses numbered three. `Fees.estimate` uses 0.60 + 0.15 for sparse pickups; it is experimental and not a calibrated full-order cost. `MeasuredFees` opens 0.45 above that estimate and adds two 0.15 raises at 30-minute intervals; urgent fees use the starter schedule.
 
+`t3-main-low15-v1` (estimate, +0.1 every 15 minutes to 1.5) made €54,109.09, 96.3% on time, worst 92.5%, ranked 10/10; mean booked fee 1.118 times typical, 0.112 drops per booking. It meets the hard floor but is less robust than low20 on its worst week and makes slightly less margin.
+
+`t3-main-buffer-v1` reproduces the earlier density buffer on main: €42,764.86, 96.6% on time, worst 93.6%, 10/10; mean fee 1.238, drops/booking 0.100. Against it low20 gains €11,661.40 with worst week 93.1%. `t3-main-deadline240-v1` starts at the estimate, rises 0.1 per 15 minutes, compresses that interval to reach 1.5 at least 240 minutes before last pickup, and uses the starter urgent schedule: €50,427.29, 95.7% on time, worst 92.4%, 10/10, mean fee 1.129, drops/booking 0.114. The deadline rule and schedule are tested together; this does not isolate the deadline rule.
+
+## Third stint schedules (10 dev weeks each)
+
+| Label | Margin | On time | Worst | Ranked | Mean booked fee / typical | Drops / booking |
+|---|---:|---:|---:|---:|---:|---:|
+| `t3-stint3-main` | −€27,162.41 | 97.1% | 94.9% | 10/10 | 1.678 | 0.105 |
+| `t3-main-buffer-v1` | €42,764.86 | 96.6% | 93.6% | 10/10 | 1.238 | 0.100 |
+| `t3-main-low20-v1` | €54,426.26 | 96.0% | 93.1% | 10/10 | 1.128 | 0.117 |
+| `t3-main-low15-v1` | €54,109.09 | 96.3% | 92.5% | 10/10 | 1.118 | 0.112 |
+| `t3-main-deadline240-v1` | €50,427.29 | 95.7% | 92.4% | 10/10 | 1.129 | 0.114 |
+| `t3-main-urgent18-v1` | €50,456.68 | 96.1% | 92.1% | 10/10 | 1.146 | 0.120 |
+| `t3-main-flat12-v1` | €46,293.91 | 95.3% | 91.4% | 10/10 | 1.200 | 0.086 |
+
+The urgent variant changes low20's urgent opening from 1.5 to 1.8; the flat variant uses 1.2 throughout, including urgent. Flat falls below the 92% selection floor even though all weeks meet the game's 90% ranking rule. Booked fees include repeated bookings and reposts; drops are gig_dropped events, not no-shows. See `schedule_stats.py`.
+
+Learning proxy, post day, all bookings: low20 Monday 310 bookings, mean booked/opening 1.304, mean 231 minutes; Friday 344, 1.398, 442 minutes. Flat Monday 314, 1.000, 183 minutes; Friday 358, 1.000, 442 minutes. Friday's higher relative fee under the rise is consistent with learning, but flat also books later; changes in workload, gig mix, reposting, and deadlines confound this observational comparison. It does not isolate driver beliefs or prove learning. The ratio uses each gig's opening, not the driver's first viewed fee.
+
 ## Findings table
 
 | Measurement | Sample | Result | Limit |

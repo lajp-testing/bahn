@@ -43,12 +43,22 @@ class Fees(Part):
 
 
 class MeasuredFees(Fees):
-    """Experimental single-car booking estimate with an early reliability buffer."""
+    """Density-based opening with a configurable early rise."""
+
+    def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
+                 cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, **kwargs: Any):
+        super().__init__(**kwargs)
+        self.buffer, self.rise, self.interval, self.cap = buffer, rise, interval, cap
+        self.deadline_margin, self.max_raises = deadline_margin, max_raises
 
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
         if urgent:
             return super().schedule(order, cars, urgent, desk)
         request = desk.requests[order["id"]]
-        base = self.estimate(request, desk) * cars / len(order["legs"])
         typical = request["referenceFeeCents"] * cars / len(order["legs"])
-        return [{"at": desk.now + k * 30, "feeCents": max(1, int(base + typical * (0.45 + k * 0.15) + 0.5))} for k in range(1 if desk.level == 1 else 3)]
+        first = self.estimate(request, desk) / request["referenceFeeCents"] + self.buffer
+        count = min(self.max_raises, max(0, int((self.cap - first) / self.rise + 0.999999)))
+        interval = self.interval
+        if self.deadline_margin and count:
+            interval = max(1, min(interval, (order["lastPickupAt"] - desk.now - self.deadline_margin) // count))
+        return [{"at": desk.now + k * interval, "feeCents": max(1, int(typical * min(self.cap, first + k * self.rise) + 0.5))} for k in range(1 if desk.level == 1 else count + 1)]
