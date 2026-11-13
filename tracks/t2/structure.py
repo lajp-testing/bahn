@@ -123,6 +123,19 @@ def main():
               [[k] + [f'{cells[s][0]:+.3f} ({cells[s][1]})' if s in cells else '' for s in seed_names]
                + ['yes' if same_sign else 'no', round(spread, 3)]
                for k, cells, same_sign, spread in out])
+        for i in range(len(seed_names)):
+            for j in range(i + 1, len(seed_names)):
+                a, b = seed_names[i], seed_names[j]
+                pairs = [(cells_a[0], cells_b[0]) for k, cells, _, _ in out
+                         if (cells_a := cells.get(a)) and (cells_b := cells.get(b))]
+                if len(pairs) >= 5:
+                    xs = [p[0] for p in pairs]
+                    ys = [p[1] for p in pairs]
+                    mx, my = mean(xs), mean(ys)
+                    cov = sum((x - mx) * (y - my) for x, y in pairs)
+                    den = math.sqrt(sum((x - mx) ** 2 for x in xs) * sum((y - my) ** 2 for y in ys))
+                    print(f'c. {name}: Pearson r of leftovers {a} vs {b}: '
+                          f'{cov / den:.2f} on {len(pairs)} entities')
 
     # d. Outage and price war per seed.
     places, dist = town_distance()
@@ -141,15 +154,16 @@ def main():
         for d in days:
             for anchor in towns:
                 for side in ('pickup_town', 'delivery_town'):
-                    inside = [r['left'] for r in srows if r['day'] == d and r[side] in region[anchor]]
-                    outside = [r['left'] for r in srows if r['day'] == d and r[side] not in region[anchor]]
+                    inside = [r for r in srows if r['day'] == d and r[side] in region[anchor]]
+                    outside = [r for r in srows if r['day'] == d and r[side] not in region[anchor]]
                     if len(inside) >= 15 and len(outside) >= 15:
-                        best.append((mean(inside) - mean(outside), d, anchor, side,
-                                     len(inside), round(mean(inside), 3), round(mean(outside), 3)))
+                        mi, mo = mean([r['ratio'] for r in inside]), mean([r['ratio'] for r in outside])
+                        best.append((mi - mo, d, anchor, side, len(inside),
+                                     round(mi, 3), round(mo, 3), round(mi / mo, 3)))
         best.sort(reverse=True)
-        table(f'd. {seed}: outage check - top day x 80km-region pickup/delivery leftovers (n>=15 both sides)',
-              ['gap', 'day', 'region anchor', 'side', 'n in', 'mean in', 'mean out'],
-              [[round(g, 3), d, a, s, n, mi, mo] for g, d, a, s, n, mi, mo in best[:8]])
+        table(f'd. {seed}: outage check - top day x 80km-region pickup/delivery (n>=15 both sides)',
+              ['gap', 'day', 'region anchor', 'side', 'n in', 'mean in', 'mean out', 'in/out'],
+              [[round(g, 3), d, a, s, n, mi, mo, r] for g, d, a, s, n, mi, mo, r in best[:8]])
 
     # e. How fast the day level shows.
     for seed in seed_names:
