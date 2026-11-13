@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
     client = config.client()
+    roads = {(road['from'], road['to']): road['km'] for road in client.map()['roads']}
     started = time.monotonic()
     path = Path('tracks/t2') / f'scan-{args.seed}-l{args.level}.jsonl'
     done = set()
@@ -55,7 +56,7 @@ def main():
                             if iteration >= 2 and rid not in censored:
                                 (low if won else high)[rid] = trial[rid]
                 for r in batch:
-                    row = {'seed':args.seed, 'level':args.level, 'arrival':step['now'], 'option':r['options'][option_index]['kind'], 'listPriceCents':r['options'][option_index]['listPriceCents'], 'referenceFeeCents':r['referenceFeeCents'], 'switch_low':low[r['id']], 'switch_high':high[r['id']], 'request':r}
+                    row = {'seed':args.seed, 'level':args.level, 'request_id':r['id'], 'dealer':r['dealerId'], 'pickup_town':r['legs'][0]['pickup']['placeId'], 'delivery_town':r['legs'][0]['delivery']['placeId'], 'km':sum(roads[(leg['pickup']['placeId'], leg['delivery']['placeId'])] for leg in r['legs']), 'arrival':r['arrivedAt'], 'option':r['options'][option_index]['kind'], 'listPriceCents':r['options'][option_index]['listPriceCents'], 'referenceFeeCents':r['referenceFeeCents'], 'switch_low':low[r['id']], 'switch_high':high[r['id']], 'request':r}
                     output.write(json.dumps(row, separators=(',', ':'))+'\n')
                 output.flush()
             if len(seen) % 50 < len(requests):
