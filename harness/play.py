@@ -80,14 +80,20 @@ class LoggedWorld:
         return getattr(self._world, name)
 
 
-def play(world: World, ctx: Context, parts: Parts, log: Optional[Log] = None, until: Optional[int] = None) -> Desk:
+def play(world: World, ctx: Context, parts: Parts, log: Optional[Log] = None, until: Optional[int] = None,
+         rejoin: bool = False) -> Desk:
     """Steps a practice world to its end, or to the minute `until`: from one event that needs an answer to the
-    next, with one request a step. The clock also stops at each midnight and at each minute a part asked for."""
+    next, with one request a step. The clock also stops at each midnight and at each minute a part asked for.
+    With `rejoin`, the desk first rebuilds its books from the world, for a week that a stopped process left."""
     snapshot = world.snapshot()
     ends_at = snapshot["endsAt"] if until is None else min(until, snapshot["endsAt"])
     desk = Desk(world, ctx, parts, snapshot["now"])
     if log is not None:
         desk.world = LoggedWorld(world, log, lambda: desk.now)  # type: ignore[assignment]
+    if rejoin:
+        history = world.events()
+        desk.rejoin(snapshot, history)
+        world._last_seq = history[-1]["seq"] if history else -1  # the next advance can repeat these events
     while desk.now < ends_at:
         slots.wait_while_paused()
         midnight = (desk.now // DAY + 1) * DAY
@@ -113,18 +119,22 @@ def _dump(folder: str, name: str, value: Any) -> None:
 
 
 def run_week(policy: str, build: Callable[..., Parts], params: dict[str, Any], level: int, seed: Optional[str], label: str,
-             track: str, board: bool = False) -> dict[str, Any]:
-    """One week from creation to its saved result. Returns the result row."""
-    client = config.client()
+             track: str, board: bool = False, client: Optional[config.CountingClient] = None,
+             resume: Optional[str] = None) -> dict[str, Any]:
+    """One week from creation, or from where a stopped process left world `resume`, to its saved result.
+    Returns the result row."""
+    client = client or config.client()
     started = time.time()
-    with slots.create(client, level=level, seed=seed, board=board, track=track) as world:
+    held = slots.adopt(client, resume, board, track=track) if resume else slots.create(client, level=level, seed=seed, board=board, track=track)
+    with held as world:
         stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime(started))
-        folder = os.path.join(config.RUNS, f"{stamp}-{track}-L{level}-{seed or 'board'}-{world.id}")
+        name = seed or ("resume" if resume else "board")
+        folder = os.path.join(config.RUNS, f"{stamp}-{track}-L{level}-{name}-{world.id}")
         roster = world.roster()
         ctx = Context.build(level, world_map(client), roster)
         log = Log(folder)
         try:
-            desk = play(world, ctx, build(ctx, **params), log)
+            desk = play(world, ctx, build(ctx, **params), log, rejoin=resume is not None)
         finally:
             log.close()
         score = world.score()
@@ -135,7 +145,7 @@ def run_week(policy: str, build: Callable[..., Parts], params: dict[str, Any], l
             _dump(folder, "reveal.json.gz", world.reveal())
     row = {
         "at": stamp, "track": track, "label": label, "policy": policy, "params": params, "version": config.git_version(),
-        "level": level, "seed": seed, "board": board, "worldId": world.id, **score,
+        "level": level, "seed": seed, "board": board, "resumed": resume is not None, "worldId": world.id, **score,
         "refused": len(desk.refused), "requests": client.requests, "seconds": round(time.time() - started, 1), "folder": folder,
     }
     with open(os.path.join(folder, "result.json"), "w", encoding="utf-8") as file:

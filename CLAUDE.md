@@ -23,7 +23,7 @@ Our entry for Spread, Bahn's challenge at Junction 2026. The system plays a car 
 | `dispatch/notes.py` | The notes: what a dealer's note means. Track 4. |
 | `dispatch/policies/` | A policy is one choice of the four parts. `base` is the kit starter's behaviour. |
 | `dispatch/live.py` | Plays the final from the live stream, with the same desk. The orchestrator's. |
-| `harness/` | The slot broker, the runner and the compare tool. |
+| `harness/` | The slot broker, the runner and the compare tool. `harness.ranked` is the only way to a ranking run: the test team's key, a frozen policy, and an approval for that one run. |
 | `tracks/<track>/` | A track's findings and its research scripts. |
 
 A part sees every event (`observe`), can ask for a wake-up (`desk.wake`, then `tick`), and can read the map and the driver list (`desk.ctx`). `dispatch/parts.py` says what a part can do.

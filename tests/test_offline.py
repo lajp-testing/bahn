@@ -228,3 +228,84 @@ def test_a_restart_resends_a_lost_urgent_reprice_but_does_not_restart_one_that_w
     world = FakeRestartWorld(sent)
     play_live(world, 8, two_towns(), lambda context: load("base")(context), clock=lambda: 1440)
     assert not [action for _, action in world.sent if action["type"] == "reprice"]
+
+
+def test_a_ranking_run_needs_a_fresh_approval_for_each_run():
+    with tempfile.TemporaryDirectory() as folder:
+        old, config.DATA = config.DATA, folder
+        saved = os.environ.pop(slots.APPROVAL, None)
+        try:
+            for value in (None, "L7:luukas-1"):  # none, or one for another level
+                if value:
+                    os.environ[slots.APPROVAL] = value
+                try:
+                    slots.approve_ranked(8)
+                except SystemExit:
+                    continue
+                raise AssertionError(f"a ranking run started with approval {value!r}")
+            os.environ[slots.APPROVAL] = "L8:luukas-1"
+            assert slots.approve_ranked(8) == "luukas-1"
+            try:
+                slots.approve_ranked(8)  # the same approval again
+            except SystemExit:
+                pass
+            else:
+                raise AssertionError("one approval started two ranking runs")
+        finally:
+            config.DATA = old
+            os.environ.pop(slots.APPROVAL, None)
+            if saved is not None:
+                os.environ[slots.APPROVAL] = saved
+
+
+def test_a_ranking_run_is_never_deleted_on_an_error_or_by_the_next_process():
+    deleted = []
+
+    class Run:
+        id = "wrank"
+
+        def delete(self):
+            deleted.append(self.id)
+
+    class Client:
+        def __init__(self, ended):
+            self.ended = ended
+
+        def worlds(self):
+            return [{"worldId": "wrank", "boardRun": 1, "ended": self.ended, "kind": "practice", "level": 8, "parent": None, "season": 1}]
+
+        def world(self, world_id):
+            return Run()
+
+    with tempfile.TemporaryDirectory() as folder:
+        old, config.SLOTS = config.SLOTS, folder
+        try:
+            try:
+                with slots._held("orch", Client(False), Run, delete_on_error=False):
+                    raise RuntimeError("the system stopped mid-week")
+            except RuntimeError:
+                pass
+            assert deleted == []
+            try:  # the slot still names the unfinished ranking run: the next process stops instead of deleting it
+                slots.acquire("orch", Client(False))
+            except SystemExit:
+                pass
+            else:
+                raise AssertionError("a process took the slot of an unfinished ranking run")
+            assert deleted == []
+            slot = slots.acquire("orch", Client(False), keep="wrank")  # resuming it keeps it
+            assert slot is not None and slot.left_behind() == "wrank" and deleted == []
+            slot.release()
+        finally:
+            config.SLOTS = old
+
+
+def test_practice_runs_have_no_way_to_make_a_ranking_run():
+    import inspect
+
+    from harness import ranked, run
+
+    assert "--board" not in inspect.getsource(run)
+    source = inspect.getsource(ranked)
+    assert 'os.environ.get("SPREAD_TEST_KEY"' in source and 'CountingClient(key=test_key)' in source
+    assert 'environ.get("SPREAD_KEY"' not in source and 'environ["SPREAD_KEY"' not in source

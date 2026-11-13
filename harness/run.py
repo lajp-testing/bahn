@@ -9,6 +9,8 @@ version, so a change to the code gives a new label. The world is deterministic: 
 already holds for the same label, level and seed is not played again, unless `--again`.
 
 Then compare two labels on the same seeds: python -m harness.compare <label A> <label B>
+
+It plays practice weeks only. A ranking run goes through `harness.ranked`, with an approval for that one run.
 """
 from __future__ import annotations
 
@@ -48,14 +50,13 @@ def main() -> None:
     parser.add_argument("--seed", action="append", default=[], help="one seed; repeat for more")
     parser.add_argument("--label", help="the name of this version in the index (default: policy, parameters and code version)")
     parser.add_argument("--again", action="store_true", help="play weeks that the index already holds for this label")
-    parser.add_argument("--board", action="store_true", help="orchestrator only: play the next ranking run at the level")
     args = parser.parse_args()
 
     track = config.track()
     params = parse_params(args.set)
     label = args.label or default_label(args.policy, params)
     build = load(args.policy)
-    seeds: list[Any] = [None] if args.board else (config.SEEDS[args.seeds] if args.seeds else []) + args.seed
+    seeds: list[Any] = (config.SEEDS[args.seeds] if args.seeds else []) + args.seed
     if not seeds:
         parser.error("name the weeks: --seeds dev, or --seed <text>")
 
@@ -70,7 +71,7 @@ def main() -> None:
 
     def one(seed: Any) -> None:
         try:
-            row = run_week(args.policy, build, dict(params), args.level, seed, label, track, board=args.board)
+            row = run_week(args.policy, build, dict(params), args.level, seed, label, track)
         except BaseException as error:  # the world is deleted; the other weeks go on
             failed.append(seed)
             with _print:

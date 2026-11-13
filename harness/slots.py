@@ -42,8 +42,10 @@ class Slot:
         self.file.close()
 
 
-def acquire(track: str, client: Client, wait: bool = True) -> Optional[Slot]:
-    """Takes a free slot of the track, waiting for one when `wait`. Deletes a world that a dead process left in it."""
+def acquire(track: str, client: Client, wait: bool = True, keep: Optional[str] = None) -> Optional[Slot]:
+    """Takes a free slot of the track, waiting for one when `wait`. Deletes a practice world that a dead process
+    left in it, except `keep`. It never deletes a ranking run that has not ended: deleted, it would play to its
+    end without the system and count. It stops instead, so the run can be resumed."""
     os.makedirs(config.SLOTS, exist_ok=True)
     while True:
         for index in config.TRACKS[track]:
@@ -55,7 +57,12 @@ def acquire(track: str, client: Client, wait: bool = True) -> Optional[Slot]:
                 continue
             slot = Slot(index, file)
             stale = slot.left_behind()
-            if stale:
+            if stale and stale != keep:
+                left = next((w for w in client.worlds() if w["worldId"] == stale), None)
+                if left is not None and left["boardRun"] is not None and not left["ended"]:
+                    slot.release()
+                    raise SystemExit(f"Slot {index} holds ranking run {stale}, which has not ended. Resume it with "
+                                     f"python -m harness.ranked --resume {stale}; deleting it would play it to its end without the system.")
                 try:
                     client.world(stale).delete()
                 except SpreadError:
@@ -75,8 +82,8 @@ def _check(track: str, seed: Optional[str], board: bool) -> None:
 
 
 @contextmanager
-def _held(track: str, client: Client, make) -> Iterator[World]:
-    slot = acquire(track, client)
+def _held(track: str, client: Client, make, delete_on_error: bool = True, keep: Optional[str] = None) -> Iterator[World]:
+    slot = acquire(track, client, keep=keep)
     assert slot is not None
     world: Optional[World] = None
     try:
@@ -85,7 +92,10 @@ def _held(track: str, client: Client, make) -> Iterator[World]:
         yield world
         slot.record("")  # the caller played it to its end, or deleted it
     except BaseException:
-        if world is not None:
+        if world is not None and not delete_on_error:
+            # A practice world stands still until it is advanced: leave it, and resume it later.
+            print(f"World {world.id} is left as it was, not deleted. Resume it with python -m harness.ranked --resume {world.id}.", flush=True)
+        elif world is not None:
             try:
                 world.delete()  # frees the slot; a world that has ended stays readable
                 slot.record("")
@@ -100,7 +110,40 @@ def create(client: Client, level: int, seed: Optional[str] = None, board: bool =
     """A new practice world in one of the track's slots, as a context manager. On an error it deletes the world."""
     track = track or config.track()
     _check(track, seed, board)
-    return _held(track, client, lambda: client.create(level=level, seed=seed, board=board))
+    if board:
+        if seed is not None:
+            raise SystemExit("A ranking run has no seed: the server chooses it.")
+        approve_ranked(level)
+    return _held(track, client, lambda: client.create(level=level, seed=seed, board=board), delete_on_error=not board)
+
+
+def adopt(client: Client, world_id: str, board: bool, track: Optional[str] = None):
+    """A world that a stopped process left as it was, held in one of the track's slots, as a context manager.
+    It is never deleted on an error: a ranking run counts even when deleted."""
+    track = track or config.track()
+    _check(track, None, board)
+    return _held(track, client, lambda: client.world(world_id), delete_on_error=False, keep=world_id)
+
+
+APPROVAL = "SPREAD_ALLOW_RANKED"
+
+
+def approve_ranked(level: int) -> str:
+    """A ranking run counts even when it fails, so each one needs an explicit OK for that one run:
+    SPREAD_ALLOW_RANKED=L<level>:<token>, with a token that no earlier ranking run used. The token is
+    spent before the world is created, so one approval can never start two runs."""
+    value, prefix = os.environ.get(APPROVAL, ""), f"L{level}:"
+    token = value[len(prefix):].strip() if value.startswith(prefix) else ""
+    if not token:
+        raise SystemExit(f"A ranking run needs an explicit approval for this one run: {APPROVAL}={prefix}<token>.")
+    os.makedirs(config.DATA, exist_ok=True)
+    with open(os.path.join(config.DATA, "ranked-approvals.txt"), "a+", encoding="utf-8") as spent:
+        fcntl.flock(spent, fcntl.LOCK_EX)
+        spent.seek(0)
+        if token in spent.read().split():
+            raise SystemExit(f"The approval {value} has been used: each approval covers one ranking run.")
+        spent.write(token + "\n")
+    return token
 
 
 def fork(world: World, track: Optional[str] = None):
