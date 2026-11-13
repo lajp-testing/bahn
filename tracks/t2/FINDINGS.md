@@ -24,3 +24,9 @@ Nothing yet.
 ## Failures and limitations
 
 The first grid launches failed before play because the research quoter did not inherit Part; fixed and rerun. The first fork launch failed because advance-until needs a maximum minute; fixed. Option, lane, dealer, hour, learning speed, war and outage effects remain unmeasured. Two weeks are a lead, not a 10-seed comparison.
+
+The grid reveal has 483/1,033 won requests in t2-study-1 and 433/1,035 in dev-01 (including later-cancelled orders). Mean quoted revenue per won request was €105.21 and €89.54; the sum of quote minus one typical fee was €12,897.81 and €10,332.85. These are quote proxies, not realised revenue or margin.
+
+A provisional `LearningQuoter` uses one shared logistic curve, optimises each option's expected quote less `cost_factor` times typical fee, and updates the midpoint from wins and losses. It approximates a multi-option outcome using the lowest quote/list ratio; the curve, fixed slope and initial midpoint are not yet validated. It cannot reconstruct past quotes from event-only replay, and intake changes to quotes only reach learning via accepted action results. Do not use it in the final without addressing replay, option-choice confounding, and validation. `t2-learning-v1` ran an earlier version which only learned from single-option quotes; `t2-learning-v2` is the multi-option approximation.
+
+`t2-learning-v1` pilot: dev-01 margin −€9,673.54, 64.3% on time (610 orders); dev-02 −€14,808.18, 72.8% on time (591 orders). Total −€24,481.72, 68.4% weighted on time, 0/2 ranked. It used the earlier single-option-only update, so does not measure the updated approximation. No paired 10-week conclusion is justified.
