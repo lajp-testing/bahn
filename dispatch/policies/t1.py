@@ -13,6 +13,6 @@ def build(ctx: Context, **params: Any) -> Parts:
     markup = params.pop("markup", 1.6)
     options = params.pop("options", "all")
     limit = params.pop("limit", 15)
-    defaults = dict(open=1.5, step=0.15, every=30, steps=6)
+    defaults = dict(open=1.3, step=0.1, every=60, steps=6)
     defaults.update(params)
     return Parts(Quoter(markup=markup, options=options), LimitedIntake(limit), Fees(**defaults), Notes())
