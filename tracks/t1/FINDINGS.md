@@ -96,6 +96,28 @@ addresses at a profit (€286 a week), so `no_private` and `private_slots` stop 
 dev-10 decides every variant: a Salo bulk order on Thursday and the Oulu lanes. Near-identical variants land between
 90.7% and 94.1% there, so the margin gain is solid and the worst-week pass is thin. Holdout decides.
 
+Holdout of `vol-dn-ll+mk115+tb20@0da56fb` (orchestrator): €101,468 against dn19's €86,962, +€14,506, 9 of 10, worst week 96.3%.
+
+### With the note reader (7b87294; control `rd@bc3b064`, €85,983, worst week 94.3%), frozen at 67faf35
+
+| Variant | Dev total | vs control | Better on | Worst week | Holdout |
+| --- | --- | --- | --- | --- | --- |
+| **`long_lanes long_markup=1.15 thin_both thin_drivers=20`** (e9f4286) | **€94,765** | **+€8,782** | **9 of 10** | **94.1%** | **€104,325 against €92,091, +€12,234, 10 of 10, worst 94.8%. Frozen** |
+| + `long_same_day=false` | €95,969 | +€9,986 | 8 of 10 | 95.2% | on orch |
+
+Against the frozen build (`vol-rd-ll+mk115+tb20@e9f4286`, €94,765):
+
+| Variant | Dev total | vs frozen | Better on | Worst week | What it shows |
+| --- | --- | --- | --- | --- | --- |
+| `long_markup=1.1` | €96,139 | +€1,374 | 4 of 10 | 92.9% | 1.15 stays |
+| `near_km=80` | €94,036 | −€729 | | 96.5% all | |
+| `private_slots` | €95,485 | +€720 | 4 of 10 | 91.9% | |
+| the gate reads notes with the reader (edc1eb4) | €96,172 | +€1,407 | 4 of 10 | 93.5% | The note filter was the gate's largest decline (26 long requests a week); reading them adds little |
+
+Where long lanes stand in the frozen build: of about 138 long requests a week, the gate declines about 70 (a note,
+26; fewer than 6 qualified drivers near the pickup, 23; a private address, 14); the rest are quoted at about 1.8 × list
+and win 22% (300-420 min) or 15% (over 420). The 14 long orders a week earn €44 an order, 3.6% late.
+
 **Ruled out.** Same-day on a car ready today: in `sd@f5a6b3b` even short lanes from pickups with 20 or more drivers
 within 30 km and 6 hours of slack were late 25% of the time, at €16 an order.
 
