@@ -145,3 +145,23 @@ All three lose margin, monotonically in the step size, and all lose orders (−2
 | `t2s5-towns2` | towns=2 | 87,401 | 2,261 | 97.8% | 93.9% | 10/10 |
 
 On the old mainline (stint 4) the peak was at towns=2.0 (+1,842); on the current mainline towns=2 loses (−1,187, 4/10 weeks) and towns=1.5 gains +1,568 (6/10 weeks, all ranked, on time up in 8/10 weeks, dev-08 +1,635 the largest). The gain is just above the noise threshold with 6/10 agreement, so the peak is being bracketed with towns=1 and towns=1.75 before any recommendation.
+
+### Step 3 continued: the towns hill on the new mainline, and the spread test
+
+| label | change | margin EUR | orders | on time | worst | ranked | weeks better than base |
+|---|---|---:|---:|---:|---:|---|---:|
+| `t2s5-base` | none | 88,588 | 2,288 | 97.8% | 96.4% | 10/10 | — |
+| `t2s5-towns1` | towns=1 | 90,140 | 2,294 | 98.1% | 95.7% | 10/10 | 7/10 |
+| `t2s5-towns15` | towns=1.5 | **90,156** | 2,291 | 98.3% | 96.5% | 10/10 | 6/10 |
+| `t2s5-towns175` | towns=1.75 | 90,101 | 2,295 | 98.5% | 97.0% | 10/10 | 6/10 |
+| `t2s5-towns2` | towns=2 | 87,401 | 2,261 | 97.8% | 93.9% | 10/10 | 4/10 |
+| `t2s5-spread04` | spread=0.4 | 64,715 | 1,263 | 97.9% | 95.7% | 10/10 | 0/10 |
+
+- **The delivery-town table pays on the current mainline, with a broad flat hill from 1.0 to 1.75** (+1,552, +1,568, +1,513). towns=1 passes the evidence rule outright (7/10 weeks); towns=1.5 has the highest total and the best on-time of the three. towns=2 falls off the hill (−1,187), so the optimum sits near 1.5, half of stint 4's 2.0 — the trust and limit changes moved the operating point. Recommendation for the mainline: `towns=1.5` (EUR 90,156, +1,568, 98.3% on time, worst 96.5%, 10/10).
+- **spread=0.4 is a disaster**: −23,873 and half the orders (1,263 vs 2,288). A flatter chance curve moves the profit-maximising price up, so we price ourselves out of half the requests. This confirms the step 4 caveat: the offline fit's 0.40-0.45 is an artifact of measuring the ratio against the quoter's own moving level, not the dealers' true spread. The quoter's `spread=0.2` stays.
+
+### Stint 5 bottom line
+
+- Keep: `towns=1.5` (delivery-town lane offsets, `dispatch/towns.py`), +1,568 over the base on the dev weeks, all weeks ranked, on time up. Held out for the orchestrator's holdout check.
+- Reject: per-dealer learned offsets (`dealer`), all step sizes negative; `spread=0.4`, catastrophic.
+- 9 of 16 runs used.
