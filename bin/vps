@@ -31,6 +31,11 @@ status=0
 "${ssh[@]}" -tt "$vps" "cd bahn/trees/$name && SPREAD_HOME=\$HOME/bahn SPREAD_ON_VPS=1 SPREAD_TRACK=$SPREAD_TRACK SPREAD_VERSION=$version PYTHONUNBUFFERED=1 $(printf '%q ' "$@")" < /dev/null | tr -d '\r' || status="${PIPESTATUS[0]}"
 
 mkdir -p "$home/data"
-rsync -az -e "${ssh[*]}" "$vps:bahn/data/runs" "$vps:bahn/data/runs.jsonl" "$home/data/" 2>/dev/null || true
+rsync -az -e "${ssh[*]}" "$vps:bahn/data/runs" "$home/data/" 2>/dev/null || true
+copy="$(mktemp)"
+if rsync -az -e "${ssh[*]}" "$vps:bahn/data/runs.jsonl" "$copy" 2>/dev/null; then
+  (cd "$root" && SPREAD_HOME="$home" python3 -m harness.merge_index "$copy" > /dev/null) || true
+fi
+rm -f "$copy"
 rsync -azu -e "${ssh[*]}" "$vps:bahn/trees/$name/tracks/" "$root/tracks/" 2>/dev/null || true
 exit "$status"
