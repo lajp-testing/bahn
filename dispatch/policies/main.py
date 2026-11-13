@@ -19,8 +19,8 @@ from ..parts import Parts
 from . import t1
 
 
-def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = False, **params: Any) -> Parts:
-    parts = t1.build(ctx, **params)
+def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = False, markup: float = 1.6, **params: Any) -> Parts:
+    parts = t1.build(ctx, markup=markup, **params)
     parts.intake.private = private
     if notes == "read":
         parts.notes = ReadNotes()

@@ -23,7 +23,8 @@ TRACKS: dict[str, list[int]] = {
     "t1": [0, 1],  # intake and on-time
     "t2": [2, 3],  # quotes
     "t3": [4, 5],  # fees and drivers
-    "t4": [6],  # notes
+    "t4": [6],  # notes (finished: the orchestrator wrote the reader)
+    "t5": [6],  # more cars per driver: gigs with several cars, return legs, direct offers
     "orch": [7],  # the orchestrator: holdout checks, ranking runs
 }
 

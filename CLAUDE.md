@@ -21,7 +21,8 @@ Our entry for Spread, Bahn's challenge at Junction 2026. The system plays a car 
 | `dispatch/intake.py` | The intake: how much work to take. Track 1. |
 | `dispatch/fees.py` | The fees: a gig's fee schedule. Track 3. |
 | `dispatch/notes.py` | The notes: what a dealer's note means. Track 4. |
-| `dispatch/policies/` | A policy is one choice of the four parts. `base` is the kit starter's behaviour. |
+| `dispatch/policies/` | A policy is one choice of the four parts. `base` is the kit starter's behaviour; `main` is the team's mainline. |
+| `dispatch/reader.py` | The note reader: a dealer's note to the facts it states. |
 | `dispatch/live.py` | Plays the final from the live stream, with the same desk. The orchestrator's. |
 | `harness/` | The slot broker, the runner and the compare tool. |
 | `bin/vps` | Runs a command on the practice machine near the server. |
@@ -34,7 +35,7 @@ A part sees every event (`observe`), can ask for a wake-up (`desk.wake`, then `t
 Run from the repo root. The key is read from the main checkout's `.env`; never print or commit it. `nix develop` gives numpy, pandas, pytest and ruff; the dispatcher itself needs only the standard library.
 
 ```sh
-export SPREAD_TRACK=t1                                            # your track: t1, t2, t3 or t4
+export SPREAD_TRACK=t1                                            # your track: t1, t2, t3 or t5
 bin/vps python3 -m harness.run --policy base --seeds dev          # the 10 dev weeks at level 8
 bin/vps python3 -m harness.run --policy base --set markup=1.3 --seed dev-01 --seed dev-02
 python3 -m harness.compare --list --track t1                      # what the index holds
@@ -57,7 +58,7 @@ The team holds at most 8 practice worlds that have not ended, copies included. E
 | `t1` intake and on-time | 2 | 150 weeks an hour |
 | `t2` quotes | 2 | 150 weeks an hour |
 | `t3` fees and drivers | 2 | 150 weeks an hour |
-| `t4` notes | 1 | 75 weeks an hour |
+| `t5` more cars per driver | 1 | 75 weeks an hour |
 | `orch` the orchestrator | 1 | holdout checks and ranking runs |
 
 One level 8 week takes about 40 seconds and 1,200 to 2,500 requests on the practice machine. Budget your weeks before you start a sweep.
