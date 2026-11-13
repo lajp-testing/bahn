@@ -639,3 +639,18 @@ def test_place_gain_learns_a_pickup_place_apart_from_the_others():
         quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"W{i}"}}, desk, False)
     assert quoter.place_dial["helsinki"] > 0 and "tampere" not in quoter.place_dial
     assert math.isclose(quoter.effect({**NEXT_DAY, "id": "H"}) - quoter.effect(elsewhere), quoter.place_dial["helsinki"])
+
+
+def test_the_brake_raises_the_cost_in_a_week_of_warnings_and_lowers_it_in_a_calm_one():
+    desk = reach_desk(quoter="dial", brake=2.0)
+    quoter = desk.parts.quoter
+    usual = quoter.cost(NEXT_DAY)
+    assert usual == 1.13 * 10000  # the week starts as a usual one
+    for i in range(60):
+        quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"O{i}"}}, desk, False)
+    assert quoter.cost(NEXT_DAY) < usual  # sixty orders and no warning: a calm week
+    for i in range(20):
+        quoter.observe({"kind": "deadline_close", "orderId": f"O{i}", "lastPickupAt": 900}, desk, False)
+    quoter.observe({"kind": "ledger", "line": {"kind": "late_refund", "orderId": "O0", "cents": -100}}, desk, False)  # warned and late: one order
+    assert len(quoter.strained) == 20 and quoter.cost(NEXT_DAY) > usual
+    assert reach_desk(quoter="dial").parts.quoter.strain() == 0

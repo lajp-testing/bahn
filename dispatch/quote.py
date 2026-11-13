@@ -13,6 +13,7 @@ HOUR, DAY = 60, 24 * 60
 # What an order costs more, in typical fees, and the mean over the dev weeks' orders: for a private address, for a
 # car that is ready on a later day, and for each unit of log(typical fee / list price). tracks/t2/fit5.py.
 DETAIL = ((0.23, 0.10), (-0.15, 0.52), (-0.41, -0.05))
+STRAIN = 0.06  # the share of won orders with a deadline warning or a late delivery, over the control's 30 weeks
 DECLINE_FACTOR = 5  # a quote this many times the list price loses, and a lost quote costs nothing
 
 
@@ -46,7 +47,9 @@ class DialQuoter(Quoter):
     a car is ready today, so its gig has longer to find a driver at the opening fee). Both are above the fees
     paid: every order also makes the drivers scarcer for the others. `detail` adds what the dev weeks' orders cost
     more or less than that (`DETAIL`): a private address is dearer, a car that is ready on a later day cheaper,
-    and so is a request whose typical fee is high for its list price.
+    and so is a request whose typical fee is high for its list price. `brake` reads how scarce this week's drivers
+    are from the orders themselves: the cost rises by `brake` typical fees for each unit that the share of won
+    orders with a deadline warning or a late delivery lies above a usual week's (`STRAIN`), and falls below it.
 
     The quoter asks for the markup `m` that makes `(m x list - cost + ladder) x chance(m)` largest. The ladder
     is what one more on-time order is worth in the dealer's later prices (`ladder_value`). After each answer
@@ -74,7 +77,7 @@ class DialQuoter(Quoter):
                  no_same_day: float = 0.094, by_list: float = 0.12, by_trust: float = 1.0,
                  cost_next: float = 1.13, cost_same: float = 1.01, ladder: float = 0.0, patience: int = 5 * HOUR,
                  floor: float = 1.1, ceiling: float = 2.4, war: float = 0.0, detail: float = 0.0, day_sd: float = 0.0,
-                 same_up: float = 0.0, place_gain: float = 0.0,
+                 same_up: float = 0.0, place_gain: float = 0.0, brake: float = 0.0,
                  admit: Optional[Callable[[dict[str, Any], dict[str, int], "Desk"], dict[str, int]]] = None):
         super().__init__(options="all")
         self.dial, self.scale, self.gain, self.dealer_gain = math.log(level), scale, gain, dealer_gain
@@ -83,6 +86,7 @@ class DialQuoter(Quoter):
         self.floor, self.ceiling, self.war, self.admit = floor, ceiling, war, admit
         self.detail, self.day_sd, self.same_up, self.place_gain = detail, day_sd, same_up, place_gain
         self.place_dial: dict[str, float] = {}  # pickup place id -> its own offset to the dial
+        self.brake, self.won, self.strained = brake, 0, set()  # orders won, and those warned of their deadline or late
         self.day, self.at_war, self.war_over = -1, 0.0, False  # the day of the last quote, and the war's probability on it
         self.doubt, self.closes = 2 * day_sd ** 2, []  # the dial's variance, and the dial at the end of each usual day
         self.dealer_dial: dict[str, float] = {}  # dealer id -> its own offset to the dial
@@ -132,13 +136,18 @@ class DialQuoter(Quoter):
     def cost(self, request: dict[str, Any]) -> float:
         same_day = any(option["kind"] == "same_day" for option in request["options"])
         typical = request["referenceFeeCents"] * len(request["legs"])
-        factor = self.cost_same if same_day else self.cost_next
+        factor = (self.cost_same if same_day else self.cost_next) + self.brake * self.strain()
         if self.detail:
             private = any(leg[end]["privateAddress"] for leg in request["legs"] for end in ("pickup", "delivery"))
             later = request["legs"][0]["pickup"]["window"]["from"] // DAY > request["arrivedAt"] // DAY
             shown = (private, later, math.log(typical / basis(request)["listPriceCents"]))
             factor += self.detail * sum(more * (value - mean) for (more, mean), value in zip(DETAIL, shown))
         return typical * factor
+
+    def strain(self) -> float:
+        """The share of the week's orders with a deadline warning or a late delivery, above a usual week's. The
+        week starts as a usual one, with 40 orders' weight."""
+        return (len(self.strained) + 40 * STRAIN) / (self.won + 40) - STRAIN
 
     def ladder_value(self, request: dict[str, Any], desk: "Desk", revenue: float) -> float:
         """What one more on-time order for this dealer is worth, in cents. A counted order lets each later request
@@ -205,11 +214,14 @@ class DialQuoter(Quoter):
         elif kind == "order_won":
             dealer = self.dealer_of[event["order"]["id"]] = event["order"]["dealerId"]
             self.coming[dealer] = self.coming.get(dealer, 0) + 1
+            self.won += 1
             self.learn(event["order"]["id"], True)
         elif kind == "order_lost":
             self.learn(event["requestId"], False)
         elif kind == "order_cancelled":
             self.arrived(event["orderId"])
+        elif kind == "deadline_close":
+            self.strained.add(event["orderId"])
         elif kind == "ledger" and event["line"].get("orderId") in self.dealer_of:
             self.account(event["line"]["kind"], event["line"]["orderId"])
 
@@ -229,6 +241,7 @@ class DialQuoter(Quoter):
         elif line in ("late_refund", "undelivered_penalty") and order_id not in self.late:
             self.arrived(order_id)
             self.late.add(order_id)
+            self.strained.add(order_id)
             self.trust[dealer] = (count - (1 if order_id in self.on_time else 0)) // 2
 
 
