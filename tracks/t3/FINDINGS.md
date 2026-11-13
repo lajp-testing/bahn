@@ -23,7 +23,7 @@ Friday median booking fee was 1.5 times typical, trade-ins 1.2, and the other gr
 
 ## Experiments
 
-Running matched dev weeks with markup 1.5, starter schedule versus flat 1.5. Neither has yet established an improvement.
+`t3-m15-base-v1`: markup 1.5 with starter schedule, 10 dev weeks, total margin −€5,025.12, 3,823 orders, 77.0% on time, ranked 0/10. Matched flat 1.5 weeks are running.
 
 ## What failed / limitations
 
