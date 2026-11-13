@@ -51,7 +51,8 @@ class DialQuoter(Quoter):
     The quoter asks for the markup `m` that makes `(m x list - cost + ladder) x chance(m)` largest. The ladder
     is what one more on-time order is worth in the dealer's later prices (`ladder_value`). After each answer
     the dial moves by `gain x (won - chance)`: up after a win, down after a loss, so it follows a week, a day
-    or a region that the dev weeks did not have. `dealer_gain` does the same for one dealer. `admit` is the
+    or a region that the dev weeks did not have. `dealer_gain` does the same for one dealer, and `place_gain` for
+    one pickup place: the competitor's lane factor, and a day's outage around the place. `admit` is the
     intake's decision: a request that the intake declines teaches nothing.
 
     The price war is one working day on which every limit is lower by `war` (the dev weeks: 0.25 to 0.34). A dial
@@ -73,21 +74,23 @@ class DialQuoter(Quoter):
                  no_same_day: float = 0.094, by_list: float = 0.12, by_trust: float = 1.0,
                  cost_next: float = 1.13, cost_same: float = 1.01, ladder: float = 0.0, patience: int = 5 * HOUR,
                  floor: float = 1.1, ceiling: float = 2.4, war: float = 0.0, detail: float = 0.0, day_sd: float = 0.0,
-                 same_up: float = 0.0,
+                 same_up: float = 0.0, place_gain: float = 0.0,
                  admit: Optional[Callable[[dict[str, Any], dict[str, int], "Desk"], dict[str, int]]] = None):
         super().__init__(options="all")
         self.dial, self.scale, self.gain, self.dealer_gain = math.log(level), scale, gain, dealer_gain
         self.no_same_day, self.by_list, self.by_trust = no_same_day, by_list, by_trust
         self.cost_next, self.cost_same, self.ladder, self.patience = cost_next, cost_same, ladder, patience
         self.floor, self.ceiling, self.war, self.admit = floor, ceiling, war, admit
-        self.detail, self.day_sd, self.same_up = detail, day_sd, same_up
+        self.detail, self.day_sd, self.same_up, self.place_gain = detail, day_sd, same_up, place_gain
+        self.place_dial: dict[str, float] = {}  # pickup place id -> its own offset to the dial
         self.day, self.at_war, self.war_over = -1, 0.0, False  # the day of the last quote, and the war's probability on it
         self.doubt, self.closes = 2 * day_sd ** 2, []  # the dial's variance, and the dial at the end of each usual day
         self.dealer_dial: dict[str, float] = {}  # dealer id -> its own offset to the dial
         self.asked: dict[str, int] = {}  # dealer id -> its requests so far
         self.trust: dict[str, int] = {}  # dealer id -> on-time orders, halved by a late one, at most 25
         self.coming: dict[str, int] = {}  # dealer id -> orders won and not yet delivered
-        self.quoted: dict[str, tuple[float, float, str, dict[str, int], int]] = {}  # request id -> (markup, effect, dealer, prices, day)
+        # request id -> (markup, effect without the dealer's and the place's offsets, dealer, prices, day, pickup place)
+        self.quoted: dict[str, tuple[float, float, str, dict[str, int], int, str]] = {}
         self.dealer_of: dict[str, str] = {}  # order id -> dealer id
         self.on_time: set[str] = set()  # the delivered orders counted as on time
         self.late: set[str] = set()
@@ -99,7 +102,10 @@ class DialQuoter(Quoter):
         kinds = [option["kind"] for option in request["options"]]
         dealer = request["dealerId"]
         return ((0.0 if "same_day" in kinds else self.no_same_day) + self.by_list * math.log(basis(request)["listPriceCents"] / 6000)
-                + self.by_trust * math.log(1 + self.trust.get(dealer, 0) / 100) + self.dealer_dial.get(dealer, 0.0))
+                + self.by_trust * math.log(1 + self.trust.get(dealer, 0) / 100) + self.offsets(dealer, pickup(request)))
+
+    def offsets(self, dealer: str, place: str) -> float:
+        return self.dealer_dial.get(dealer, 0.0) + self.place_dial.get(place, 0.0)
 
     def chance(self, markup: float, effect: float) -> float:
         plain, low = self.chances(markup, effect)
@@ -171,14 +177,15 @@ class DialQuoter(Quoter):
                       for option in request["options"]}
             sent = self.admit(request, prices, desk) if self.admit else prices
             learns = any(sent.get(kind) == cents for kind, cents in prices.items())
-            self.quoted[request["id"]] = (markup if learns else 0.0, self.effect(request) - self.dealer_dial.get(dealer, 0.0), dealer, prices, self.day)
+            place = pickup(request)
+            self.quoted[request["id"]] = (markup if learns else 0.0, self.effect(request) - self.offsets(dealer, place), dealer, prices, self.day, place)
         return self.quoted[request["id"]][3]
 
     def learn(self, request_id: str, won: bool) -> None:
-        markup, effect, dealer, _, day = self.quoted.get(request_id, (0.0, 0.0, "", {}, 0))
+        markup, effect, dealer, _, day, place = self.quoted.get(request_id, (0.0, 0.0, "", {}, 0, ""))
         if markup <= 0:
             return
-        plain, low = self.chances(markup, effect + self.dealer_dial.get(dealer, 0.0))
+        plain, low = self.chances(markup, effect + self.offsets(dealer, place))
         if self.at_war and day == self.day:  # Bayes: which of the two days explains this answer better?
             war, usual = self.at_war * (low if won else 1 - low), (1 - self.at_war) * (plain if won else 1 - plain)
             self.at_war = min(max(war / (war + usual), 0.001), 0.999)
@@ -188,6 +195,8 @@ class DialQuoter(Quoter):
         self.doubt /= 1 + self.doubt * expected * (1 - expected) / self.scale ** 2
         if self.dealer_gain:
             self.dealer_dial[dealer] = self.dealer_dial.get(dealer, 0.0) + self.dealer_gain * surprise
+        if self.place_gain:
+            self.place_dial[place] = self.place_dial.get(place, 0.0) + self.place_gain * surprise
 
     def observe(self, event: dict[str, Any], desk: "Desk", replay: bool) -> None:
         kind = event["kind"]
@@ -227,6 +236,10 @@ def worked(minute: int) -> int:
     """The working minutes of the week before `minute`: Monday to Friday, 08:00 to 18:00, when dealers ask."""
     day, of_day = divmod(minute, DAY)
     return 5 * 10 * HOUR if day >= 5 else day * 10 * HOUR + min(max(of_day - 8 * HOUR, 0), 10 * HOUR)
+
+
+def pickup(request: dict[str, Any]) -> str:
+    return request["legs"][0]["pickup"]["placeId"]
 
 
 def basis(request: dict[str, Any]) -> dict[str, Any]:

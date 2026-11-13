@@ -628,3 +628,14 @@ def test_same_up_prices_same_day_above_the_later_option():
     dearer = quoted(reach_desk(quoter="dial", same_day=True, same_up=0.1), request)
     assert set(alike) == {"same_day", "next_day"} and alike["same_day"] * 3 == alike["next_day"] * 4  # one markup for both
     assert dearer["next_day"] == alike["next_day"] and dearer["same_day"] == round(alike["same_day"] * 1.1)
+
+
+def test_place_gain_learns_a_pickup_place_apart_from_the_others():
+    desk = reach_desk(quoter="dial", place_gain=0.05)
+    quoter = desk.parts.quoter
+    elsewhere = {**NEXT_DAY, "id": "E", "legs": [{**LEG, "pickup": {**PLACE, "placeId": "tampere"}, "delivery": PLACE}]}
+    for i in range(10):
+        quoted(desk, {**NEXT_DAY, "id": f"W{i}"})
+        quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"W{i}"}}, desk, False)
+    assert quoter.place_dial["helsinki"] > 0 and "tampere" not in quoter.place_dial
+    assert math.isclose(quoter.effect({**NEXT_DAY, "id": "H"}) - quoter.effect(elsewhere), quoter.place_dial["helsinki"])
