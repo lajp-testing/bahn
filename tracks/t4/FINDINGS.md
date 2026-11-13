@@ -32,3 +32,7 @@ After two paired dev weeks: total margin base −€128,641 vs candidate −€1
 After three paired weeks: margin −€198,329 vs −€195,177, on time 45.6% vs 48.0%, ranked 0/3 vs 0/3. Failed visits: base 21 not_ready, 36 closed, 29 no_plates, 9 licence; candidate 27 not_ready, 21 closed, 0 no_plates, 3 licence. Failed-visit cost €4,676.85 vs €2,110.60; waiting €288 vs €201; no fines. This remains preliminary.
 
 After four paired weeks: margin −€283,140 vs −€276,622, on time 43.6% vs 45.6%, ranked 0/4 vs 0/4. Failed visits: base 27 not_ready, 37 closed, 41 no_plates, 11 licence; candidate 31 not_ready, 21 closed, 1 no_plates, 4 licence. Failed-visit cost €5,476.65 vs €2,278.84; waiting €439.50 vs €351; no fines. Candidate dev-04's saved event log was empty; the ended world's events were recovered through its read-only events API before calculating these counts. The visit script now excludes zero-byte logs. The result remains preliminary.
+
+## Stint stop
+
+Stopped the sweep at the roughly 30-minute limit with four completed pairs. Dev-05 timed out once; the retry was still running at the stop, so no dev-05 result is included. The track slot was reclaimed. The ten-week result and a complete reader are outstanding; do not treat this candidate as proven or enable its all-unsure risk as an automatic decline. Next: parse and test ready/release times, site hours, deadlines and corrections against a fresh held-out week, then rerun all ten paired seeds and audit missing event logs.
