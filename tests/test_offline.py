@@ -387,6 +387,12 @@ def test_long_lanes_need_open_hours_qualified_supply_and_risk_room():
         desk.ctx.road_minutes[("helsinki", "tampere")] = 360
         desk.quote(request)
         assert desk.outbox[-1]["prices"] == expected
+    both = {**request, "options": [{"kind": "same_day", "deadline": 2640, "listPriceCents": 20000}] + request["options"]}
+    for same_day, expected in ((True, {"same_day": 30000, "next_day": 22500}), (False, {"next_day": 22500})):
+        desk = reach_desk(long_lanes=True, long_same_day=same_day)
+        desk.ctx.road_minutes[("helsinki", "tampere")] = 360
+        desk.quote(both)
+        assert desk.outbox[-1]["prices"] == expected
     # Residents with the wrong premium qualification are not six usable drivers.
     desk.ctx.roster = [{**d, "rating": 4.0} for d in desk.ctx.roster]
     desk.quote(request)

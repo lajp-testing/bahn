@@ -34,8 +34,10 @@ class ReachIntake(Intake):
                  brake_drivers: int = 10, brake_drive: int = 180, long_lanes: bool = False,
                  batch_slots: bool = False, noted_slots: bool = False, private_slots: bool = False,
                  trade_ins: bool = False, no_private: bool = False, no_trade_ins: bool = False, thin_drivers: int = 0,
-                 thin_both: bool = False, long_max: int = 600, long_markup: float = 1.0, expand_brake: float = 0.06):
+                 thin_both: bool = False, long_max: int = 600, long_markup: float = 1.0, expand_brake: float = 0.06,
+                 long_same_day: bool = True):
         self.long_max, self.long_markup, self.expand_brake = long_max, long_markup, expand_brake
+        self.long_same_day = long_same_day
         self.no_private, self.no_trade_ins, self.thin_drivers, self.thin_both = no_private, no_trade_ins, thin_drivers, thin_both
         self.max_drive, self.min_drivers, self.near_km, self.same_day = max_drive, min_drivers, near_km, same_day
         # future_same_day: a `same_day` option on a car that is ready a day or more after the request is not an
@@ -96,7 +98,7 @@ class ReachIntake(Intake):
         """Extra orders need reachable windows, qualified supply and room in the local unbooked queue.
         Existing intake is unchanged. The risk brake (`expand_brake`, six percent) applies to extra volume even
         when the optional whole-portfolio late budget is off. A long lane is taken up to `long_max` road minutes,
-        at `long_markup` times the quoter's prices for its risk."""
+        at `long_markup` times the quoter's prices for its risk, and with same_day only when `long_same_day`."""
         if len(self.late) + self.at_risk(desk) >= self.expand_brake * max(40, len(self.won)):
             return {}
         legs = request["legs"]
@@ -151,7 +153,7 @@ class ReachIntake(Intake):
         kept = {}
         for option in request["options"]:
             kind, deadline = option["kind"], option["deadline"]
-            if kind not in prices:
+            if kind not in prices or (long and kind == "same_day" and not self.long_same_day):
                 continue
             at = max(desk.now, request["respondBy"]) + 240 + commute
             for i, leg in enumerate(legs):
