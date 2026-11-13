@@ -17,6 +17,21 @@ living within 60 km, leaves out `same_day`, and quotes every other option at lis
 
 The same `reach` weeks on the main team's key gave the same numbers to the cent: a seed plays the same week on any key.
 
+### Opening fee, played on ankka (code `5827f42`, same policy code as `32d79b0`)
+
+`reach-open0.85@5827f42` reproduced the orb's `reach-open0.85@32d79b0` rows byte for byte.
+
+| Opening fee | Dev total (10) | vs 0.85 | Better on | Dev worst week | Holdout total (10) | vs 0.85 | Holdout worst week | Ranked |
+|---|---|---|---|---|---|---|---|---|
+| 1.0 × (`reach`) | €49,761 | −€14,022 | | 95.0% | €50,969 | −€10,574 | 95.8% | 20/20 |
+| **0.85 ×** | **€63,783** | | | **94.1%** | **€61,543** | | **95.3%** | **20/20** |
+| 0.75 × | €65,345 | +€1,562 | 5 of 10 | 94.5% | not run | | | 10/10 |
+| 0.7 × | €67,621 | +€3,839 | 7 of 10 | 93.3% | €63,477 | +€1,934 (7 of 10) | 93.9% | 20/20 |
+
+**Decision: keep 0.85 ×.** 0.7 × adds about €190 to €380 a week (3–6%), but its worst week drops by 0.8 points on dev and 1.4 points on holdout. The final is one week and a week under 90% scores nothing, so the cushion is worth more than the margin. Revisit 0.7 × once an on-time controller (late budget or λ) can protect it.
+
+Across the 20 weeks of each label, 26–92 actions were refused: mostly withdraws of gigs that were no longer open, plus 1–5 posts whose window had already ended. They cost nothing, but they point at a desk bookkeeping gap.
+
 ## What failed
 
 - A markup away from 1.5 in either direction loses margin: 1.4 wins more cars at a thinner margin and gets closer to the
@@ -25,5 +40,5 @@ The same `reach` weeks on the main team's key gave the same numbers to the cent:
 
 ## Next
 
-- Fees: try 0.75 × and 0.7 × openings; watch the worst week's on-time share (94.1% at 0.85 ×).
-- Confirm `open=0.85` on the holdout seeds (orchestrator).
+- Make `open=0.85` the default of `reach`.
+- An on-time controller that tightens intake when the predicted on-time share falls, so a cheaper opening fee can be used safely.
