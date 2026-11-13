@@ -1,6 +1,8 @@
 # Track 5: more cars per driver
 
-**Verdict: not established.** The saved-week screen finds 17 consecutive same-town gig pairs across 10 mainline dev weeks (1.7 per week), but does not measure how many orders a combined gig or direct offer could add, nor its fee saving. No policy should be adopted on this evidence. The required driving-time feasibility analysis and copy experiments remain to be done.
+**Verdict: not established.** The direct-offer pilot covered one gig: 8 offers sent, 4 read, 0 accepted; this cannot establish whether offers beat the app. The multi-seed copy study is underway.
+
+**Earlier stint:** The saved-week screen finds 17 consecutive same-town gig pairs across 10 mainline dev weeks (1.7 per week), but does not measure how many orders a combined gig or direct offer could add, nor its fee saving. No policy should be adopted on this evidence. The required driving-time feasibility analysis and copy experiments remain to be done.
 
 ## Saved weeks: preliminary screen
 
@@ -19,3 +21,7 @@ Among completed single-order gigs, grouped by driver and gig-start day, 212 were
 ## Next
 
 Calculate realistic candidate pairs using the world map and site hours, stratify by town and day, then use `tracks/t3/scan.py`'s slot-managed fork method on representative pairs and offers. Only test a policy across all 10 dev seeds if those controlled measurements show a clear gain; require higher total margin and at least 93% on time in every week.
+
+## Direct offers: pilot
+
+`t5-pilot-1-rules` sampled one open gig at 30 minutes, with offers at 1.0 times typical fee. Pickup-home: 3 sent, 2 read, 0 accepted (1 gig); delivery-home: 3 sent, 0 read, 0 accepted (1 gig); working near pickup: 0 sent (1 gig); viewers: 2 sent, 2 read, 0 accepted (1 gig). Expired offers may have been unread or no longer fit. The pilot is not an effectiveness estimate.
