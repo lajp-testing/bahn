@@ -2,6 +2,20 @@
 
 ## For other tracks
 
+The complete `t1-limit15-later-price16-fee13` control (opening 1.3, 0.1 steps hourly) made €12,113.94 over 10 dev weeks, 96.2% on time, worst 93.2%, ranked 10/10. The 1.5 control made −€31,979, 96.0%, worst 93.4%, ranked 10/10; 1.1 made €37,221, 95.3%, worst 89.8%, ranked 9/10. The 1.3 control meets the 92% per-week threshold; 1.1 does not. The experimental `Fees.estimate` is a two-hour booking threshold, not total delivery cost; see its limitations below.
+
+Fork scans on 39 single-car wins in three `t3-study-*` weeks give a two-hour mean least retained-booking fee of 0.64 times typical among 38 with a booking at 3.0; one found none at 3.0. Fewer than 30 drivers within 30 km of pickup: 0.75 (16 measured, one none); 30 or more: 0.57 (22). These are selected orders, not delivery costs or representative estimates: the parent continues alone, copies receive no further desk actions, and a retained booking is only observed through the horizon. Trade-ins were excluded and private addresses numbered three. `Fees.estimate` uses 0.60 + 0.15 for sparse pickups; it is experimental and not a calibrated full-order cost. `MeasuredFees` opens 0.45 above that estimate and adds two 0.15 raises at 30-minute intervals; urgent fees use the starter schedule.
+
+## Findings table
+
+| Measurement | Sample | Result | Limit |
+|---|---:|---|---|
+| Fork fee grid | 10 single-car orders, one study seed | Repeated 1.5 agreed; kept-booking outcomes monotone at 0.5 increments, at both horizons | Not proof of monotonicity between grid points or on other orders; future parent decisions are not replayed in copies. |
+| Fork threshold scan | 39 single-car wins, 3 seeds | Two-hour mean 0.64; one none at 3.0; sparse pickup 0.75 vs 0.57 | Sampled every eighth eligible win; causal only for a fixed fee in the copied state. |
+| `t3-density-buffer-v1` | 10 dev weeks | €37,962.14; 95.9% on time; worst 92.1%; 10/10 ranked | Meets 92% floor narrowly; changes fee levels and timing together. |
+| t1 opening 1.3 | 10 dev weeks | €12,113.94; 96.2% on time; worst 93.2%; 10/10 ranked | Compared with 1.5 and 1.1 on the same seeds. |
+
+
 In saved overloaded base dev runs, first posts with less than 3 hours to last pickup booked 5.8% and 4.6% of orders arrived on time (173 posts). Private-address orders arrived on time 38.4% versus 45.9% for others; trade-ins 22.5% versus 45.4% for single cars. These are associations under the overloaded starter, not predictions under a controlled intake. Treat tight slack and trade-ins as strong candidates for declining, not calibrated probabilities.
 
 ## Saved weeks: first posts
@@ -34,3 +48,11 @@ No causal schedule comparison yet. The starter's overloaded weeks do not identif
 ## Provisional cost estimate
 
 Across 8,819 orders with attributed driver-fee ledger entries, total attributed fees average 1.71 times the typical fee (median 1.5), including reposts. `Fees.estimate` exposes that unadjusted benchmark for the whole request; it is not an on-time cost or calibrated chance, and excludes orders with no attributed driver fee and other costs. It should not be used as a validated profitability model.
+
+## Second stint limitations and next work
+
+The fork method took 1,585 requests and 31.4 seconds for 10 grid checks, and 1,768, 1,124 and 2,204 requests for the three study weeks (15, 4 and 20 scans). Six binary rounds resolve 3.0 in steps of 0.046875, conditional on monotonicity; the ten-order grid cannot prove it. The warning horizon is clipped to one minute after posting when already inside the warning and to the end of the week. `none` means no retained booking at 3.0, not proof that no lower fee books. Copies advance without subsequent desk actions, and a booking held at the horizon may later drop or deliver late. The sample omits trade-ins and may differ from all orders.
+
+`t3-density-buffer-v1` was compared with fee13 on the same 10 seeds: +€25,848.20, 95.9% versus 96.2% on time, worst 92.1% versus 93.2%, 10/10 ranked for both. Against fee11 it gained €741.14 and ranked 10/10 versus 9/10; against fee15 it gained €69,941.14, both 10/10. The scan and buffer were tested together; the test does not isolate the density term or prove the estimate predicts realised driver costs. A 92.1% worst week leaves very little room. Next: test more independent weeks and trade-ins, probe monotonicity more finely and isolate the density term, before using the estimate in quotes or intake. Direct offers and rising-versus-flat forks were not tested.
+
+Offline tests: 9 passed with `SPREAD_ON_VPS=1`; without it the existing slot test fails on the local `REMOTE_ONLY` guard.
