@@ -44,6 +44,8 @@ class Slot:
 
 def acquire(track: str, client: Client, wait: bool = True) -> Optional[Slot]:
     """Takes a free slot of the track, waiting for one when `wait`. Deletes a world that a dead process left in it."""
+    if os.path.exists(config.REMOTE_ONLY) and not os.environ.get("SPREAD_ON_VPS"):
+        raise SystemExit("Practice weeks are played on the practice machine, where the slot locks live. Prefix the command with bin/vps.")
     os.makedirs(config.SLOTS, exist_ok=True)
     while True:
         for index in config.TRACKS[track]:

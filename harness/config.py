@@ -17,6 +17,7 @@ RUNS = os.path.join(DATA, "runs")  # one folder for each week played
 INDEX = os.path.join(DATA, "runs.jsonl")  # one line for each week played
 SLOTS = os.path.join(DATA, "slots")
 PAUSE = os.path.join(DATA, "PAUSE")  # while this file exists, every runner waits (test finals)
+REMOTE_ONLY = os.path.join(DATA, "REMOTE_ONLY")  # while this file exists here, weeks are played on the practice machine only: bin/vps
 
 TRACKS: dict[str, list[int]] = {
     "t1": [0, 1],  # intake and on-time
@@ -69,6 +70,8 @@ def git_version() -> str:
     def git(*args: str) -> str:
         return subprocess.run(["git", *args], capture_output=True, text=True, check=False).stdout.strip()
 
+    if os.environ.get("SPREAD_VERSION"):  # on the practice machine the code is a copy without git: bin/vps names its version
+        return os.environ["SPREAD_VERSION"]
     commit = git("rev-parse", "--short", "HEAD") or "nogit"
     diff = git("diff", "HEAD", "--", "dispatch", "spread", "harness")
     if not diff:

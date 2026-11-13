@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Runs a command on the practice machine near the server, where a request takes about 10 ms instead of 80.
+#
+#   export SPREAD_TRACK=t1
+#   bin/vps python3 -m harness.run --policy t1 --seeds dev
+#   bin/vps python3 tracks/t2/fork_test.py
+#
+# It copies this checkout to the machine, runs the command there, then copies the results back:
+# the shared data folder (data/runs, data/runs.jsonl) and whatever the command wrote under tracks/.
+# The slot locks live on that machine, so every command that plays weeks must go through here.
+# Commands that only read saved weeks run locally, as before.
+set -euo pipefail
+
+home="${SPREAD_HOME:-/home/agent/.t3/projects/bahn}"
+vps="$(grep -E '^SPREAD_VPS=' "$home/.env" | cut -d= -f2-)"
+key="$(grep -E '^SPREAD_VPS_KEY=' "$home/.env" | cut -d= -f2-)"
+: "${vps:?SPREAD_VPS is not set in $home/.env}"
+: "${SPREAD_TRACK:?Set SPREAD_TRACK to your track}"
+[ "$#" -gt 0 ] || { echo "usage: bin/vps <command...>" >&2; exit 2; }
+
+root="$(git rev-parse --show-toplevel)"
+name="$(basename "$root")"
+version="$(cd "$root" && python3 -c 'from harness import config; print(config.git_version())')"
+ssh=(ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o ControlMaster=auto -o "ControlPath=$HOME/.ssh/cm-bahn-%C" -o ControlPersist=15m -o ServerAliveInterval=15 -o LogLevel=ERROR)
+
+rsync -az --delete --exclude .git --exclude data --exclude __pycache__ --exclude .direnv --exclude result --exclude .env \
+  -e "${ssh[*]}" "$root/" "$vps:bahn/trees/$name/"
+
+# -tt: when this command is stopped, the command on the machine stops too, and its worlds are freed.
+status=0
+"${ssh[@]}" -tt "$vps" "cd bahn/trees/$name && SPREAD_HOME=\$HOME/bahn SPREAD_ON_VPS=1 SPREAD_TRACK=$SPREAD_TRACK SPREAD_VERSION=$version PYTHONUNBUFFERED=1 $(printf '%q ' "$@")" < /dev/null | tr -d '\r' || status="${PIPESTATUS[0]}"
+
+mkdir -p "$home/data"
+rsync -az -e "${ssh[*]}" "$vps:bahn/data/runs" "$vps:bahn/data/runs.jsonl" "$home/data/" 2>/dev/null || true
+rsync -azu -e "${ssh[*]}" "$vps:bahn/trees/$name/tracks/" "$root/tracks/" 2>/dev/null || true
+exit "$status"
