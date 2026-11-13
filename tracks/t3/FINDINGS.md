@@ -2,6 +2,8 @@
 
 ## For other tracks
 
+`t3-main-low20-v1` (opening density estimate + 0.15, +0.1 every 20 minutes to 1.5, starter urgent) on main: €54,426.26, 96.0% on time, worst 93.1%, 10/10 ranked; mean booked fee 1.128 times typical, 207 drops / 1,772 bookings. Main baseline: −€27,162.41, 97.1%, worst 94.9%, 10/10. Same seeds; notes differ from the older `t3-density-buffer-v1`, so its €37,962.14 is not a controlled comparison. Further schedules and flat control are running.
+
 Third stint mainline baseline `t3-stint3-main`: −€27,162.41, 97.1% on time, worst 94.9%, ranked 10/10 on dev. New fee experiments are in progress; earlier `t3-density-buffer-v1` used starter notes, so it is not a same-parts comparison to main.
 
 The complete `t1-limit15-later-price16-fee13` control (opening 1.3, 0.1 steps hourly) made €12,113.94 over 10 dev weeks, 96.2% on time, worst 93.2%, ranked 10/10. The 1.5 control made −€31,979, 96.0%, worst 93.4%, ranked 10/10; 1.1 made €37,221, 95.3%, worst 89.8%, ranked 9/10. The 1.3 control meets the 92% per-week threshold; 1.1 does not. The experimental `Fees.estimate` is a two-hour booking threshold, not total delivery cost; see its limitations below.
