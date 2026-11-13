@@ -1,0 +1,147 @@
+{"at": 665, "delivery": "savonlinna", "gig": "g9", "pickup": "turku", "seed": "t5-fees-1", "type": "sample", "typical": 14306}
+{"answer": "declined", "driver": "57io-0746", "feeCents": 7153, "gig": "g9", "multiple": 0.5, "result": {"id": "g9", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0506", "feeCents": 7153, "gig": "g9", "multiple": 0.5, "result": {"id": "g9", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0195", "feeCents": 7153, "gig": "g9", "multiple": 0.5, "result": {"id": "g9", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0746", "feeCents": 10014, "gig": "g9", "multiple": 0.7, "result": {"id": "g9", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0506", "feeCents": 10014, "gig": "g9", "multiple": 0.7, "result": {"id": "g9", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0195", "feeCents": 10014, "gig": "g9", "multiple": 0.7, "result": {"id": "g9", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0746", "feeCents": 12875, "gig": "g9", "multiple": 0.9, "result": {"id": "g9", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0506", "feeCents": 12875, "gig": "g9", "multiple": 0.9, "result": {"id": "g9", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0195", "feeCents": 12875, "gig": "g9", "multiple": 0.9, "result": {"id": "g9", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 679, "delivery": "rovaniemi", "gig": "g10", "pickup": "vaasa", "seed": "t5-fees-1", "type": "sample", "typical": 15031}
+{"answer": "declined", "driver": "57io-0230", "feeCents": 7516, "gig": "g10", "multiple": 0.5, "result": {"id": "g10", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0679", "feeCents": 7516, "gig": "g10", "multiple": 0.5, "result": {"id": "g10", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0195", "feeCents": 7516, "gig": "g10", "multiple": 0.5, "result": {"id": "g10", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0230", "feeCents": 10522, "gig": "g10", "multiple": 0.7, "result": {"id": "g10", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0679", "feeCents": 10522, "gig": "g10", "multiple": 0.7, "result": {"id": "g10", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0195", "feeCents": 10522, "gig": "g10", "multiple": 0.7, "result": {"id": "g10", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0230", "feeCents": 13528, "gig": "g10", "multiple": 0.9, "result": {"id": "g10", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0679", "feeCents": 13528, "gig": "g10", "multiple": 0.9, "result": {"id": "g10", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0195", "feeCents": 13528, "gig": "g10", "multiple": 0.9, "result": {"id": "g10", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 690, "driverId": "57io-0679", "feeCents": 18038, "gigId": "g10", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 191, "type": "parent_booking"}
+{"at": 697, "delivery": "kuopio", "gig": "g14", "pickup": "hyvinkaa", "seed": "t5-fees-1", "type": "sample", "typical": 8931}
+{"answer": "expired", "driver": "57io-0148", "feeCents": 4466, "gig": "g14", "multiple": 0.5, "result": {"id": "g14", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0621", "feeCents": 4466, "gig": "g14", "multiple": 0.5, "result": {"id": "g14", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0310", "feeCents": 4466, "gig": "g14", "multiple": 0.5, "result": {"id": "g14", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0148", "feeCents": 6252, "gig": "g14", "multiple": 0.7, "result": {"id": "g14", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0621", "feeCents": 6252, "gig": "g14", "multiple": 0.7, "result": {"id": "g14", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0310", "feeCents": 6252, "gig": "g14", "multiple": 0.7, "result": {"id": "g14", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0148", "feeCents": 8038, "gig": "g14", "multiple": 0.9, "result": {"id": "g14", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0621", "feeCents": 8038, "gig": "g14", "multiple": 0.9, "result": {"id": "g14", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0310", "feeCents": 8038, "gig": "g14", "multiple": 0.9, "result": {"id": "g14", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 698, "driverId": "57io-0058", "feeCents": 19314, "gigId": "g9", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 205, "type": "parent_booking"}
+{"at": 708, "delivery": "ylivieska", "gig": "g16", "pickup": "hyvinkaa", "seed": "t5-fees-1", "type": "sample", "typical": 12796}
+{"gig": "g16", "multiple": 0.5, "rule": "viewed", "seed": "t5-fees-1", "type": "empty"}
+{"gig": "g16", "multiple": 0.7, "rule": "viewed", "seed": "t5-fees-1", "type": "empty"}
+{"gig": "g16", "multiple": 0.9, "rule": "viewed", "seed": "t5-fees-1", "type": "empty"}
+{"at": 749, "driverId": "57io-0591", "feeCents": 12057, "gigId": "g14", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 241, "type": "parent_booking"}
+{"at": 818, "delivery": "lempaala", "gig": "g19", "pickup": "turku", "seed": "t5-fees-1", "type": "sample", "typical": 5126}
+{"answer": "declined", "driver": "57io-0657", "feeCents": 2563, "gig": "g19", "multiple": 0.5, "result": {"id": "g19", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0450", "feeCents": 2563, "gig": "g19", "multiple": 0.5, "result": {"id": "g19", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0657", "feeCents": 3588, "gig": "g19", "multiple": 0.7, "result": {"id": "g19", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0450", "feeCents": 3588, "gig": "g19", "multiple": 0.7, "result": {"id": "g19", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0657", "feeCents": 4613, "gig": "g19", "multiple": 0.9, "result": {"id": "g19", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0450", "feeCents": 4613, "gig": "g19", "multiple": 0.9, "result": {"id": "g19", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 967, "delivery": "mikkeli", "gig": "g33", "pickup": "hyvinkaa", "seed": "t5-fees-1", "type": "sample", "typical": 12583}
+{"gig": "g33", "multiple": 0.5, "rule": "viewed", "seed": "t5-fees-1", "type": "empty"}
+{"gig": "g33", "multiple": 0.7, "rule": "viewed", "seed": "t5-fees-1", "type": "empty"}
+{"gig": "g33", "multiple": 0.9, "rule": "viewed", "seed": "t5-fees-1", "type": "empty"}
+{"at": 977, "driverId": "57io-0589", "feeCents": 15100, "gigId": "g33", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 537, "type": "parent_booking"}
+{"at": 996, "delivery": "lappeenranta", "gig": "g38", "pickup": "joensuu", "seed": "t5-fees-1", "type": "sample", "typical": 7634}
+{"answer": "expired", "driver": "57io-0110", "feeCents": 3817, "gig": "g38", "multiple": 0.5, "result": {"id": "g38", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0746", "feeCents": 3817, "gig": "g38", "multiple": 0.5, "result": {"id": "g38", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0060", "feeCents": 3817, "gig": "g38", "multiple": 0.5, "result": {"id": "g38", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0110", "feeCents": 5344, "gig": "g38", "multiple": 0.7, "result": {"id": "g38", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0746", "feeCents": 5344, "gig": "g38", "multiple": 0.7, "result": {"id": "g38", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0060", "feeCents": 5344, "gig": "g38", "multiple": 0.7, "result": {"id": "g38", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0110", "feeCents": 6871, "gig": "g38", "multiple": 0.9, "result": {"id": "g38", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0746", "feeCents": 6871, "gig": "g38", "multiple": 0.9, "result": {"id": "g38", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0060", "feeCents": 6871, "gig": "g38", "multiple": 0.9, "result": {"id": "g38", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 1021, "delivery": "turku", "gig": "g39", "pickup": "vantaa", "seed": "t5-fees-1", "type": "sample", "typical": 4618}
+{"answer": "declined", "driver": "57io-0306", "feeCents": 2309, "gig": "g39", "multiple": 0.5, "result": {"id": "g39", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0064", "feeCents": 2309, "gig": "g39", "multiple": 0.5, "result": {"id": "g39", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0571", "feeCents": 2309, "gig": "g39", "multiple": 0.5, "result": {"id": "g39", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0306", "feeCents": 3233, "gig": "g39", "multiple": 0.7, "result": {"id": "g39", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0064", "feeCents": 3233, "gig": "g39", "multiple": 0.7, "result": {"id": "g39", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0571", "feeCents": 3233, "gig": "g39", "multiple": 0.7, "result": {"id": "g39", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0306", "feeCents": 4156, "gig": "g39", "multiple": 0.9, "result": {"id": "g39", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0064", "feeCents": 4156, "gig": "g39", "multiple": 0.9, "result": {"id": "g39", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0571", "feeCents": 4156, "gig": "g39", "multiple": 0.9, "result": {"id": "g39", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 1030, "driverId": "57io-0411", "feeCents": 5542, "gigId": "g39", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 625, "type": "parent_booking"}
+{"at": 1036, "delivery": "rovaniemi", "gig": "g40", "pickup": "helsinki", "seed": "t5-fees-1", "type": "sample", "typical": 21731}
+{"answer": "expired", "driver": "57io-0247", "feeCents": 10866, "gig": "g40", "multiple": 0.5, "result": {"id": "g40", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0025", "feeCents": 10866, "gig": "g40", "multiple": 0.5, "result": {"id": "g40", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0014", "feeCents": 10866, "gig": "g40", "multiple": 0.5, "result": {"id": "g40", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0247", "feeCents": 15212, "gig": "g40", "multiple": 0.7, "result": {"id": "g40", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0025", "feeCents": 15212, "gig": "g40", "multiple": 0.7, "result": {"id": "g40", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0014", "feeCents": 15212, "gig": "g40", "multiple": 0.7, "result": {"id": "g40", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0247", "feeCents": 19558, "gig": "g40", "multiple": 0.9, "result": {"id": "g40", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0025", "feeCents": 19558, "gig": "g40", "multiple": 0.9, "result": {"id": "g40", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0014", "feeCents": 19558, "gig": "g40", "multiple": 0.9, "result": {"id": "g40", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 1052, "delivery": "pori", "gig": "g41", "pickup": "turku", "seed": "t5-fees-1", "type": "sample", "typical": 5795}
+{"answer": "declined", "driver": "57io-0188", "feeCents": 2898, "gig": "g41", "multiple": 0.5, "result": {"id": "g41", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0326", "feeCents": 2898, "gig": "g41", "multiple": 0.5, "result": {"id": "g41", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0149", "feeCents": 2898, "gig": "g41", "multiple": 0.5, "result": {"id": "g41", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0188", "feeCents": 4056, "gig": "g41", "multiple": 0.7, "result": {"id": "g41", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0326", "feeCents": 4056, "gig": "g41", "multiple": 0.7, "result": {"id": "g41", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0149", "feeCents": 4056, "gig": "g41", "multiple": 0.7, "result": {"id": "g41", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0188", "feeCents": 5216, "gig": "g41", "multiple": 0.9, "result": {"id": "g41", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0326", "feeCents": 5216, "gig": "g41", "multiple": 0.9, "result": {"id": "g41", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0149", "feeCents": 5216, "gig": "g41", "multiple": 0.9, "result": {"id": "g41", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 1061, "delivery": "raisio", "gig": "g43", "pickup": "tampere", "seed": "t5-fees-1", "type": "sample", "typical": 8985}
+{"answer": "declined", "driver": "57io-0514", "feeCents": 4492, "gig": "g43", "multiple": 0.5, "result": {"id": "g43", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0227", "feeCents": 4492, "gig": "g43", "multiple": 0.5, "result": {"id": "g43", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0514", "feeCents": 6290, "gig": "g43", "multiple": 0.7, "result": {"id": "g43", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0227", "feeCents": 6290, "gig": "g43", "multiple": 0.7, "result": {"id": "g43", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0514", "feeCents": 8086, "gig": "g43", "multiple": 0.9, "result": {"id": "g43", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0227", "feeCents": 8086, "gig": "g43", "multiple": 0.9, "result": {"id": "g43", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 1099, "delivery": "pori", "gig": "g44", "pickup": "espoo", "seed": "t5-fees-1", "type": "sample", "typical": 8066}
+{"answer": "expired", "driver": "57io-0249", "feeCents": 4033, "gig": "g44", "multiple": 0.5, "result": {"id": "g44", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0525", "feeCents": 4033, "gig": "g44", "multiple": 0.5, "result": {"id": "g44", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0365", "feeCents": 4033, "gig": "g44", "multiple": 0.5, "result": {"id": "g44", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0249", "feeCents": 5646, "gig": "g44", "multiple": 0.7, "result": {"id": "g44", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0525", "feeCents": 5646, "gig": "g44", "multiple": 0.7, "result": {"id": "g44", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0365", "feeCents": 5646, "gig": "g44", "multiple": 0.7, "result": {"id": "g44", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0249", "feeCents": 7259, "gig": "g44", "multiple": 0.9, "result": {"id": "g44", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0525", "feeCents": 7259, "gig": "g44", "multiple": 0.9, "result": {"id": "g44", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0365", "feeCents": 7259, "gig": "g44", "multiple": 0.9, "result": {"id": "g44", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 1181, "driverId": "57io-0410", "feeCents": 13478, "gigId": "g43", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 793, "type": "parent_booking"}
+{"at": 1574, "driverId": "57io-0606", "feeCents": 10890, "gigId": "g44", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 880, "type": "parent_booking"}
+{"at": 1805, "driverId": "57io-0746", "feeCents": 29337, "gigId": "g40", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 892, "type": "parent_booking"}
+{"at": 1906, "driverId": "57io-0648", "feeCents": 6921, "gigId": "g19", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 913, "type": "parent_booking"}
+{"at": 1920, "driverId": "57io-0007", "feeCents": 11452, "gigId": "g38", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 919, "type": "parent_booking"}
+{"at": 2002, "driverId": "57io-0316", "feeCents": 11452, "gigId": "g38", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 976, "type": "parent_booking"}
+{"at": 2046, "delivery": "turku", "gig": "g53", "pickup": "vaasa", "seed": "t5-fees-1", "type": "sample", "typical": 8968}
+{"answer": "expired", "driver": "57io-0183", "feeCents": 4484, "gig": "g53", "multiple": 0.5, "result": {"id": "g53", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0513", "feeCents": 4484, "gig": "g53", "multiple": 0.5, "result": {"id": "g53", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0058", "feeCents": 4484, "gig": "g53", "multiple": 0.5, "result": {"id": "g53", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0183", "feeCents": 6278, "gig": "g53", "multiple": 0.7, "result": {"id": "g53", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0513", "feeCents": 6278, "gig": "g53", "multiple": 0.7, "result": {"id": "g53", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0058", "feeCents": 6278, "gig": "g53", "multiple": 0.7, "result": {"id": "g53", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0183", "feeCents": 8071, "gig": "g53", "multiple": 0.9, "result": {"id": "g53", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0513", "feeCents": 8071, "gig": "g53", "multiple": 0.9, "result": {"id": "g53", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0058", "feeCents": 8071, "gig": "g53", "multiple": 0.9, "result": {"id": "g53", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 2048, "driverId": "57io-0434", "feeCents": 10762, "gigId": "g53", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 1037, "type": "parent_booking"}
+{"at": 2152, "delivery": "kuopio", "gig": "g61", "pickup": "vantaa", "seed": "t5-fees-1", "type": "sample", "typical": 10913}
+{"answer": "expired", "driver": "57io-0741", "feeCents": 5456, "gig": "g61", "multiple": 0.5, "result": {"id": "g61", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0188", "feeCents": 5456, "gig": "g61", "multiple": 0.5, "result": {"id": "g61", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0150", "feeCents": 5456, "gig": "g61", "multiple": 0.5, "result": {"id": "g61", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0741", "feeCents": 7639, "gig": "g61", "multiple": 0.7, "result": {"id": "g61", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0188", "feeCents": 7639, "gig": "g61", "multiple": 0.7, "result": {"id": "g61", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0150", "feeCents": 7639, "gig": "g61", "multiple": 0.7, "result": {"id": "g61", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0741", "feeCents": 9822, "gig": "g61", "multiple": 0.9, "result": {"id": "g61", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0188", "feeCents": 9822, "gig": "g61", "multiple": 0.9, "result": {"id": "g61", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0150", "feeCents": 9822, "gig": "g61", "multiple": 0.9, "result": {"id": "g61", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 2155, "delivery": "kuopio", "gig": "g62", "pickup": "vantaa", "seed": "t5-fees-1", "type": "sample", "typical": 8737}
+{"answer": "declined", "driver": "57io-0147", "feeCents": 4368, "gig": "g62", "multiple": 0.5, "result": {"id": "g62", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0401", "feeCents": 4368, "gig": "g62", "multiple": 0.5, "result": {"id": "g62", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0393", "feeCents": 4368, "gig": "g62", "multiple": 0.5, "result": {"id": "g62", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0147", "feeCents": 6116, "gig": "g62", "multiple": 0.7, "result": {"id": "g62", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0401", "feeCents": 6116, "gig": "g62", "multiple": 0.7, "result": {"id": "g62", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0393", "feeCents": 6116, "gig": "g62", "multiple": 0.7, "result": {"id": "g62", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "declined", "driver": "57io-0147", "feeCents": 7863, "gig": "g62", "multiple": 0.9, "result": {"id": "g62", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0401", "feeCents": 7863, "gig": "g62", "multiple": 0.9, "result": {"id": "g62", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"answer": "expired", "driver": "57io-0393", "feeCents": 7863, "gig": "g62", "multiple": 0.9, "result": {"id": "g62", "ok": true}, "rule": "viewed", "seed": "t5-fees-1", "type": "offer"}
+{"at": 2163, "driverId": "57io-0378", "feeCents": 13096, "gigId": "g61", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 1228, "type": "parent_booking"}
+{"at": 2305, "driverId": "57io-0676", "feeCents": 11795, "gigId": "g62", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 1469, "type": "parent_booking"}
+{"at": 6182, "driverId": "57io-0724", "feeCents": 14733, "gigId": "g61", "kind": "gig_booked", "seed": "t5-fees-1", "seq": 5210, "type": "parent_booking"}

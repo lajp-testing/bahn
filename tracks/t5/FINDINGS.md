@@ -1,6 +1,6 @@
 # Track 5: more cars per driver
 
-**Verdict: not established.** The direct-offer pilot covered one gig: 8 offers sent, 4 read, 0 accepted; this cannot establish whether offers beat the app. At 1.0 times typical fee, none of 315 offers across 30 gigs in two seeds was accepted. No evidence yet shows that direct offers find a driver more often or cheaply than the app; the lower-fee comparison is underway.
+**Verdict: not established.** The direct-offer pilot covered one gig: 8 offers sent, 4 read, 0 accepted; this cannot establish whether offers beat the app. At 1.0 times typical fee, none of 315 offers across 30 gigs in two seeds was accepted. On 30 fresh gigs, viewer offers at 0.5, 0.7 and 0.9 times typical also found no driver (67 offers per fee, 26 gigs with viewers); the parent app later booked 27 of those 30 gigs. No accepted offer exists to measure a fee saving. Do not adopt a policy on this evidence.
 
 **Earlier stint:** The saved-week screen finds 17 consecutive same-town gig pairs across 10 mainline dev weeks (1.7 per week), but does not measure how many orders a combined gig or direct offer could add, nor its fee saving. No policy should be adopted on this evidence. The required driving-time feasibility analysis and copy experiments remain to be done.
 
@@ -29,3 +29,9 @@ Calculate realistic candidate pairs using the world map and site hours, stratify
 ## Direct offers: rule screen
 
 `t5-rules-1` and `t5-rules-2`: 30 gigs, 15 per seed, still open 30 minutes after posting, weekdays 07:00–22:45. Each rule ran in its own copy for 15 minutes. Pickup-home: 90 sent, 17 read, 0 accepted (30 gigs); delivery-home: 90 sent, 9 read, 0 accepted (30 gigs); working near pickup: 59 sent, 28 read, 0 accepted (27 gigs with candidates); viewers: 76 sent, 32 read, 0 accepted (28 gigs with candidates). An expiry can mean unread or that the gig no longer fits, so read counts are minimums. All four rules tied on acceptance; viewers were chosen provisionally for a fresh lower-fee screen because they had the most definite reads, not because acceptance was demonstrated. Planned working-driver destinations were included without predicted delivery time, a loose proxy for about-to-finish.
+
+## Direct offers: fee screen and parent comparison
+
+`t5-fees-1` and `t5-fees-2` sampled 30 fresh gigs, 15 per seed. Viewers were available for 26 gigs. At each of 0.5, 0.7 and 0.9 times typical fee, 67 offers were sent, 32 were definitely read and 0 accepted (26 gigs); four gigs had no viewers to offer to. The unchanged parent app booked 27 of the 30 sampled gigs later in the week. No offer accepted, so there is no lowest accepted fee or paired fee saving to report. These are short 15-minute copy outcomes against subsequent parent app outcomes, not a randomized policy comparison; expirations conflate unread and no longer fitting, and simultaneous app bookings can preempt offers.
+
+No `t5` policy or dev-week comparison was built: the controlled screen found no driver via offers. Next, inspect whether the high expiration rate reflects app preemption, driver availability or offer timing, and measure a revised rule in copies before considering a policy.
