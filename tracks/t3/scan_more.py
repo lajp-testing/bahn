@@ -46,7 +46,7 @@ with slots.create(c, level=8, seed=a.seed) as world, out.open('w') as f:
             posts = [x for x in desk.outbox if x['type'] == 'post' and x['stops'][0]['orderId'] == order['id']]
             if not req or not posts: continue
             seen += 1
-            if scanned >= a.sample or (seen - 1) % 3: continue
+            if len(order['legs']) == 1 and (scanned >= a.sample or (not a.check and (seen - 1) % 3)): continue
             now = desk.now; post = posts[0]; typical = req['referenceFeeCents'] * sum(s['kind'] == 'pickup' for s in post['stops']) / len(req['legs'])
             leg = req['legs'][0]; pickup = leg['pickup']['placeId']; delivery = leg['delivery']['placeId']
             ends = {'2h': min(now + 120, 7*DAY), 'warning': min(max(now + 1, order['lastPickupAt'] - 180), 7*DAY)}
