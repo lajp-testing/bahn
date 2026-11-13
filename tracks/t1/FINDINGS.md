@@ -13,6 +13,7 @@ The intake limits unbooked orders plus quotes awaiting a decision to 15, and dec
 | `t1-stint2-no-private-urgent25` | 10 | €11,889 | 97.9% | 10/10 |
 | `t1-stint2-no-private-limit25` | 10 | €10,310 | 96.8% | 10/10 |
 | `t1-stint2-no-private-markup18` | 10 | €19,787 | 98.2% | 10/10 |
+| `t1-stint2-no-private-markup17` | 10 | €21,279 | 97.6% | 10/10 |
 | `base` | 10 | −€689,088 | 45.1% | 0/10 |
 | `t1-limit15-later-price16-fee15` | 10 | −€31,979 | 96.0% | 10/10 |
 | `t1-price16-fee15` | 4 | −€16,953 | 86.2% | 1/4 |
@@ -53,3 +54,5 @@ Urgent opening 2.5 instead of 1.5 with no private orders: €11,889, 1,576 order
 No private orders, limit 25: €10,310, 1,716 orders, 96.8% on time, worst dev-10 92.1%, 10/10 ranked. Rejected: margin fell €5,145.
 
 No private orders, markup 1.8: €19,787, 707 orders, 98.2% on time, worst dev-10 95.3%, 10/10 ranked. Kept: +€4,332 despite substantially fewer orders; this is a margin comparison, not an inference that higher prices always win.
+
+No private orders, markup 1.7: €21,279, 1,099 orders, 97.6% on time, worst dev-07 95.2%, 10/10 ranked. Kept: +€1,492 over markup 1.8.
