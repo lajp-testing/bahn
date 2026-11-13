@@ -6,6 +6,10 @@ The intake limits unbooked orders plus quotes awaiting a decision to 15, and dec
 |---|---:|---:|---:|---:|
 | `t1-limit15-later-price16-fee11` | 10 | €37,221 | 95.3% | 9/10 |
 | `t1-limit15-later-price16-fee13` | 10 | €12,114 | 96.2% | 10/10 |
+| `t1-stint2-limit25-fee13` | 10 | €4,141 | 94.6% | 9/10 |
+| `t1-stint2-limit15-sameday-fee13` | 10 | €22,092 | 90.8% | 7/10 |
+| `t1-stint2-unlimited-later-fee13` | 10 | −€10,423 | 92.4% | 8/10 |
+| `t1-stint2-no-private-fee13` | 10 | €15,455 | 97.9% | 10/10 |
 | `base` | 10 | −€689,088 | 45.1% | 0/10 |
 | `t1-limit15-later-price16-fee15` | 10 | −€31,979 | 96.0% | 10/10 |
 | `t1-price16-fee15` | 4 | −€16,953 | 86.2% | 1/4 |
@@ -30,3 +34,13 @@ The desk handles `deadline_close` by repricing open gigs with the urgent fee sch
 Using each request's response deadline as the win time, median deadline slack was 1,875 minutes for late orders versus 4,460 for on-time orders. Eleven late orders and 96 on-time orders had a booking dropped; 43 late and 20 on-time orders received a deadline warning. Orders won Thursday contributed 26 late out of 488; Wednesday 17 out of 321. These days are not evidence of flu or snow without further event analysis. The warning is strongly associated with lateness but arrives after the intake decision.
 
 Fee13 completed: €12,113.94, 1,648 orders, 96.2% on time, worst dev-07 93.2%, 10/10 ranked and all at least 92%. Kept as policy defaults against fee15, improving margin by €44,093 while meeting the floor.
+
+Limit 25 at fee13: 1,831 orders, €4,141, 94.6% on time; worst dev-10 88.8%, 9/10 ranked. Rejected: more orders but lower margin and below the 92% floor.
+
+Road distance, summing the legs, had median 519 km for late orders versus 235 km for on-time orders; 51/64 late and 572/1,524 on-time orders covered at least 300 km. Long lanes, private addresses and short slack overlap and need controlled tests before declining any of them.
+
+Offering same-day with limit 15: €22,092, 2,259 orders, 90.8% on time, worst dev-10 87.1%, 7/10 ranked. Rejected: higher margin but misses the floor on multiple weeks.
+
+Removing the limit while still declining same-day: −€10,423, 2,080 orders, 92.4% on time, worst dev-07 82.1%, 8/10 ranked. Rejected.
+
+Declining private-address requests: €15,455, 1,573 orders, 97.9% on time, worst dev-07 95.0%, 10/10 ranked. Kept: +€3,341 over fee13 with every week above 92%.
