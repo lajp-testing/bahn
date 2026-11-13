@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from .parts import Part, Retry
 
@@ -24,11 +24,16 @@ class Notes(Part):
         """The stops for some of the order's legs, and the drivers who may take the gig."""
         # A premium car needs an experienced driver: the fine is €150 a car.
         audience = {"experienced": any(leg["car"]["premium"] for leg in order["legs"]), "manualLicence": retry.manual_licence}
-        return stops_for(order, legs, request["note"], retry), audience
+        return stops_for(order, legs, request["note"], retry, desk.ctx.km), audience
 
 
-def stops_for(order: dict[str, Any], legs: list[int], note: Optional[dict[str, Any]], retry: Retry) -> list[dict[str, Any]]:
-    """A pickup and a delivery for each leg. An electric car under 30% gets a charging stop.
+CHARGE_KM = 200  # RULES.md: an electric car below 30% on a route over 200 km needs a charging stop
+
+
+def stops_for(order: dict[str, Any], legs: list[int], note: Optional[dict[str, Any]], retry: Retry,
+              km: Callable[[str, str], float]) -> list[dict[str, Any]]:
+    """A pickup and a delivery for each leg. An electric car under 30% gets a charging stop when its
+    route is over 200 road km; a shorter route needs none, and the stop would add 40 minutes.
     A stop has its own window only when the note or the retry makes it narrower. Without
     one, the world plans the pickup in the order's window and the delivery by the deadline."""
     stops: list[dict[str, Any]] = []
@@ -40,7 +45,8 @@ def stops_for(order: dict[str, Any], legs: list[int], note: Optional[dict[str, A
         delivery_base = {"from": delivery["window"]["from"], "to": max(delivery["window"]["from"], order["deadline"])}
         delivery_window = window_from_note(note, delivery_base, "delivery")
         low_battery = car["electric"] and car["chargePercent"] is not None and car["chargePercent"] < 30
-        first = {"orderId": order["id"], "leg": leg, "kind": "pickup", "withPlates": retry.plates, "withCharging": low_battery}
+        needs_charge = low_battery and km(pickup["placeId"], delivery["placeId"]) > CHARGE_KM
+        first = {"orderId": order["id"], "leg": leg, "kind": "pickup", "withPlates": retry.plates, "withCharging": needs_charge}
         second = {"orderId": order["id"], "leg": leg, "kind": "delivery"}
         stops += [narrower(first, pickup_window, pickup["window"]), narrower(second, delivery_window, delivery_base)]
     return stops

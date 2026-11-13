@@ -58,10 +58,13 @@ class FakeWorld:
         return {"now": self.now, "events": events, "results": results}
 
 
-def ctx() -> Context:
-    world_map = {"places": [{"id": "helsinki", "name": "Helsinki", "lat": 60.17, "lon": 24.94}, {"id": "tampere", "name": "Tampere", "lat": 61.5, "lon": 23.76}],
-                 "roads": [{"from": a, "to": b, "km": 0 if a == b else 172.4, "minutes": 0 if a == b else 106} for a in ("helsinki", "tampere") for b in ("helsinki", "tampere")]}
-    return Context.build(8, world_map, [{"id": "d1", "homePlaceId": "tampere", "rating": 4.9, "licence": "manual", "completedGigs": 80, "drops": 0}])
+def two_towns(km: float = 172.4) -> dict:
+    return {"places": [{"id": "helsinki", "name": "Helsinki", "lat": 60.17, "lon": 24.94}, {"id": "tampere", "name": "Tampere", "lat": 61.5, "lon": 23.76}],
+            "roads": [{"from": a, "to": b, "km": 0 if a == b else km, "minutes": 0 if a == b else 106} for a in ("helsinki", "tampere") for b in ("helsinki", "tampere")]}
+
+
+def ctx(km: float = 172.4) -> Context:
+    return Context.build(8, two_towns(km), [{"id": "d1", "homePlaceId": "tampere", "rating": 4.9, "licence": "manual", "completedGigs": 80, "drops": 0}])
 
 
 def test_base_policy_plays_the_starter():
@@ -74,9 +77,9 @@ def test_base_policy_plays_the_starter():
     quote, post, reprice = (action for _, action in world.sent)
     assert quote == {"type": "quote", "requestId": "R1", "prices": {"same_day": 20000}}
     assert world.sent[0][0] == 540 and world.sent[1][0] == 555 and world.sent[2][0] == 820
-    # A premium car goes to experienced drivers; a low battery gets a charging stop; the note moves the pickup to 12:00.
+    # A premium car goes to experienced drivers; a low battery on 172 km needs no charging stop; the note moves the pickup to 12:00.
     assert post["audience"] == {"experienced": True, "manualLicence": False}
-    assert post["stops"][0] == {"orderId": "R1", "leg": 0, "kind": "pickup", "withPlates": False, "withCharging": True, "window": {"from": 720, "to": 1200}}
+    assert post["stops"][0] == {"orderId": "R1", "leg": 0, "kind": "pickup", "withPlates": False, "withCharging": False, "window": {"from": 720, "to": 1200}}
     assert post["schedule"][0] == {"at": 555, "feeCents": 10000} and post["schedule"][-1] == {"at": 855, "feeCents": 15000}
     assert reprice["gigId"] == "g1" and reprice["schedule"][0] == {"at": 820, "feeCents": 15000} and reprice["schedule"][-1] == {"at": 940, "feeCents": 25000}
     assert desk.now == 1440 and not desk.refused and desk.gigs_of("R1") == ["g1"]
@@ -161,8 +164,7 @@ def test_the_live_desk_rejoins_and_answers_the_stream():
         parts.quoter.observe = lambda event, desk, replay: seen.append((event["kind"], replay))
         return parts
 
-    world_map = {"places": [], "roads": []}
-    play_live(world, 8, world_map, build, clock=lambda: 1440)
+    play_live(world, 8, two_towns(), build, clock=lambda: 1440)
     kinds = [action["type"] for _, action in world.sent]
     assert kinds == ["post", "reprice"]  # the order without a gig is posted on rejoin; the warning makes it urgent
     assert seen[:2] == [("price_request", True), ("order_won", True)] and ("deadline_close", False) in seen
@@ -178,3 +180,15 @@ def test_reach_quotes_reachable_cars_above_list_and_declines_the_rest():
     play(world, context, load("reach")(context, min_drivers=0, markup=1.5))
     # Reachable: every option but same_day, at 1.5 x list.
     assert world.sent[0][1]["prices"] == {"next_day": 22500}
+
+
+def test_a_low_battery_gets_a_charging_stop_only_over_200_km():
+    # The car of LEG is electric at 20%. RULES.md: a charging stop is needed on a route over 200 km.
+    charging = {}
+    for km in (200, 200.1):
+        world, context = FakeWorld(), ctx(km=km)
+        play(world, context, load("base")(context))
+        post = next(action for _, action in world.sent if action["type"] == "post")
+        charging[km] = post["stops"][0]["withCharging"]
+    assert charging == {200: False, 200.1: True}
+
