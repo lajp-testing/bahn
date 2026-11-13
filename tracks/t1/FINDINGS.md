@@ -1,6 +1,6 @@
 # Track 1: Intake and on-time
 
-The intake limits unbooked orders plus quotes awaiting a decision to 15, and declines same-day options. It uses markup 1.6, all later options, opening fee 1.5 and six fee steps of 0.15 every 30 minutes. The limit is a conservative initial rule, not a measured capacity model.
+The intake limits unbooked orders plus quotes awaiting a decision to 15, and declines private-address requests and same-day options. It uses markup 1.7, all later options, opening fee 1.3 and six fee steps of 0.1 every 60 minutes. The limit is a conservative initial rule, not a measured capacity model.
 
 | Label | Dev weeks | Margin | On time | Ranked |
 |---|---:|---:|---:|---:|
@@ -56,3 +56,5 @@ No private orders, limit 25: €10,310, 1,716 orders, 96.8% on time, worst dev-1
 No private orders, markup 1.8: €19,787, 707 orders, 98.2% on time, worst dev-10 95.3%, 10/10 ranked. Kept: +€4,332 despite substantially fewer orders; this is a margin comparison, not an inference that higher prices always win.
 
 No private orders, markup 1.7: €21,279, 1,099 orders, 97.6% on time, worst dev-07 95.2%, 10/10 ranked. Kept: +€1,492 over markup 1.8.
+
+Remaining work: complete the limit and markup sweeps and the fee comparison under the kept policy; test dynamic, regional and selective same-day intake on all ten seeds. Further investigate snow, flu and the two difficult weeks. The current rule is a measured candidate, not a completed search for the maximum.
