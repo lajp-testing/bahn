@@ -577,3 +577,54 @@ def test_the_dial_counts_a_dealers_trust_from_the_ledger():
     quoter.observe({"kind": "order_won", "order": {**ORDER, "id": "O5"}}, desk, False)
     quoter.observe({"kind": "order_cancelled", "orderId": "O5"}, desk, False)
     assert quoter.coming == {"D1": 0}
+
+
+def test_a_price_war_is_a_day_that_the_dial_does_not_follow():
+    plain, war = reach_desk(quoter="dial"), reach_desk(quoter="dial", war=0.3)
+    first = quoted(war, NEXT_DAY)["next_day"]
+    for desk in (plain, war):
+        for i in range(30):  # thirty quotes in a row lose
+            quoted(desk, {**NEXT_DAY, "id": f"L{i}"})
+            desk.parts.quoter.observe({"kind": "order_lost", "requestId": f"L{i}"}, desk, False)
+    assert war.parts.quoter.at_war > 0.9
+    assert quoted(war, {**NEXT_DAY, "id": "W"})["next_day"] < first  # on the war's day it quotes lower, to win
+    assert war.parts.quoter.dial > plain.parts.quoter.dial  # but its dial has not gone all the way down
+    for desk in (plain, war):
+        desk.parts.quoter.morning(1440 + 600)
+    assert war.parts.quoter.at_war == 0 and war.parts.quoter.war_over  # one war a week
+    assert war.parts.quoter.best_markup(NEXT_DAY, war) > plain.parts.quoter.best_markup(NEXT_DAY, plain)
+
+
+def test_the_dial_moves_far_on_a_mornings_first_answers_and_little_later():
+    plain, doubting = reach_desk(quoter="dial"), reach_desk(quoter="dial", day_sd=0.12)
+    steps = []
+    for desk in (plain, doubting):
+        quoter = desk.parts.quoter
+        for i in range(40):
+            before = quoter.dial
+            quoted(desk, {**NEXT_DAY, "id": f"L{i}"})
+            quoter.observe({"kind": "order_won" if i % 2 else "order_lost", "requestId": f"L{i}", "order": {**ORDER, "id": f"L{i}"}}, desk, False)
+            steps.append(abs(quoter.dial - before))
+    assert steps[40] > 2 * steps[0]  # the first answer of the week moves a dial in doubt further
+    assert steps[79] < steps[40] / 2  # and the fortieth much less
+    quoter.morning(1440 + 600)
+    assert quoter.doubt == 0.12 ** 2 * 2 and quoter.closes  # a new day: back to the mean of the days, and in doubt again
+
+
+def test_detail_prices_a_private_address_up_and_a_car_ready_tomorrow_down():
+    private = {**NEXT_DAY, "legs": [{**LEG, "delivery": {**PLACE, "placeId": "tampere", "privateAddress": True}}]}
+    later = {**NEXT_DAY, "legs": [{**LEG, "pickup": {**PLACE, "window": {"from": 1440 + 600, "to": 1440 + 1200}}}]}
+    quoter = reach_desk(quoter="dial", detail=1.0).parts.quoter
+    assert quoter.cost(private) - quoter.cost(NEXT_DAY) == 0.23 * 10000
+    assert round(quoter.cost(later) - quoter.cost(NEXT_DAY)) == -0.15 * 10000
+    assert reach_desk(quoter="dial").parts.quoter.cost(private) == 1.13 * 10000  # off by default
+
+
+def test_same_up_prices_same_day_above_the_later_option():
+    tomorrow = {**PLACE, "window": {"from": 1440 + 600, "to": 1440 + 1200}}
+    request = {**REQUEST, "note": None, "legs": [{**LEG, "pickup": tomorrow, "delivery": {**tomorrow, "placeId": "tampere"}}],
+               "options": [{"kind": "same_day", "deadline": 1440 + 1200, "listPriceCents": 20000}, {"kind": "next_day", "deadline": 2 * 1440 + 1200, "listPriceCents": 15000}]}
+    alike = quoted(reach_desk(quoter="dial", same_day=True), request)  # reach quotes same_day beside another option only when told
+    dearer = quoted(reach_desk(quoter="dial", same_day=True, same_up=0.1), request)
+    assert set(alike) == {"same_day", "next_day"} and alike["same_day"] * 3 == alike["next_day"] * 4  # one markup for both
+    assert dearer["next_day"] == alike["next_day"] and dearer["same_day"] == round(alike["same_day"] * 1.1)

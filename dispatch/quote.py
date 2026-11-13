@@ -10,6 +10,9 @@ if TYPE_CHECKING:
     from .desk import Desk
 
 HOUR, DAY = 60, 24 * 60
+# What an order costs more, in typical fees, and the mean over the dev weeks' orders: for a private address, for a
+# car that is ready on a later day, and for each unit of log(typical fee / list price). tracks/t2/fit5.py.
+DETAIL = ((0.23, 0.10), (-0.15, 0.52), (-0.41, -0.05))
 DECLINE_FACTOR = 5  # a quote this many times the list price loses, and a lost quote costs nothing
 
 
@@ -41,29 +44,50 @@ class DialQuoter(Quoter):
 
     An order costs about `cost_next` typical fees, or `cost_same` when the dealer also offers `same_day` (such
     a car is ready today, so its gig has longer to find a driver at the opening fee). Both are above the fees
-    paid: every order also makes the drivers scarcer for the others.
+    paid: every order also makes the drivers scarcer for the others. `detail` adds what the dev weeks' orders cost
+    more or less than that (`DETAIL`): a private address is dearer, a car that is ready on a later day cheaper,
+    and so is a request whose typical fee is high for its list price.
 
     The quoter asks for the markup `m` that makes `(m x list - cost + ladder) x chance(m)` largest. The ladder
     is what one more on-time order is worth in the dealer's later prices (`ladder_value`). After each answer
     the dial moves by `gain x (won - chance)`: up after a win, down after a loss, so it follows a week, a day
-    or a price war that the dev weeks did not have. `dealer_gain` does the same for one dealer. `admit` is the
-    intake's decision: a request that the intake declines teaches nothing."""
+    or a region that the dev weeks did not have. `dealer_gain` does the same for one dealer. `admit` is the
+    intake's decision: a request that the intake declines teaches nothing.
+
+    The price war is one working day on which every limit is lower by `war` (the dev weeks: 0.25 to 0.34). A dial
+    that follows it down sells the next morning's orders too cheaply while it climbs back. So `war` makes the war a
+    switch of the day: each answer moves its probability `at_war` by how much better the war explains it, the
+    chance of a quote is the mix of the two days, and the dial learns only what the mix did not expect. Each
+    morning starts with one chance in the working days left, and none once a war has been.
+
+    The competitor's prices have a factor that is new each day, so yesterday's dial is a worse guess each morning
+    than at the evening before. With `day_sd`, the spread of that factor in the log, the dial keeps its own doubt
+    (a variance): each morning it returns to the mean of the days so far and doubts by the day factor, and each
+    answer moves it by `doubt / scale` times the surprise, at least `gain`, and takes away the doubt that the
+    answer settled. So the first answers of a day move the dial far, and the later ones little.
+
+    With `same_up`, a `same_day` option beside a later one costs that share more: a dealer who values the speed
+    pays for it, and another takes the later option, which leaves the gig longer to find its driver."""
 
     def __init__(self, level: float = 1.33, scale: float = 0.09, gain: float = 0.03, dealer_gain: float = 0.0,
                  no_same_day: float = 0.094, by_list: float = 0.12, by_trust: float = 1.0,
                  cost_next: float = 1.13, cost_same: float = 1.01, ladder: float = 0.0, patience: int = 5 * HOUR,
-                 floor: float = 1.1, ceiling: float = 2.4,
+                 floor: float = 1.1, ceiling: float = 2.4, war: float = 0.0, detail: float = 0.0, day_sd: float = 0.0,
+                 same_up: float = 0.0,
                  admit: Optional[Callable[[dict[str, Any], dict[str, int], "Desk"], dict[str, int]]] = None):
         super().__init__(options="all")
         self.dial, self.scale, self.gain, self.dealer_gain = math.log(level), scale, gain, dealer_gain
         self.no_same_day, self.by_list, self.by_trust = no_same_day, by_list, by_trust
         self.cost_next, self.cost_same, self.ladder, self.patience = cost_next, cost_same, ladder, patience
-        self.floor, self.ceiling, self.admit = floor, ceiling, admit
+        self.floor, self.ceiling, self.war, self.admit = floor, ceiling, war, admit
+        self.detail, self.day_sd, self.same_up = detail, day_sd, same_up
+        self.day, self.at_war, self.war_over = -1, 0.0, False  # the day of the last quote, and the war's probability on it
+        self.doubt, self.closes = 2 * day_sd ** 2, []  # the dial's variance, and the dial at the end of each usual day
         self.dealer_dial: dict[str, float] = {}  # dealer id -> its own offset to the dial
         self.asked: dict[str, int] = {}  # dealer id -> its requests so far
         self.trust: dict[str, int] = {}  # dealer id -> on-time orders, halved by a late one, at most 25
         self.coming: dict[str, int] = {}  # dealer id -> orders won and not yet delivered
-        self.quoted: dict[str, tuple[float, float, str, dict[str, int]]] = {}  # request id -> (markup, effect, dealer, prices)
+        self.quoted: dict[str, tuple[float, float, str, dict[str, int], int]] = {}  # request id -> (markup, effect, dealer, prices, day)
         self.dealer_of: dict[str, str] = {}  # order id -> dealer id
         self.on_time: set[str] = set()  # the delivered orders counted as on time
         self.late: set[str] = set()
@@ -78,11 +102,37 @@ class DialQuoter(Quoter):
                 + self.by_trust * math.log(1 + self.trust.get(dealer, 0) / 100) + self.dealer_dial.get(dealer, 0.0))
 
     def chance(self, markup: float, effect: float) -> float:
-        return 1 / (1 + math.exp(-(self.dial + effect - math.log(markup)) / self.scale))
+        plain, low = self.chances(markup, effect)
+        return (1 - self.at_war) * plain + self.at_war * low
+
+    def chances(self, markup: float, effect: float) -> tuple[float, float]:
+        """The chance that the dealer takes the quote on a usual day, and on the day of the price war."""
+        gap = (self.dial + effect - math.log(markup)) / self.scale
+        return 1 / (1 + math.exp(-gap)), 1 / (1 + math.exp(self.war / self.scale - gap))
+
+    def morning(self, now: int) -> None:
+        """The first quote of a day: the war, if it has not been, is as likely today as on each working day left."""
+        if now // DAY > self.day:
+            if self.day_sd and self.day >= 0:
+                if self.at_war <= 0.5:
+                    self.closes.append(self.dial)
+                if self.closes:
+                    self.dial = sum(self.closes) / len(self.closes)
+                    self.doubt = self.day_sd ** 2 * (1 + 1 / len(self.closes))
+            self.war_over = self.war_over or self.at_war > 0.5
+            self.day = now // DAY
+            self.at_war = min(0.5, 1 / (5 - self.day)) if self.war and not self.war_over and self.day < 5 else 0.0
 
     def cost(self, request: dict[str, Any]) -> float:
         same_day = any(option["kind"] == "same_day" for option in request["options"])
-        return request["referenceFeeCents"] * len(request["legs"]) * (self.cost_same if same_day else self.cost_next)
+        typical = request["referenceFeeCents"] * len(request["legs"])
+        factor = self.cost_same if same_day else self.cost_next
+        if self.detail:
+            private = any(leg[end]["privateAddress"] for leg in request["legs"] for end in ("pickup", "delivery"))
+            later = request["legs"][0]["pickup"]["window"]["from"] // DAY > request["arrivedAt"] // DAY
+            shown = (private, later, math.log(typical / basis(request)["listPriceCents"]))
+            factor += self.detail * sum(more * (value - mean) for (more, mean), value in zip(DETAIL, shown))
+        return typical * factor
 
     def ladder_value(self, request: dict[str, Any], desk: "Desk", revenue: float) -> float:
         """What one more on-time order for this dealer is worth, in cents. A counted order lets each later request
@@ -112,21 +162,30 @@ class DialQuoter(Quoter):
 
     def prices(self, request: dict[str, Any], desk: "Desk") -> dict[str, int]:
         if request["id"] not in self.quoted:  # a quote stays as it is: a desk that restarts quotes the same again
+            self.morning(desk.now)
             dealer = request["dealerId"]
             self.asked[dealer] = self.asked.get(dealer, 0) + 1
             markup = self.best_markup(request, desk)
-            prices = {option["kind"]: round(option["listPriceCents"] * markup) for option in request["options"]}
+            dearer = 1 + self.same_up if len(request["options"]) > 1 else 1.0
+            prices = {option["kind"]: round(option["listPriceCents"] * markup * (dearer if option["kind"] == "same_day" else 1.0))
+                      for option in request["options"]}
             sent = self.admit(request, prices, desk) if self.admit else prices
             learns = any(sent.get(kind) == cents for kind, cents in prices.items())
-            self.quoted[request["id"]] = (markup if learns else 0.0, self.effect(request) - self.dealer_dial.get(dealer, 0.0), dealer, prices)
+            self.quoted[request["id"]] = (markup if learns else 0.0, self.effect(request) - self.dealer_dial.get(dealer, 0.0), dealer, prices, self.day)
         return self.quoted[request["id"]][3]
 
     def learn(self, request_id: str, won: bool) -> None:
-        markup, effect, dealer, _ = self.quoted.get(request_id, (0.0, 0.0, "", {}))
+        markup, effect, dealer, _, day = self.quoted.get(request_id, (0.0, 0.0, "", {}, 0))
         if markup <= 0:
             return
-        surprise = (1.0 if won else 0.0) - self.chance(markup, effect + self.dealer_dial.get(dealer, 0.0))
-        self.dial += self.gain * surprise
+        plain, low = self.chances(markup, effect + self.dealer_dial.get(dealer, 0.0))
+        if self.at_war and day == self.day:  # Bayes: which of the two days explains this answer better?
+            war, usual = self.at_war * (low if won else 1 - low), (1 - self.at_war) * (plain if won else 1 - plain)
+            self.at_war = min(max(war / (war + usual), 0.001), 0.999)
+        expected = (1 - self.at_war) * plain + self.at_war * low
+        surprise = (1.0 if won else 0.0) - expected
+        self.dial += max(self.gain, self.doubt / self.scale) * surprise
+        self.doubt /= 1 + self.doubt * expected * (1 - expected) / self.scale ** 2
         if self.dealer_gain:
             self.dealer_dial[dealer] = self.dealer_dial.get(dealer, 0.0) + self.dealer_gain * surprise
 
