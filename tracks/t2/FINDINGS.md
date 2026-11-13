@@ -2,9 +2,17 @@
 
 **Question.** At what price against the list price do quotes start to lose, by lane, dealer, day and hour?
 
+## For other tracks
+
+A first-option price scan is in progress. The method check found no repeated-price or monotonicity violations in 31 requests; it does not establish this for every request. A single partial no-wins week has mean switching ratios 1.317 on Monday (219 requests) and 1.353 on Tuesday (204); no cross-world generalisation or early-level learning claim is established yet.
+
 ## Findings
 
-Nothing measured yet.
+| Probe | Result | Limit |
+|---|---|---|
+| `t2-scan-check`, level 8, first 31 requests | 0/31 repeat mismatches at 1.4; 0/31 monotonicity violations across 0.8–2.0 | One world, first option; seven tested prices |
+
+The validation took 797 HTTP calls for 31 requests. A first-option scan at nine copies per stop is roughly 30,000 calls for 1,000 requests before batching, or about 510 seconds at 17 ms per call; server processing, full event histories and separate options add time. The full all-option scan is underway; these are research costs, not normal week costs.
 
 | Label | Weeks | Margin | On time | Ranked | What it shows |
 |---|---|---|---|---|---|
