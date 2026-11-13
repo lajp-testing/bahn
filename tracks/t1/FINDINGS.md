@@ -49,6 +49,34 @@ Across the 20 weeks of each label, 26–92 actions were refused: mostly withdraw
 
 **Decision: freeze `future_same_day=true` for ranking runs.** The late budget never binds on holdout (late share near 3%) and costs €1,902 on dev; the density fees lose margin and on-time share at level 8.
 
+## Volume: the classes `reach` declines, each with a brake (on fr, `base@f5a6b3b`)
+
+Every label adds `open=0.85 future_same_day=true`; the control is `base@f5a6b3b`, €69,264, worst week 94.0%.
+Scripts in `.amp/in/scripts` of the runner (`declined.py`, `ordermargin.py`, `laterate*.py`) read the saved weeks.
+
+**What reach declines.** Not batches, notes or private addresses as classes: only legs over 300 minutes (138 requests a
+week, about €24k list), pickups with fewer than 3 drivers near (50, €4.5k) and same_day on a car ready today (79, €5.2k).
+**What the quoted classes earn.** Private-address orders: 24 a week, €0 margin, 3.0 late. Trade-ins: 3.3 a week, €143,
+1.5 late. Together 4.5 of the 10 late orders a week, and each late order halves its dealer's trust count.
+
+| Variant | Dev total | vs base | Better on | Worst week | What it shows |
+| --- | --- | --- | --- | --- | --- |
+| `private_slots` | €70,907 | +€1,642 | 7 of 10 | 93.3% | Private requests reach declines, quoted only through the gate. Holdout €68,147, +€1,994, worst 95.0% |
+| `trade_ins` | €69,497 | +€233 | 4 of 10 | 93.3% | Noise |
+| `noted_slots` | €69,738 | +€473 | 5 of 10 | 91.3% | Fails the 93% line |
+| `batch_slots` | €68,429 | −€836 | 3 of 10 | 92.7% | |
+| `long_lanes` | €68,096 | −€1,168 | 4 of 10 | 89.2%, 9/10 ranked | Long gigs pull drivers off short lanes (`max_drive=360`: long orders +€564 a week, short ones −€603) |
+| `no_private no_trade_ins` | €70,012 | +€748 | 3 of 10 | 95.3% | On time 97.8% against 96.0% with 10% fewer orders |
+| `no_private no_trade_ins private_slots` | €73,345 | +€4,081 | 8 of 10 | 92.9% | Private only through the gate |
+| + `thin_drivers=20 thin_both` | €72,354 | +€3,089 | 7 of 10 | 94.7% | Few drivers near both ends: three days only. dev-10 92.9% → 95.1% |
+| + `near_km=80` | €75,806 | +€6,542 | 9 of 10 | 93.1% | |
+| + `min_drivers=2` | €73,982 | +€4,718 | 9 of 10 | 91.3% | |
+| + `open=0.7` | €78,100 | +€8,836 | 10 of 10 | 92.0% | dev-10 fails 93% |
+| `thin_drivers=20` (long legs from thin pickups) | €65,502 | −€3,762 | | 97.5% | Those legs earn €38 an order: too dear a brake |
+
+**Ruled out.** Same-day on a car ready today: in `sd@f5a6b3b` even short lanes from pickups with 20 or more drivers
+within 30 km and 6 hours of slack were late 25% of the time, at €16 an order.
+
 ## What failed
 
 - A markup away from 1.5 in either direction loses margin: 1.4 wins more cars at a thinner margin and gets closer to the
