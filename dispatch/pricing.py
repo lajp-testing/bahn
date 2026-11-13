@@ -14,6 +14,12 @@ The cost is what the car costs us to move: the fee we expect to pay for this car
 estimates it from where drivers live, the lane's length and a private address), what its risk of
 being late costs, and a charge that rises as the queue of orders without a driver fills. A full
 queue makes every car dearer for us, so prices rise before the intake has to decline.
+
+At level 8 a dealer accepts prices 1% higher from us for each order we delivered to it on time, up
+to 25 orders; a late order halves its count. The quoter keeps the same count from its own ledger
+(`trust`), so it knows each dealer's level instead of one level for all. And because an order on
+time raises every later price to that dealer, it is worth more than its own margin: `invest` takes
+1% of the revenue we still expect from the dealer this week off the cost of the order.
 """
 from __future__ import annotations
 
@@ -26,13 +32,15 @@ if TYPE_CHECKING:
     from .desk import Desk
 
 DAY = 24 * 60
+OPEN, CLOSE, DAYS = 8 * 60, 18 * 60, 5  # requests arrive on five days, from 08:00 to 18:00
 
 
 class ProfitQuoter(Part):
     wake_on = ["order_lost"]  # a loss moves the level too: hear of it at once
 
     def __init__(self, start: float = 1.4, spread: float = 0.2, step: float = 0.06, boost: float = 3.0, cost: float = 1.2,
-                 queue: float = 0.3, limit: int = 15, low: float = 0.9, high: float = 2.6, car: float = 0.0, late: float = 0.0):
+                 queue: float = 0.3, limit: int = 15, low: float = 0.9, high: float = 2.6, car: float = 0.0, late: float = 0.0,
+                 trust: float = 0.0, invest: float = 0.0, share: float = 0.25, lag: float = 0.15):
         self.level, self.spread, self.step, self.boost = start, spread, step, boost
         self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
         # `car` > 0: the cost is `car` times the fee the fees part expects for this car, instead of `cost` times the typical fee.
@@ -40,10 +48,30 @@ class ProfitQuoter(Part):
         self.car, self.late = car, late
         self.sent: dict[str, dict[str, float]] = {}  # request -> option -> the price we sent, as a multiple of the list price
         self.day, self.seen_today = -1, 0
+        # `trust`: how much of the rule to use (1 = each counted order raises the dealer's level by 1%).
+        # `invest`: how much of the later revenue that an order's trust buys to take off its cost.
+        # `share`: the revenue we expect per euro of list price that a dealer asks about; `lag`: the part of the week before an order counts.
+        self.trust, self.invest, self.share, self.lag = trust, invest, share, lag
+        self.counts: dict[str, int] = {}     # dealer -> orders delivered on time, as the dealer counts them
+        self.before: dict[str, tuple[str, int]] = {}  # delivered order -> its dealer and the dealer's count before it
+        self.open: dict[str, str] = {}       # order won and not yet delivered -> dealer
+        self.asked: dict[str, int] = {}      # dealer -> list price of its requests so far, in cents
+        self.factors: dict[str, float] = {}  # request -> the dealer's factor when we quoted
 
     def chance(self, ratio: float) -> float:
         """The chance that a dealer takes a price of `ratio` times the list price."""
         return 1 / (1 + math.exp(max(-40.0, min(40.0, (ratio - self.level) / self.spread))))
+
+    def factor(self, dealer: str) -> float:
+        """How much higher than a new dealer's this dealer's level is."""
+        return 1 + 0.01 * self.trust * self.counts.get(dealer, 0)
+
+    def future(self, dealer: str, now: int) -> float:
+        """The revenue we still expect from the dealer this week after an order won now is delivered, in cents."""
+        day, minute = divmod(now, DAY)
+        done = (min(day, DAYS) * (CLOSE - OPEN) + (min(max(minute, OPEN), CLOSE) - OPEN if day < DAYS else 0)) / (DAYS * (CLOSE - OPEN))
+        done = max(done, 0.03)
+        return self.share * self.asked.get(dealer, 0) / done * max(0.0, 1 - done - self.lag)
 
     def waiting(self, desk: "Desk") -> float:
         """How full the queue of orders without a booked driver is, from 0 to 1."""
@@ -56,11 +84,19 @@ class ProfitQuoter(Part):
         fees = desk.parts.fees
         fee = self.car * fees.expected(request, desk) if self.car and hasattr(fees, "expected") else self.cost * request["referenceFeeCents"]
         risk = self.late * fees.late_risk(request, desk) if self.late and hasattr(fees, "late_risk") else 0.0
+        dealer = request["dealerId"]
+        factor, gain = self.factor(dealer), 0.0
+        if self.invest:
+            count, future = self.counts.get(dealer, 0), self.future(dealer, desk.now)
+            waiting = sum(1 for other in self.open.values() if other == dealer)
+            # On time, the order adds 1% (while the dealer still counts); late, it takes half the count away.
+            gain = self.invest * 0.01 * future * ((1 - risk) * (count + waiting < 25) - risk * count / 2)
         prices = {}
         for option in request["options"]:
-            cost = fee / option["listPriceCents"] + charge  # in list prices
+            cost = (fee - gain) / option["listPriceCents"] + charge  # in list prices
             # A late order gives back part of its price: the expected loss grows with the price itself.
-            best = max((cost + 0.02 + 0.01 * i for i in range(220)), key=lambda ratio: (ratio * (1 - risk) - cost) * self.chance(ratio))
+            floor = max(cost, 0.5 * fee / option["listPriceCents"])
+            best = max((floor + 0.02 + 0.01 * i for i in range(260)), key=lambda ratio: (ratio * (1 - risk) - cost) * self.chance(ratio / factor))
             prices[option["kind"]] = round(option["listPriceCents"] * best)
         return prices
 
@@ -70,12 +106,24 @@ class ProfitQuoter(Part):
         if action["type"] == "quote" and result.get("ok") and request is not None:
             lists = {option["kind"]: option["listPriceCents"] for option in request["options"]}
             self.sent[request["id"]] = {kind: cents / lists[kind] for kind, cents in action["prices"].items() if kind in lists}
+            self.factors[request["id"]] = self.factor(request["dealerId"])
 
     def observe(self, event: dict[str, Any], desk: "Desk", replay: bool) -> None:
-        if event["kind"] not in ("order_won", "order_lost"):
+        kind = event["kind"]
+        if kind == "price_request":
+            request = event["request"]
+            self.asked[request["dealerId"]] = self.asked.get(request["dealerId"], 0) + min(option["listPriceCents"] for option in request["options"])
+        elif kind == "ledger":
+            self.count(event["line"])
+        elif kind == "order_cancelled":
+            self.open.pop(event.get("orderId", ""), None)
+        if kind not in ("order_won", "order_lost"):
             return
-        won = event["kind"] == "order_won"
-        sent = self.sent.pop(event["order"]["id"] if won else event["requestId"], None)
+        won = kind == "order_won"
+        if won:
+            self.open[event["order"]["id"]] = event["order"]["dealerId"]
+        name = event["order"]["id"] if won else event["requestId"]
+        sent, factor = self.sent.pop(name, None), self.factors.pop(name, 1.0)
         if not sent:
             return
         # A win shows the taken option's price was low enough; a loss shows even the lowest one was too high.
@@ -86,4 +134,17 @@ class ProfitQuoter(Part):
             self.day, self.seen_today = event["at"] // DAY, 0
         step = self.step * max(1.0, self.boost / math.sqrt(1 + self.seen_today / 3))
         self.seen_today += 1
-        self.level = min(self.high, max(self.low, self.level + step * ((1.0 if won else 0.0) - self.chance(ratio))))
+        self.level = min(self.high, max(self.low, self.level + step * ((1.0 if won else 0.0) - self.chance(ratio / factor))))
+
+    def count(self, line: dict[str, Any]) -> None:
+        """Keeps each dealer's count as the dealer does: one more for an order on time, half after a late one."""
+        order = line.get("orderId")
+        if line["kind"] == "revenue" and order in self.open:
+            dealer = self.open.pop(order)
+            self.before[order] = (dealer, self.counts.get(dealer, 0))
+            self.counts[dealer] = min(25, self.counts.get(dealer, 0) + 1)
+        elif line["kind"] == "late_refund" and order in self.before:
+            dealer, before = self.before.pop(order)
+            self.counts[dealer] = before // 2
+        elif line["kind"] == "undelivered_penalty":
+            self.open.pop(order, None)
