@@ -37,3 +37,21 @@ class Fees(Part):
         first, step, every, steps = (self.urgent_open, self.urgent_step, self.urgent_every, self.urgent_steps) if urgent else (self.open, self.step, self.every, self.steps)
         # int(x + 0.5) rounds halves up, as the kit's starters do.
         return [{"at": desk.now + k * every, "feeCents": max(1, int(fee * (first + k * step) + 0.5))} for k in range(1 if desk.level == 1 else steps)]
+
+
+class MeasuredFees(Fees):
+    """Experimental single-car booking estimate with an early reliability buffer."""
+
+    def estimate(self, request: dict[str, Any], desk: "Desk") -> int:
+        pickup = request["legs"][0]["pickup"]["placeId"]
+        nearby = sum(desk.ctx.straight_km(pickup, d["homePlaceId"]) <= 30 for d in desk.ctx.roster)
+        multiple = 0.6 + (0.15 if nearby < 30 else 0)
+        return max(1, int(request["referenceFeeCents"] * multiple + 0.5))
+
+    def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
+        if urgent:
+            return super().schedule(order, cars, urgent, desk)
+        request = desk.requests[order["id"]]
+        base = self.estimate(request, desk) * cars / len(order["legs"])
+        typical = request["referenceFeeCents"] * cars / len(order["legs"])
+        return [{"at": desk.now + k * 30, "feeCents": max(1, int(base + typical * (0.45 + k * 0.15) + 0.5))} for k in range(1 if desk.level == 1 else 3)]
