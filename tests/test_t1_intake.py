@@ -36,3 +36,15 @@ def test_queue_price_rises_with_pending_quotes():
     second = dict(first, id="s")
     assert intake.admit(first, {"next_day": 1000}, desk(Notes())) == {"next_day": 900}
     assert intake.admit(second, {"next_day": 1000}, desk(Notes())) == {"next_day": 1000}
+
+
+def test_same_day_requires_both_slack_and_nearby_drivers():
+    notes = SimpleNamespace(earliest_pickup=lambda r: 0,
+                            latest_delivery=lambda r, end: end)
+    d = desk(notes)
+    d.ctx.roster = [{"homePlaceId": "a"}, {"homePlaceId": "far"}]
+    d.ctx.straight_km = lambda a, b: 0 if a == b else 31
+    prices = {"same_day": 170, "next_day": 170}
+    assert LimitedIntake(slack=1440, same_day_slack=240, same_day_drivers=1).admit(request(), prices, d) == prices
+    assert LimitedIntake(slack=1440, same_day_slack=241, same_day_drivers=1).admit(request(), prices, d) == {"next_day": 170}
+    assert LimitedIntake(slack=1440, same_day_slack=240, same_day_drivers=2).admit(request(), prices, d) == {"next_day": 170}
