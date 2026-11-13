@@ -1,11 +1,12 @@
-"""Track 3: experimental measured fees inside the track 1 intake policy."""
+"""Track 3 fee experiments on the team's mainline."""
 from typing import Any
 from ..context import Context
 from ..fees import MeasuredFees
-from ..intake import LimitedIntake
-from ..notes import Notes
 from ..parts import Parts
-from ..quote import Quoter
+from . import main
+
 
 def build(ctx: Context, **params: Any) -> Parts:
-    return Parts(Quoter(markup=1.6, options="all"), LimitedIntake(15), MeasuredFees(**params), Notes())
+    parts = main.build(ctx)
+    parts.fees = MeasuredFees(**params)
+    return parts
