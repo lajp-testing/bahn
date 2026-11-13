@@ -39,7 +39,7 @@ The candidate estimate is 0.70 times typical, plus 0.25 for any private address.
 
 ## Direct offers
 
-An exploratory matched-copy study (`offers.py`) posted a flat gig at the refitted estimate and compared the app alone with the same app plus offers to three nearby drivers. The connection ended after two orders, so there is no usable estimate of the offer effect or read rate. On those two orders one offer was declined and five expired; expired conflates unread offers with offers made obsolete by a booking, so it does not identify how often offers were read. One app booking occurred in both copies. Repeat on several seeds with enough observations before deciding whether direct offers save fees.
+An exploratory matched-copy study (`offers.py`) posted a flat gig at the refitted estimate and compared the app alone with the same app plus offers to three nearby drivers. Although the console connection ended, the copied file contains 30 comparisons from `t3-offer-study-1`: 11 bookings in each arm, with no booking unique to either arm within 11 minutes. Of 90 attempted offers, nine were refused because the gig had already booked; of 81 accepted offer actions, six were declined and 75 expired, with no offer acceptance. A decline proves a read, but an expired offer can be unread or made obsolete by another booking, so six is only a lower bound on reads. This single-seed, short-horizon study cannot establish a general offer effect or whether offers beat the app's true minimum fee; repeat across seeds and fee levels before deciding whether direct offers save fees.
 
 ## Findings table
 
