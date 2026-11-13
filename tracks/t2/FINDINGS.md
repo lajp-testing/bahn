@@ -133,3 +133,15 @@ Fitting one level per day and the spread jointly by grid on the same 7,909 reque
 | `t2s5-dealer01` | dealer=0.1 | 85,503 | 2,231 | 97.8% | 93.5% | 10/10 |
 
 All three lose margin, monotonically in the step size, and all lose orders (−24 at 0.02, −57 at 0.1). `dealer002` splits 5/10 weeks (−1,509 total): noise-level, but never positive. Why the measurement did not translate: (1) the dealer differences in step 1 are measured against the quoter's own level, and the learning rule has to find them from single win/loss bits with a moving global level — the offset noise is paid on every quote; (2) the competitor answers per dealer (handbook: where we win most it cuts its prices), so exploiting a dealer that buys easily invites the cut and the learned offset chases a level that moves away. Per-dealer offsets stay default-off (`dealer=0`).
+
+### Step 3: the delivery-town table on the new mainline — towns=1.5 gains, peak moved left
+
+`dispatch/towns.py` (the stint 4 `DELIVERY` table) brought over by hand and wired into the current quoter: `towns` (scale, default 0) adds `towns * DELIVERY.get(delivery placeId)` to the level offset that `chance` takes; the same offset feeds the learning update. Defaults keep the mainline unchanged; tests pass (21).
+
+| label | change | margin EUR | orders | on time | worst | ranked |
+|---|---|---:|---:|---:|---:|---|
+| `t2s5-base` | none | 88,588 | 2,288 | 97.8% | 96.4% | 10/10 |
+| `t2s5-towns15` | towns=1.5 | **90,156** | 2,291 | 98.3% | 96.5% | 10/10 |
+| `t2s5-towns2` | towns=2 | 87,401 | 2,261 | 97.8% | 93.9% | 10/10 |
+
+On the old mainline (stint 4) the peak was at towns=2.0 (+1,842); on the current mainline towns=2 loses (−1,187, 4/10 weeks) and towns=1.5 gains +1,568 (6/10 weeks, all ranked, on time up in 8/10 weeks, dev-08 +1,635 the largest). The gain is just above the noise threshold with 6/10 agreement, so the peak is being bracketed with towns=1 and towns=1.75 before any recommendation.
