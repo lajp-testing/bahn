@@ -20,6 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from dispatch.policies import load, parse_params
+from spread.client import Unreachable
 
 from . import config
 from .play import read_index, run_week
@@ -69,14 +70,22 @@ def main() -> None:
     failed: list[Any] = []
 
     def one(seed: Any) -> None:
-        try:
-            row = run_week(args.policy, build, dict(params), args.level, seed, label, track, board=args.board)
-        except BaseException as error:  # the world is deleted; the other weeks go on
-            failed.append(seed)
-            with _print:
-                print(f"  FAILED {seed}: {error!r}", file=sys.stderr, flush=True)
-                traceback.print_exc()
-            return
+        for attempt in (1, 2, 3):
+            try:
+                row = run_week(args.policy, build, dict(params), args.level, seed, label, track, board=args.board)
+                break
+            except Unreachable as error:  # the network broke mid-week. The world is deleted, and the week is deterministic: play it again
+                with _print:
+                    print(f"  {seed}: {error} (attempt {attempt})", file=sys.stderr, flush=True)
+                if attempt == 3 or args.board:  # a ranking run cannot be played twice
+                    failed.append(seed)
+                    return
+            except BaseException as error:  # the world is deleted; the other weeks go on
+                failed.append(seed)
+                with _print:
+                    print(f"  FAILED {seed}: {error!r}", file=sys.stderr, flush=True)
+                    traceback.print_exc()
+                return
         rows.append(row)
         with _print:
             print("  " + line(row), flush=True)

@@ -6,7 +6,7 @@ slot's lock while its world lives. When a process dies, the lock goes with it, a
 process that takes the slot deletes the world that was left behind.
 
     with slots.create(client, level=8, seed="dev-01") as world:
-        ...play it to its end...
+        ...play it, to its end or not: a world that has not ended is deleted when the block ends...
 
 Use `slots.fork(world)` the same way for a copy: a copy needs a slot too.
 """
@@ -74,16 +74,50 @@ def _check(track: str, seed: Optional[str], board: bool) -> None:
         raise SystemExit("The holdout seeds are for the orchestrator only. Use the dev seeds or seeds of your own.")
 
 
+def reserve() -> int:
+    """The slots to leave free for the team's other systems on the same key: the number in `data/reserve`, else 2."""
+    try:
+        return int(open(os.path.join(config.DATA, "reserve"), encoding="utf-8").read().strip())
+    except (OSError, ValueError):
+        return 2
+
+
+def _make_with_room(client: Client, make) -> World:
+    """Creates the world when the team has room for it. Other systems of the team share the 8 worlds:
+    wait while fewer than `reserve()` would stay free, and wait out a 409 when the 8 are taken after all."""
+    while True:
+        alive = sum(1 for world in client.worlds() if not world["ended"])
+        if alive < 8 - reserve():
+            try:
+                return make()
+            except SpreadError as error:
+                if error.status != 409:
+                    raise
+        time.sleep(5)
+
+
+def _delete_unless_ended(world: World) -> None:
+    """Frees the world's place among the team's 8. A world that has ended holds none, and stays readable."""
+    try:
+        snapshot = world.snapshot()
+        if snapshot["now"] < snapshot["endsAt"]:
+            world.delete()
+    except SpreadError:
+        pass  # deleted already
+
+
 @contextmanager
-def _held(track: str, client: Client, make) -> Iterator[World]:
+def _held(track: str, client: Client, make, board: bool = False) -> Iterator[World]:
     slot = acquire(track, client)
     assert slot is not None
     world: Optional[World] = None
     try:
-        world = make()
+        world = _make_with_room(client, make)
         slot.record(world.id)
         yield world
-        slot.record("")  # the caller played it to its end, or deleted it
+        if not board:  # a world left before its end, for example after a study of Monday, still holds one of the 8
+            _delete_unless_ended(world)
+        slot.record("")
     except BaseException:
         if world is not None:
             try:
@@ -100,7 +134,7 @@ def create(client: Client, level: int, seed: Optional[str] = None, board: bool =
     """A new practice world in one of the track's slots, as a context manager. On an error it deletes the world."""
     track = track or config.track()
     _check(track, seed, board)
-    return _held(track, client, lambda: client.create(level=level, seed=seed, board=board))
+    return _held(track, client, lambda: client.create(level=level, seed=seed, board=board), board=board)
 
 
 def fork(world: World, track: Optional[str] = None):
@@ -114,7 +148,7 @@ def fork(world: World, track: Optional[str] = None):
         assert slot is not None
         copy: Optional[World] = None
         try:
-            copy = world.fork()
+            copy = _make_with_room(world.client, world.fork)
             slot.record(copy.id)
             yield copy
         finally:

@@ -1,7 +1,7 @@
 """Shows the team's practice worlds that have not ended and who holds which slot.
 
     python -m harness.janitor              list them
-    python -m harness.janitor --clean      orchestrator only: delete the practice worlds that no live process holds
+    python -m harness.janitor --clean      orchestrator only: delete the worlds that a dead process of ours left in a slot
 
 It never deletes a ranking run: a deleted ranking run plays to its end without the system, and counts.
 """
@@ -39,7 +39,7 @@ def held() -> dict[str, tuple[int, bool]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Lists the practice worlds that have not ended.")
-    parser.add_argument("--clean", action="store_true", help="delete the practice worlds that no live process holds")
+    parser.add_argument("--clean", action="store_true", help="delete the worlds that a dead process of ours left in a slot")
     args = parser.parse_args()
     if args.clean and config.track() != "orch":
         raise SystemExit("Only the orchestrator cleans: another track's world may be mid-experiment.")
@@ -53,7 +53,8 @@ def main() -> None:
         kind = "ranking run" if world["boardRun"] is not None else "final" if world["kind"] == "final" else "copy" if world["parent"] else "practice"
         where = f"slot {slot} ({owner[slot]}), {'held' if live else 'left behind'}" if slot is not None else "outside the broker"
         print(f"  {world['worldId']}  level {world['level']}  {kind:<11}  {where}")
-        if args.clean and not live and kind in ("practice", "copy"):
+        # A world outside the broker belongs to another system of the team on the same key: never touch it.
+        if args.clean and slot is not None and not live and kind in ("practice", "copy"):
             try:
                 client.world(world["worldId"]).delete()
                 print("    deleted")
