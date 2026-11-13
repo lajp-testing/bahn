@@ -23,6 +23,14 @@ class Fees(Part):
         self.open, self.step, self.every, self.steps = open, step, every, steps
         self.urgent_open, self.urgent_step, self.urgent_every, self.urgent_steps = urgent_open, urgent_step, urgent_every, urgent_steps
 
+    def estimate(self, request: dict[str, Any], desk: "Desk") -> int:
+        """Provisional full-request driver fee in cents, including late reposts.
+
+        Mean paid fee was 1.71 times typical in overloaded base dev weeks.
+        This is not a quote of the fee needed for timely delivery.
+        """
+        return max(1, int(request["referenceFeeCents"] * 1.71 + 0.5))
+
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
         """The schedule for `cars` of the order's cars, starting at `desk.now`."""
         fee = desk.requests[order["id"]]["referenceFeeCents"] * cars / len(order["legs"])
