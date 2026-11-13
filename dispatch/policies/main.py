@@ -21,9 +21,11 @@ from . import t1
 
 
 PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "car", "late", "trust", "invest", "share", "lag")
+FEES = ("fee_buffer", "fee_rise", "fee_cap", "fee_max_raises", "fee_hold_until", "fee_deadline_margin")  # passed to the fees without the prefix
 
 
 def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 1440, limit: int = 25, car: float = 1.1, late: float = 1.0, trust: float = 1.0, **params: Any) -> Parts:
+    fee = {key[4:]: params.pop(key) for key in FEES if key in params}
     profit = {"car": car, "late": late, "trust": trust} | {key: params.pop(key) for key in PROFIT if key in params}
     parts = t1.build(ctx, markup=markup, slack=slack, limit=limit, **params)
     parts.intake.private = private
@@ -32,5 +34,5 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
     if notes == "read":
         parts.notes = ReadNotes()
     if fees == "measured":
-        parts.fees = MeasuredFees(interval=rise)
+        parts.fees = MeasuredFees(interval=rise, **fee)
     return parts
