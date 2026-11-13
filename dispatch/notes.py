@@ -16,12 +16,47 @@ class Notes(Part):
     """The starter's reader: clock times near a few keywords narrow a stop's window. A manual licence
     and plates are asked for only after a visit has failed for them."""
 
+    def __init__(self, equipment: bool = False):
+        self.equipment = equipment
+
+    def requirements(self, request: dict[str, Any]) -> tuple[bool, bool]:
+        text = (request.get("note") or {}).get("text", "").lower()
+        manual = bool(re.search(r"manuaa|manuell|manual|stick shift", text))
+        if re.search(r"not (?:a )?manual|ei manua|inte manuell", text):
+            manual = False
+        plates = bool(re.search(r"no plates|without plates|bring .*plates|ei .*kilpi|ei rekkar|kilvet (?:poist|irrot)|"
+                                r"siirtokil|koekil|poistettu rekister|utan skylt|saknar .*skylt", text))
+        return manual, plates
+
+    def expansion_safe(self, request: dict[str, Any]) -> bool:
+        """Extra volume only on notes with no apparent timing, payment or tyre restriction.
+        This is a conservative admission filter, not a general natural-language time parser."""
+        note = request.get("note")
+        if not note:
+            return True
+        text = note["text"].lower()
+        if re.search(r"\d{1,2}[:.]\d{2}|\bklo\b|\bkl\b|\d\s*[-–]\s*\d|\d\s*[ap]m|"
+                     r"huomenn|ylihuom|morgon|tomorrow|tmrw|valmi|valmis|ready|workshop|huolto kesken|"
+                     r"perill|peril|viim|latest|senast|maks|payment|betal|luovut|close|sulke|kiinni|"
+                     r"auki|öppet|open|kesärenkailla|summer tyres on|sommardäck på|"
+                     r"\bafter\b|\bbefore\b|earliest|collect|nout|noud|haettava|aikais|efter|före|tidig|"
+                     r"maanantai|tiistai|keskiviik|torstai|perjantai|monday|tuesday|wednesday|thursday|friday", text):
+            return False
+        if any(self.requirements(request)) and not self.equipment:
+            return False
+        return bool(re.search(r"renga|renka|tyres|wheels|däck|avain|avaim|key|nyck|kiitos|kiitti|thanks|thank you|"
+                              r"tack|normaali|nothing special|ei erity|tilaus|viite|varaus|order no|ref|"
+                              r"manual|manuaa|manuell|stick shift|plates|kilvet|siirtokil|koekil", text))
+
     def risk(self, request: dict[str, Any], desk: "Desk") -> float:
         """How unsure the reader is about this request's note, from 0 (sure) to 1. The intake can decline on it."""
         return 0.0
 
     def plan(self, order: dict[str, Any], legs: list[int], request: dict[str, Any], retry: Retry, desk: "Desk") -> tuple[list[dict[str, Any]], dict[str, bool]]:
         """The stops for some of the order's legs, and the drivers who may take the gig."""
+        if self.equipment:
+            manual, plates = self.requirements(request)
+            retry = Retry(retry.pickup_from, retry.manual_licence or manual, retry.plates or plates)
         # A premium car needs an experienced driver: the fine is €150 a car.
         audience = {"experienced": any(leg["car"]["premium"] for leg in order["legs"]), "manualLicence": retry.manual_licence}
         return stops_for(order, legs, request["note"], retry, desk.ctx.km), audience
@@ -120,6 +155,7 @@ class ReadNotes(Notes):
     """
 
     def __init__(self) -> None:
+        super().__init__()
         self._facts: dict[str, Facts] = {}
 
     def facts(self, request: dict[str, Any]) -> Facts:

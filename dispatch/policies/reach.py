@@ -17,7 +17,7 @@ from ..parts import Parts
 from ..quote import DialQuoter, Quoter
 
 INTAKE = ("max_drive", "min_drivers", "near_km", "same_day", "future_same_day", "late_budget", "budget_after",
-          "brake_drivers", "brake_drive")
+          "brake_drivers", "brake_drive", "long_lanes", "batch_slots", "noted_slots", "private_slots", "trade_ins")
 DIAL = ("level", "scale", "gain", "dealer_gain", "no_same_day", "by_list", "by_trust", "cost_next", "cost_same", "ladder",
         "floor", "ceiling")
 DENSITY = ("dense", "dense_km", "far_1", "far_1_at", "far_2", "far_2_at")
@@ -25,7 +25,7 @@ DENSITY = ("dense", "dense_km", "far_1", "far_1_at", "far_2", "far_2_at")
 
 def build(ctx: Context, **params: Any) -> Parts:
     # notes=read: the note reader from langsjo's mainline (dispatch/reader.py); otherwise the starter's notes.
-    notes = ReadNotes() if params.pop("notes", "starter") == "read" else Notes()
+    notes = ReadNotes() if params.pop("notes", "starter") == "read" else Notes(equipment=params.get("noted_slots", False))
     intake = ReachIntake(**{key: params.pop(key) for key in INTAKE if key in params})
     dial = {key: params.pop(key) for key in DIAL if key in params}
     if params.pop("quoter", "markup") == "dial":

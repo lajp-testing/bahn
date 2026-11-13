@@ -369,3 +369,92 @@ def test_density_fees_stay_flat_near_drivers_and_climb_slowly_elsewhere():
     plain = reach_desk(open=0.85)
     plain.requests["R1"] = REQUEST
     assert len(plain.fees_for(order, 1)) == 6  # without density=true: the starter's hourly climb
+
+
+def volume_request():
+    return {**REQUEST, "arrivedAt": 600, "respondBy": 615, "note": None, "options": REQUEST["options"][:1]}
+
+
+def test_long_lanes_need_open_hours_qualified_supply_and_risk_room():
+    request = {**volume_request(), "options": REQUEST["options"][1:]}
+    for enabled, expected in ((False, {"next_day": 75000}), (True, {"next_day": 22500})):
+        desk = reach_desk(long_lanes=enabled)
+        desk.ctx.road_minutes[("helsinki", "tampere")] = 360
+        desk.quote(request)
+        assert desk.outbox[-1]["prices"] == expected
+    # Residents with the wrong premium qualification are not six usable drivers.
+    desk.ctx.roster = [{**d, "rating": 4.0} for d in desk.ctx.roster]
+    desk.quote(request)
+    assert desk.outbox[-1]["prices"] == {"next_day": 75000}
+    desk = reach_desk(long_lanes=True)
+    desk.ctx.road_minutes[("helsinki", "tampere")] = 360
+    closed = {"opens": 480, "closes": 540, "weekdays": [2], "saturday": None}
+    desk.quote({**request, "legs": [{**LEG, "delivery": {**LEG["delivery"], "hours": closed}}]})
+    assert desk.outbox[-1]["prices"] == {"next_day": 75000}  # first opens Wednesday, due Tuesday
+    for i in range(3):
+        desk.parts.intake.observe({"kind": "ledger", "line": {"kind": "late_refund", "orderId": f"late-{i}"}}, desk, False)
+    desk.quote(request)
+    assert desk.outbox[-1]["prices"] == {"next_day": 75000}
+
+
+def test_batch_slots_reserve_capacity_before_any_quote_is_won():
+    request = {**volume_request(), "batchId": "bulk-1"}
+    desk = reach_desk()
+    desk.quote(request)
+    assert desk.outbox[-1]["prices"] == {"same_day": 100000}
+    desk = reach_desk(batch_slots=True)
+    for i in range(9):
+        desk.quote({**request, "id": f"bulk-{i}"})
+    assert [q["prices"]["same_day"] for q in desk.outbox] == [30000] * 8 + [100000]
+    desk.now = 616  # lost quotes no longer reserve capacity
+    desk.quote({**request, "id": "next-batch", "respondBy": 631})
+    assert desk.outbox[-1]["prices"] == {"same_day": 30000}
+
+
+def test_noted_slots_read_equipment_before_posting_and_keep_unknown_times_out():
+    request = {**volume_request(), "note": {"text": "Manual, no plates.", "language": "en"}}
+    desk = reach_desk(noted_slots=True)
+    desk.quote(request)
+    assert desk.outbox[-1]["prices"] == {"same_day": 30000}
+    desk.win(ORDER)
+    post = desk.outbox[-1]
+    assert post["audience"]["manualLicence"] and post["stops"][0]["withPlates"]
+    desk.quote({**request, "note": {"text": "Thanks. Ready tomorrow 11:30.", "language": "en"}})
+    assert desk.outbox[-1]["prices"] == {"same_day": 100000}
+    desk = reach_desk(noted_slots=True)
+    request = {**request, "note": {"text": "Automatic, not a manual. Thanks.", "language": "en"}}
+    desk.quote(request)
+    desk.win(ORDER)
+    assert not desk.outbox[-1]["audience"]["manualLicence"]
+    plain = reach_desk()
+    plain.quote(request)
+    assert plain.outbox[-1]["prices"] == {"same_day": 100000}
+
+
+def test_private_slots_need_booking_time_and_room_inside_the_actual_slot():
+    request = volume_request()
+    delivery = {**LEG["delivery"], "privateAddress": True, "window": {"from": 1050, "to": 1110}}
+    request = {**request, "legs": [{**LEG, "delivery": delivery}],
+               "options": [{**request["options"][0], "deadline": 1140}]}
+    for enabled, expected in ((False, 100000), (True, 30000)):
+        desk = reach_desk(private_slots=enabled)
+        desk.quote(request)
+        assert desk.outbox[-1]["prices"]["same_day"] == expected
+    desk.quote({**request, "legs": [{**LEG, "delivery": {**delivery, "window": {"from": 900, "to": 960}}}]})
+    assert desk.outbox[-1]["prices"] == {"same_day": 100000}  # earliest arrival 961, outside the slot
+
+
+def test_trade_ins_keep_the_same_visit_and_reject_routes_over_twelve_hours():
+    private = {**LEG["delivery"], "privateAddress": True, "window": {"from": 1030, "to": 1090}}
+    outbound = {**LEG, "delivery": private}
+    back = {**LEG, "pickup": {**private, "window": {"from": 1000, "to": 1020}}, "delivery": PLACE}
+    request = {**volume_request(), "legs": [outbound, back],
+               "options": [{**REQUEST["options"][0], "deadline": 1300}]}
+    for enabled, expected in ((False, 100000), (True, 30000)):
+        desk = reach_desk(trade_ins=enabled, long_lanes=True)
+        desk.quote(request)
+        assert desk.outbox[-1]["prices"]["same_day"] == expected
+    desk.ctx.road_minutes[("helsinki", "tampere")] = 361
+    desk.ctx.road_minutes[("tampere", "helsinki")] = 361
+    desk.quote(request)
+    assert desk.outbox[-1]["prices"] == {"same_day": 100000}
