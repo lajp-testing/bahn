@@ -17,7 +17,8 @@ from ..parts import Parts
 from ..quote import DialQuoter, Quoter
 
 INTAKE = ("max_drive", "min_drivers", "near_km", "same_day", "future_same_day", "late_budget", "budget_after",
-          "brake_drivers", "brake_drive", "long_lanes", "batch_slots", "noted_slots", "private_slots", "trade_ins")
+          "brake_drivers", "brake_drive", "long_lanes", "batch_slots", "noted_slots", "private_slots", "trade_ins",
+          "no_private", "no_trade_ins")
 DIAL = ("level", "scale", "gain", "dealer_gain", "no_same_day", "by_list", "by_trust", "cost_next", "cost_same", "ladder",
         "floor", "ceiling")
 DENSITY = ("dense", "dense_km", "far_1", "far_1_at", "far_2", "far_2_at")

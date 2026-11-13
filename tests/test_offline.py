@@ -458,3 +458,18 @@ def test_trade_ins_keep_the_same_visit_and_reject_routes_over_twelve_hours():
     desk.ctx.road_minutes[("tampere", "helsinki")] = 361
     desk.quote(request)
     assert desk.outbox[-1]["prices"] == {"same_day": 100000}
+
+
+def test_no_private_and_no_trade_ins_decline_those_classes_even_when_reachable():
+    private = {**REQUEST, "legs": [{**LEG, "delivery": {**LEG["delivery"], "privateAddress": True}}]}
+    trade = {**REQUEST, "legs": [LEG, {**LEG, "pickup": LEG["delivery"], "delivery": PLACE}]}
+    for request, switch in ((private, "no_private"), (trade, "no_trade_ins")):
+        desk = reach_desk(min_drivers=0)
+        desk.quote(request)
+        assert desk.outbox[-1]["prices"] == {"next_day": 22500}
+        desk = reach_desk(min_drivers=0, **{switch: True})
+        desk.quote(request)
+        assert desk.outbox[-1]["prices"] == {"same_day": 100000}
+    desk = reach_desk(min_drivers=0, no_private=True, no_trade_ins=True)
+    desk.quote(REQUEST)  # a plain request is unchanged
+    assert desk.outbox[-1]["prices"] == {"next_day": 22500}

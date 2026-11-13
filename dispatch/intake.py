@@ -33,7 +33,8 @@ class ReachIntake(Intake):
                  future_same_day: bool = False, late_budget: float = 0.0, budget_after: int = 40,
                  brake_drivers: int = 10, brake_drive: int = 180, long_lanes: bool = False,
                  batch_slots: bool = False, noted_slots: bool = False, private_slots: bool = False,
-                 trade_ins: bool = False):
+                 trade_ins: bool = False, no_private: bool = False, no_trade_ins: bool = False):
+        self.no_private, self.no_trade_ins = no_private, no_trade_ins
         self.max_drive, self.min_drivers, self.near_km, self.same_day = max_drive, min_drivers, near_km, same_day
         # future_same_day: a `same_day` option on a car that is ready a day or more after the request is not an
         # urgent order, so quote it on a plain single-car request (the fresh-angles thread's future_ready).
@@ -198,6 +199,12 @@ class ReachIntake(Intake):
             for leg in request["legs"])
         same_day = not brake and (self.same_day or (self.future_same_day and self.future_ready(request)))
         kept = {kind: cents for kind, cents in prices.items() if same_day or kind != "same_day"} if reachable else {}
+        # no_private / no_trade_ins: these classes earn about nothing at the quoter's prices but are late
+        # far more often, and a late order halves its dealer's trust count.
+        legs = request["legs"]
+        if (self.no_trade_ins and len(legs) > 1) or (self.no_private and len(legs) == 1 and any(
+                legs[0][end]["privateAddress"] for end in ("pickup", "delivery"))):
+            return decline(request)
         if not kept and self.expanding and not brake:
             kept = self.expansion_options(request, prices, desk)
         if kept and self.expanding:
