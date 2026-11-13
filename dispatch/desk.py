@@ -165,9 +165,9 @@ class Desk:
         order = self.orders.get(action["stops"][0]["orderId"])
         if order is None:
             return
-        # One of its windows has ended, perhaps at a site's closing time before the window's own end: post without its own stop windows.
-        stops = without_windows(action["stops"], float("inf"))
-        self.outbox.append({**action, "stops": stops, "schedule": self.fees_for(order, pickups(action))})
+        # One of its windows has ended: the notes plan its stops again (the starter's notes drop their windows).
+        stops, audience = self.parts.notes.again(action, order, self)
+        self.outbox.append({"type": "post", "stops": without_windows(stops, self.now), "audience": audience, "schedule": self.fees_for(order, pickups(action))})
 
     def raise_fees(self, order_id: str) -> None:
         """From the order's deadline warning on, its gigs that no driver holds go at the urgent fees."""
