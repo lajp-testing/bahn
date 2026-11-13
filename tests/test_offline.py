@@ -440,6 +440,9 @@ def test_private_slots_need_booking_time_and_room_inside_the_actual_slot():
         desk = reach_desk(private_slots=enabled)
         desk.quote(request)
         assert desk.outbox[-1]["prices"]["same_day"] == expected
+        desk = reach_desk(private_slots=enabled, no_private=True)  # no_private leaves private requests to the gate
+        desk.quote(request)
+        assert desk.outbox[-1]["prices"]["same_day"] == expected
     desk.quote({**request, "legs": [{**LEG, "delivery": {**delivery, "window": {"from": 900, "to": 960}}}]})
     assert desk.outbox[-1]["prices"] == {"same_day": 100000}  # earliest arrival 961, outside the slot
 

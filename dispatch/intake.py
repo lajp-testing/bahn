@@ -206,10 +206,12 @@ class ReachIntake(Intake):
                                      and self.drivers_near(leg["pickup"]["placeId"], desk) < self.thin_drivers for leg in legs):
             kept = {kind: cents for kind, cents in kept.items() if kind == "within_3_days"}
         # no_private / no_trade_ins: these classes earn about nothing at the quoter's prices but are late
-        # far more often, and a late order halves its dealer's trust count.
-        if (self.no_trade_ins and len(legs) > 1) or (self.no_private and len(legs) == 1 and any(
-                legs[0][end]["privateAddress"] for end in ("pickup", "delivery"))):
+        # far more often, and a late order halves its dealer's trust count. With private_slots as well, a private
+        # request is quoted only when it passes the expansion gate.
+        if self.no_trade_ins and len(legs) > 1:
             return decline(request)
+        if self.no_private and len(legs) == 1 and any(legs[0][end]["privateAddress"] for end in ("pickup", "delivery")):
+            kept = {}
         if not kept and self.expanding and not brake:
             kept = self.expansion_options(request, prices, desk)
         if kept and self.expanding:
