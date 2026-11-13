@@ -34,7 +34,8 @@ class ReachIntake(Intake):
                  brake_drivers: int = 10, brake_drive: int = 180, long_lanes: bool = False,
                  batch_slots: bool = False, noted_slots: bool = False, private_slots: bool = False,
                  trade_ins: bool = False, no_private: bool = False, no_trade_ins: bool = False, thin_drivers: int = 0,
-                 thin_both: bool = False):
+                 thin_both: bool = False, long_max: int = 600, long_markup: float = 1.0, expand_brake: float = 0.06):
+        self.long_max, self.long_markup, self.expand_brake = long_max, long_markup, expand_brake
         self.no_private, self.no_trade_ins, self.thin_drivers, self.thin_both = no_private, no_trade_ins, thin_drivers, thin_both
         self.max_drive, self.min_drivers, self.near_km, self.same_day = max_drive, min_drivers, near_km, same_day
         # future_same_day: a `same_day` option on a car that is ready a day or more after the request is not an
@@ -93,9 +94,10 @@ class ReachIntake(Intake):
 
     def expansion_options(self, request: dict[str, Any], prices: dict[str, int], desk: "Desk") -> dict[str, int]:
         """Extra orders need reachable windows, qualified supply and room in the local unbooked queue.
-        Existing intake is unchanged. The six-percent risk brake applies to extra volume even when the
-        optional whole-portfolio late budget is off."""
-        if len(self.late) + self.at_risk(desk) >= 0.06 * max(40, len(self.won)):
+        Existing intake is unchanged. The risk brake (`expand_brake`, six percent) applies to extra volume even
+        when the optional whole-portfolio late budget is off. A long lane is taken up to `long_max` road minutes,
+        at `long_markup` times the quoter's prices for its risk."""
+        if len(self.late) + self.at_risk(desk) >= self.expand_brake * max(40, len(self.won)):
             return {}
         legs = request["legs"]
         private = any(leg[end]["privateAddress"] for leg in legs for end in ("pickup", "delivery"))
@@ -104,7 +106,7 @@ class ReachIntake(Intake):
         long = max(drives) > self.max_drive
         if (trade and not self.trade_ins) or (private and not trade and not self.private_slots):
             return {}
-        if long and (not self.long_lanes or max(drives) > 600):
+        if long and (not self.long_lanes or max(drives) > self.long_max):
             return {}
         enabled = long or (trade and self.trade_ins) or (private and self.private_slots)
         enabled |= bool(self.batch_slots and request["batchId"]) or bool(self.noted_slots and request["note"])
@@ -165,7 +167,7 @@ class ReachIntake(Intake):
                 at += drives[i] + (40 if charging else 0)
                 at = self.open_at(leg["delivery"], at, deadline, pickup=False)
             if at <= deadline - 60:
-                kept[kind] = prices[kind]
+                kept[kind] = round(prices[kind] * self.long_markup) if long else prices[kind]
         return kept
 
     @staticmethod
