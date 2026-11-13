@@ -1,13 +1,18 @@
-"""The clearing price: one price level for the week, which the week itself sets.
+"""The quoter: the price that earns the most, for the level this week's dealers accept.
 
-Drivers are scarce, so the desk can move only so many cars at once. The right price is the highest
-one that still fills that capacity. The level is a multiple of the list price. After each dealer's
-decision it moves a small step: up after a win, down after a loss. The steps are sized so that the
-level settles where the share of quotes won equals a target, and the target follows the queue of
-orders that wait for a driver: high when the queue is empty, low when it is full.
+A dealer buys from us when our price is under a switching price that we cannot see. Scans of whole
+weeks (tracks/t2) show two things about it, as a multiple of the list price: its level moves from
+day to day and from week to week (day means from 1.1 to 1.7), and around that level requests are
+spread widely (a standard deviation of 0.2 to 0.35).
 
-So a week with a dear competitor ends at a high level, a week with a cheap one at a low level, and
-a full queue pushes the level up before the intake has to decline.
+So the quoter keeps one number, the level, and a fixed spread. Together they give the chance to win
+at any price. For each option it quotes the price that maximises (price - cost) x chance. After each
+dealer's decision the level moves a step: up after a win, down after a loss, by more when the result
+was a surprise. The steps are larger for the first decisions of a day, because the level is new then.
+
+The cost is what the car costs us to move: a multiple of the typical fee, plus a charge that rises
+as the queue of orders without a driver fills. A full queue makes every car dearer for us, so prices
+rise before the intake has to decline.
 """
 from __future__ import annotations
 
@@ -19,63 +24,58 @@ from .parts import Part
 if TYPE_CHECKING:
     from .desk import Desk
 
+DAY = 24 * 60
 
-class ClearingQuoter(Part):
-    wake_on = ["order_lost"]  # a loss moves the level too: do not wait for the next request to hear of it
 
-    def __init__(self, start: float = 1.45, step: float = 0.04, empty: float = 0.7, full: float = 0.15, limit: int = 15,
-                 low: float = 1.0, high: float = 2.6, trust: float = 0.0):
-        self.level, self.step, self.empty, self.full, self.limit = start, step, empty, full, limit
-        self.low, self.high, self.trust = low, high, trust
-        self.on_time: dict[str, int] = {}  # dealer -> orders delivered on time, as the dealer counts its trust
-        self.late: set[str] = set()
+class ProfitQuoter(Part):
+    wake_on = ["order_lost"]  # a loss moves the level too: hear of it at once
+
+    def __init__(self, start: float = 1.4, spread: float = 0.2, step: float = 0.06, boost: float = 3.0, cost: float = 1.2,
+                 queue: float = 0.0, limit: int = 15, low: float = 0.9, high: float = 2.6):
+        self.level, self.spread, self.step, self.boost = start, spread, step, boost
+        self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
+        self.sent: dict[str, dict[str, float]] = {}  # request -> option -> the price we sent, as a multiple of the list price
+        self.day, self.seen_today = -1, 0
+
+    def chance(self, ratio: float) -> float:
+        """The chance that a dealer takes a price of `ratio` times the list price."""
+        return 1 / (1 + math.exp(max(-40.0, min(40.0, (ratio - self.level) / self.spread))))
+
+    def waiting(self, desk: "Desk") -> float:
+        """How full the queue of orders without a booked driver is, from 0 to 1."""
+        count = sum(1 for order in desk.orders.values() if any(at is None for at in order["deliveredAt"])
+                    and (not desk.gigs_of(order["id"]) or any(gig not in desk.booked for gig in desk.gigs_of(order["id"]))))
+        return min(1.0, count / self.limit)
 
     def prices(self, request: dict[str, Any], desk: "Desk") -> dict[str, int]:
-        # A dealer accepts 1% more for each order we delivered to it on time, up to 25.
-        bonus = 1 + self.trust * 0.01 * min(25, self.on_time.get(request["dealerId"], 0))
-        return {option["kind"]: round(option["listPriceCents"] * self.level * bonus) for option in request["options"]}
-
-    def target(self, desk: "Desk") -> float:
-        """The share of quotes we want to win now: from `empty` with no order waiting to `full` at the limit."""
-        waiting = sum(1 for order in desk.orders.values() if any(at is None for at in order["deliveredAt"])
-                      and (not desk.gigs_of(order["id"]) or any(gig not in desk.booked for gig in desk.gigs_of(order["id"]))))
-        fill = min(1.0, waiting / self.limit)
-        return self.empty + (self.full - self.empty) * fill
-
-    def observe(self, event: dict[str, Any], desk: "Desk", replay: bool) -> None:
-        kind = event["kind"]
-        if kind in ("order_won", "order_lost"):
-            request_id = event["order"]["id"] if kind == "order_won" else event["requestId"]
-            request = desk.requests.get(request_id)
-            if request is None or self._declined(request, event):
-                return
-            target = self.target(desk)
-            # Up by step x (1 - target) after a win, down by step x target after a loss: no drift when the win share is the target.
-            move = self.step * ((1 - target) if kind == "order_won" else -target)
-            self.level = min(self.high, max(self.low, self.level * math.exp(move)))
-        elif kind == "ledger":
-            line = event["line"]
-            if line["kind"] == "late_refund" and line["orderId"]:
-                self.late.add(line["orderId"])
-            elif line["kind"] == "revenue" and line["orderId"] and line["orderId"] not in self.late:
-                dealer = desk.requests.get(line["orderId"], {}).get("dealerId")
-                if dealer:
-                    self.on_time[dealer] = self.on_time.get(dealer, 0) + 1
-
-    def _declined(self, request: dict[str, Any], event: dict[str, Any]) -> bool:
-        """A loss on a request that the intake declined says nothing about the price."""
-        return event["kind"] == "order_lost" and request["id"] in self.declined
-
-    declined: set[str] = set()
+        charge = self.queue * self.waiting(desk) ** 2
+        prices = {}
+        for option in request["options"]:
+            cost = self.cost * request["referenceFeeCents"] / option["listPriceCents"] + charge  # in list prices
+            best = max((cost + 0.02 + 0.01 * i for i in range(220)), key=lambda ratio: (ratio - cost) * self.chance(ratio))
+            prices[option["kind"]] = round(option["listPriceCents"] * best)
+        return prices
 
     def result(self, action: dict[str, Any], result: dict[str, Any], desk: "Desk") -> None:
-        if action["type"] != "quote":
+        """Remembers the prices that went out: the intake may have changed or declined them."""
+        request = desk.requests.get(action.get("requestId", ""))
+        if action["type"] == "quote" and result.get("ok") and request is not None:
+            lists = {option["kind"]: option["listPriceCents"] for option in request["options"]}
+            self.sent[request["id"]] = {kind: cents / lists[kind] for kind, cents in action["prices"].items() if kind in lists}
+
+    def observe(self, event: dict[str, Any], desk: "Desk", replay: bool) -> None:
+        if event["kind"] not in ("order_won", "order_lost"):
             return
-        request = desk.requests.get(action["requestId"])
-        if request is None:
+        won = event["kind"] == "order_won"
+        sent = self.sent.pop(event["order"]["id"] if won else event["requestId"], None)
+        if not sent:
             return
-        if self.declined is ClearingQuoter.declined:
-            self.declined = set()
-        # The intake declines with a price far above the list price.
-        if min(action["prices"][option["kind"]] / option["listPriceCents"] for option in request["options"] if option["kind"] in action["prices"]) > 4:
-            self.declined.add(request["id"])
+        # A win shows the taken option's price was low enough; a loss shows even the lowest one was too high.
+        ratio = sent.get(event["order"]["option"], min(sent.values())) if won else min(sent.values())
+        if ratio > 4:
+            return  # the intake declined this request: its loss says nothing about the level
+        if event["at"] // DAY != self.day:
+            self.day, self.seen_today = event["at"] // DAY, 0
+        step = self.step * max(1.0, self.boost / math.sqrt(1 + self.seen_today / 3))
+        self.seen_today += 1
+        self.level = min(self.high, max(self.low, self.level + step * ((1.0 if won else 0.0) - self.chance(ratio))))
