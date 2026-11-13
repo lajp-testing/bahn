@@ -1,9 +1,30 @@
 # Track 1: Intake and on-time
 
+The best third-stint candidate is opt-in: `--set slack=1440 --set private=true --set queue_price=true --set win_price=true`. The main defaults are unchanged. The rules are: offer options with at least 24 hours of note-adjusted slack after driving; raise prices as unbooked work fills the queue; and adjust prices gently toward a 40% recent quote win rate.
+
+| Third-stint version | Margin | On time | Orders | Worst week | Ranked |
+|---|---:|---:|---:|---:|---:|
+| `t1-stint3-baseline` | €43,815 | 98.0% | 1,107 | 95.9% | 10/10 |
+| `t1-stint3-slack24-private` | €44,639 | 97.4% | 1,114 | 95.1% | 10/10 |
+| `t1-stint3-slack24-no-private` | €43,212 | 99.1% | 1,029 | 96.8% | 10/10 |
+| `t1-stint3-slack24-private72` | €42,827 | 98.3% | 1,062 | 95.1% | 10/10 |
+| `t1-stint3-queue-price` | €47,493 | 97.4% | 1,284 | 95.6% | 10/10 |
+| `t1-stint3-win-price` | €52,838 | 98.0% | 1,611 | 94.9% | 10/10 |
+| `t1-stint3-regional` | €40,634 | 96.9% | 1,290 | 92.6% | 10/10 |
+
+Regional compares against queue-price, not win-price; private72 compares against slack24-private. All are ten dev weeks. Restart loses the win-rate estimate, so the live runner should be checked for recovery behavior; the sample supports an improvement on dev seeds, not guaranteed performance on unseen weeks. Next investigate first-leg versus trade-in slack, weather disruptions, and restart-safe learning on independent study weeks. Offline checks: 21 passed. Changes outside the intake and policy are this findings file, its analysis script, and focused offline tests.
+
 The intake limits unbooked orders plus quotes awaiting a decision to 15, and declines private-address requests and same-day options. It uses markup 1.7, all later options, opening fee 1.3 and six fee steps of 0.1 every 60 minutes. The limit is a conservative initial rule, not a measured capacity model.
 
 | Label | Dev weeks | Margin | On time | Ranked |
 |---|---:|---:|---:|---:|
+| `t1-stint3-win-price` | 10 | €52,838 | 98.0% | 10/10 |
+| `t1-stint3-queue-price` | 10 | €47,493 | 97.4% | 10/10 |
+| `t1-stint3-regional` | 10 | €40,634 | 96.9% | 10/10 |
+| `t1-stint3-baseline` | 10 | €43,815 | 98.0% | 10/10 |
+| `t1-stint3-slack24-private` | 10 | €44,639 | 97.4% | 10/10 |
+| `t1-stint3-slack24-private72` | 10 | €42,827 | 98.3% | 10/10 |
+| `t1-stint3-slack24-no-private` | 10 | €43,212 | 99.1% | 10/10 |
 | `t1-limit15-later-price16-fee11` | 10 | €37,221 | 95.3% | 9/10 |
 | `t1-limit15-later-price16-fee13` | 10 | €12,114 | 96.2% | 10/10 |
 | `t1-stint2-limit25-fee13` | 10 | €4,141 | 94.6% | 9/10 |
@@ -26,6 +47,12 @@ In progress: `t1-limit15-later-price16-fee11`, same policy with opening fee 1.1 
 The completed lower-fee comparison `t1-limit15-later-price16-fee11` made **€37,221**, 95.3% on time, but ranked **9/10**; dev-10 reached only 89.8%, and dev-07 92.7%. Against fee15 it gained €69,200 but lost one ranked week, so it is not kept. The intermediate fee test `t1-limit15-later-price16-fee13` is in progress: opening 1.3, step 0.1 every 60 minutes, six steps.
 
 Stopped the intermediate-fee run at the 30-minute stint limit after three completed weeks; cleaned up both track slots. On the paired dev-01 through dev-03, fee13 made €3,863 at 96.3% on time, 3/3 ranked; fee15 lost €7,434 at 96.5%, 3/3 ranked. This is a lead only. Resume the same label for the remaining seven weeks before deciding whether to keep it. No changes outside intake and policy assembly were made.
+
+## Third stint: saved-week evidence and experiments
+
+The main default control `t1-stint3-baseline` made €43,815.45, 1,107 orders, 98.0% on time, worst 95.9%, ranked 10/10. The first test, `t1-stint3-slack24-private`, replaces the same-day ban with a 24-hour note-adjusted slack minimum and permits private addresses; it made €44,639.05, 1,114 orders, 97.4% on time, worst 95.1%, 10/10 ranked: +€823.60 over control, meeting the 93% floor. Kept as an opt-in candidate (`slack=1440 private=true`), because the shared main defaults are owned by the orchestrator. `t1-stint3-slack24-no-private` tests the same slack rule without private addresses: €43,212.02, 1,029 orders, 99.1% on time, worst 96.8%, 10/10 ranked; rejected because margin fell €603.43 against baseline. `t1-stint3-slack24-private72` with a 72-hour minimum for private requests made €42,827.23, 1,062 orders, 98.3% on time, worst 95.1%, 10/10 ranked; rejected versus the less restrictive candidate. `t1-stint3-queue-price` scales prices from 0.9 to 1.1 of the original markup as the queue fills: €47,493.18, 1,284 orders, 97.4% on time, worst 95.6%, 10/10 ranked. Kept as an opt-in candidate; it gained €2,854.13 over slack24-private. `t1-stint3-win-price` adds a smoothed recent win-rate adjustment around a 40% target: €52,837.55, 1,611 orders, 98.0% on time, worst 94.9%, 10/10 ranked, +€5,344.37; kept as opt-in. The win-rate state resets after a desk restart because quote actions are not in event history. `t1-stint3-regional` replaces national queue pressure with the number of unbooked orders and pending quotes within 30 km relative to the share of drivers living there, retaining the national hard limit: €40,633.63, 1,290 orders, 96.9% on time, worst 92.6%, 10/10 ranked. Rejected: below both the candidate margin and the 93% floor.
+
+On 1,588 non-cancelled fee11 orders from the previous stint, computed retrospectively using the reader and response deadline as the decision time, on-time shares by slack were: under 12h 14/14 (100%, small sample), 12–24h 107/133 (80.5%), 24–48h 669/693 (96.5%), 48–72h 73/78 (93.6%), 72h+ 661/670 (98.7%). By first-leg drive: under 2h 605/612 (98.9%), 2–4h 429/443 (96.8%), 4–6h 319/333 (95.8%), 6h+ 171/200 (85.5%). Private orders were 160/189 (84.7%) versus 1,364/1,399 (97.5%) otherwise. Private orders with 72h+ slack were 71/71 on time, but this selected historical sample is not causal. The notes reader was not active in these weeks. Run `python3 -m tracks.t1.slack_analysis` to reproduce.
 
 ## Second stint: saved order analysis
 
