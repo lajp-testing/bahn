@@ -32,6 +32,23 @@ The same `reach` weeks on the main team's key gave the same numbers to the cent:
 
 Across the 20 weeks of each label, 26–92 actions were refused: mostly withdraws of gigs that were no longer open, plus 1–5 posts whose window had already ended. They cost nothing, but they point at a desk bookkeeping gap.
 
+## Switches of e7bf4da (dev on 7 slots, holdout on orch; every label adds `open=0.85`)
+
+`ctl@e7bf4da` (no switch) matches `reach-open0.85@0ce6b0a` row for row on dev, so the switches are off by default.
+
+| Variant | Dev total | vs ctl | Better on | Dev worst week | Late orders | Holdout total | vs 0ce6b0a | Holdout worst week |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ctl | €63,285 | | | 94.1% | 77 | (€61,837) | | (94.4%) |
+| **`future_same_day=true`** | **€69,264** | **+€5,979** | **7 of 10** | **94.0%** | 100 | **€66,153** | **+€4,315, 6 of 10** | **95.5%** |
+| + `late_budget=0.05` | €67,362 | +€4,077 | 7 of 10 | 94.0% | 92 | €66,153 (row for row = fr) | +€4,315 | 95.5% |
+| + `late_budget=0.04` | €67,154 | +€3,869 | 7 of 10 | 94.9% | 91 | not run | | |
+| `late_budget=0.05` | €62,858 | −€427 | 0 of 10 | 94.1% | 79 | not run | | |
+| `density=true` | €62,275 | −€1,010 | 3 of 10 | 92.9% | 115 | not run | | |
+| `density=true dense=10` | €60,500 | −€2,785 | 2 of 10 | 89.7%, 9/10 ranked | 150 | not run | | |
+| all three, `late_budget=0.05` | €68,216 | +€4,931 | 8 of 10 | 91.9% | 123 | not run | | |
+
+**Decision: freeze `future_same_day=true` for ranking runs.** The late budget never binds on holdout (late share near 3%) and costs €1,902 on dev; the density fees lose margin and on-time share at level 8.
+
 ## What failed
 
 - A markup away from 1.5 in either direction loses margin: 1.4 wins more cars at a thinner margin and gets closer to the
