@@ -27,6 +27,12 @@ The completed lower-fee comparison `t1-limit15-later-price16-fee11` made **€37
 
 Stopped the intermediate-fee run at the 30-minute stint limit after three completed weeks; cleaned up both track slots. On the paired dev-01 through dev-03, fee13 made €3,863 at 96.3% on time, 3/3 ranked; fee15 lost €7,434 at 96.5%, 3/3 ranked. This is a lead only. Resume the same label for the remaining seven weeks before deciding whether to keep it. No changes outside intake and policy assembly were made.
 
+## Third stint: saved-week evidence and experiments
+
+The main default control `t1-stint3-baseline` made €43,815.45, 1,107 orders, 98.0% on time, worst 95.9%, ranked 10/10. The first test, `t1-stint3-slack24-private`, replaces the same-day ban with a 24-hour note-adjusted slack minimum and permits private addresses; it is running. `t1-stint3-slack24-no-private` tests the same slack rule without private addresses.
+
+On 1,588 non-cancelled fee11 orders from the previous stint, computed retrospectively using the reader and response deadline as the decision time, on-time shares by slack were: under 12h 14/14 (100%, small sample), 12–24h 107/133 (80.5%), 24–48h 669/693 (96.5%), 48–72h 73/78 (93.6%), 72h+ 661/670 (98.7%). By first-leg drive: under 2h 605/612 (98.9%), 2–4h 429/443 (96.8%), 4–6h 319/333 (95.8%), 6h+ 171/200 (85.5%). Private orders were 160/189 (84.7%) versus 1,364/1,399 (97.5%) otherwise. Private orders with 72h+ slack were 71/71 on time, but this selected historical sample is not causal. The notes reader was not active in these weeks. Run `python3 -m tracks.t1.slack_analysis` to reproduce.
+
 ## Second stint: saved order analysis
 
 For the ten fee11 weeks, the final snapshots contain 1,588 non-cancelled orders: 64 late, none undelivered, and 1,524 on time. Private pickup or delivery appears in 29/64 late orders versus 160/1,524 on-time orders; trade-ins in 7/64 versus 15/1,524; a note in 29/64 versus 681/1,524. Pickup towns with no resident driver account for 5/64 late versus 60/1,524 on time. A recorded failed visit occurred for 4/64 late versus 25/1,524 on time. These are associations, not proof of cause.
