@@ -24,12 +24,15 @@ class Fees(Part):
         self.urgent_open, self.urgent_step, self.urgent_every, self.urgent_steps = urgent_open, urgent_step, urgent_every, urgent_steps
 
     def estimate(self, request: dict[str, Any], desk: "Desk") -> int:
-        """Provisional full-request driver fee in cents, including late reposts.
+        """Experimental two-hour retained-booking fee, not a full delivery cost.
 
-        Mean paid fee was 1.71 times typical in overloaded base dev weeks.
-        This is not a quote of the fee needed for timely delivery.
+        Single-car fork samples suggest a premium when pickup-area drivers are sparse;
+        trade-ins and later drops are not calibrated by this estimate.
         """
-        return max(1, int(request["referenceFeeCents"] * 1.71 + 0.5))
+        pickup = request["legs"][0]["pickup"]["placeId"]
+        nearby = sum(desk.ctx.straight_km(pickup, d["homePlaceId"]) <= 30 for d in desk.ctx.roster)
+        multiple = 0.6 + (0.15 if nearby < 30 else 0)
+        return max(1, int(request["referenceFeeCents"] * multiple + 0.5))
 
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
         """The schedule for `cars` of the order's cars, starting at `desk.now`."""
@@ -41,12 +44,6 @@ class Fees(Part):
 
 class MeasuredFees(Fees):
     """Experimental single-car booking estimate with an early reliability buffer."""
-
-    def estimate(self, request: dict[str, Any], desk: "Desk") -> int:
-        pickup = request["legs"][0]["pickup"]["placeId"]
-        nearby = sum(desk.ctx.straight_km(pickup, d["homePlaceId"]) <= 30 for d in desk.ctx.roster)
-        multiple = 0.6 + (0.15 if nearby < 30 else 0)
-        return max(1, int(request["referenceFeeCents"] * multiple + 0.5))
 
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
         if urgent:
