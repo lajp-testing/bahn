@@ -23,8 +23,8 @@ class Intake(Part):
 class LimitedIntake(Intake):
     """Limit unbooked orders, including quotes awaiting a dealer decision."""
 
-    def __init__(self, limit: int = 15, private: bool = False):
-        self.limit, self.private = limit, private  # `private`: take requests with a private address
+    def __init__(self, limit: int = 15, private: bool = False, slack: int = 0):
+        self.limit, self.private, self.slack = limit, private, slack  # `private`: take requests with a private address
         self.pending: dict[str, int] = {}
 
     def admit(self, request: dict[str, Any], prices: dict[str, int], desk: "Desk") -> dict[str, int]:
@@ -37,6 +37,13 @@ class LimitedIntake(Intake):
             and (not desk.gigs_of(order["id"]) or any(gig not in desk.booked for gig in desk.gigs_of(order["id"])))
         )
         later = {kind: price for kind, price in prices.items() if kind != "same_day"}
+        notes = desk.parts.notes
+        if self.slack and hasattr(notes, "earliest_pickup") and hasattr(notes, "latest_delivery"):
+            leg = request["legs"][0]
+            drive = desk.ctx.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"])
+            start = max(desk.now, notes.earliest_pickup(request))
+            later = {o["kind"]: prices[o["kind"]] for o in request["options"]
+                     if o["kind"] in prices and notes.latest_delivery(request, o["deadline"]) - start - drive >= self.slack}
         if not self.private and any(leg[side]["privateAddress"] for leg in request["legs"] for side in ("pickup", "delivery")):
             return decline(request)
         if not later or unbooked + len(self.pending) >= self.limit:

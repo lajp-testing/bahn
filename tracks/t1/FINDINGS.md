@@ -4,6 +4,8 @@ The intake limits unbooked orders plus quotes awaiting a decision to 15, and dec
 
 | Label | Dev weeks | Margin | On time | Ranked |
 |---|---:|---:|---:|---:|
+| `t1-stint3-baseline` | 10 | €43,815 | 98.0% | 10/10 |
+| `t1-stint3-slack24-private` | 10 | €44,639 | 97.4% | 10/10 |
 | `t1-limit15-later-price16-fee11` | 10 | €37,221 | 95.3% | 9/10 |
 | `t1-limit15-later-price16-fee13` | 10 | €12,114 | 96.2% | 10/10 |
 | `t1-stint2-limit25-fee13` | 10 | €4,141 | 94.6% | 9/10 |
@@ -29,7 +31,7 @@ Stopped the intermediate-fee run at the 30-minute stint limit after three comple
 
 ## Third stint: saved-week evidence and experiments
 
-The main default control `t1-stint3-baseline` made €43,815.45, 1,107 orders, 98.0% on time, worst 95.9%, ranked 10/10. The first test, `t1-stint3-slack24-private`, replaces the same-day ban with a 24-hour note-adjusted slack minimum and permits private addresses; it is running. `t1-stint3-slack24-no-private` tests the same slack rule without private addresses.
+The main default control `t1-stint3-baseline` made €43,815.45, 1,107 orders, 98.0% on time, worst 95.9%, ranked 10/10. The first test, `t1-stint3-slack24-private`, replaces the same-day ban with a 24-hour note-adjusted slack minimum and permits private addresses; it made €44,639.05, 1,114 orders, 97.4% on time, worst 95.1%, 10/10 ranked: +€823.60 over control, meeting the 93% floor. Kept as an opt-in candidate (`slack=1440 private=true`), because the shared main defaults are owned by the orchestrator. `t1-stint3-slack24-no-private` tests the same slack rule without private addresses.
 
 On 1,588 non-cancelled fee11 orders from the previous stint, computed retrospectively using the reader and response deadline as the decision time, on-time shares by slack were: under 12h 14/14 (100%, small sample), 12–24h 107/133 (80.5%), 24–48h 669/693 (96.5%), 48–72h 73/78 (93.6%), 72h+ 661/670 (98.7%). By first-leg drive: under 2h 605/612 (98.9%), 2–4h 429/443 (96.8%), 4–6h 319/333 (95.8%), 6h+ 171/200 (85.5%). Private orders were 160/189 (84.7%) versus 1,364/1,399 (97.5%) otherwise. Private orders with 72h+ slack were 71/71 on time, but this selected historical sample is not causal. The notes reader was not active in these weeks. Run `python3 -m tracks.t1.slack_analysis` to reproduce.
 
