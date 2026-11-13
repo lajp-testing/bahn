@@ -1,11 +1,11 @@
 """The team's mainline: the parts that have earned their place, put together.
 
-    intake  track 1: a limit on the orders without a booked driver, no same-day options, no private addresses
+    intake  track 1: a limit on the orders without a booked driver, no same-day options, only options with a day of slack
     notes   the reader (dispatch/reader.py)
     fees    track 3: open near each car's estimated booking fee and rise a little every `rise` minutes
-    quoter  the starter's, at a multiple of the list price; `price=profit` quotes the price that earns the most at the level the week shows (dispatch/pricing.py)
+    quoter  the price that earns the most at the level the week shows, over each car's expected fee and late risk (dispatch/pricing.py)
 
-Each part can be switched back, to measure it: `notes=starter`, `fees=starter`, `private=true`.
+Each part can be switched back, to measure it: `notes=starter`, `fees=starter`, `private=false`, `price=fixed`, `slack=0`, `car=0`, `late=0`.
 Other parameters go on to the t1 policy (limit, markup, options, and the starter fees' numbers).
 """
 from __future__ import annotations
@@ -23,9 +23,9 @@ from . import t1
 PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "car", "late")
 
 
-def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = False, markup: float = 1.6, price: str = "fixed", rise: int = 60, **params: Any) -> Parts:
-    profit = {key: params.pop(key) for key in PROFIT if key in params}
-    parts = t1.build(ctx, markup=markup, **params)
+def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 1440, car: float = 1.1, late: float = 1.0, **params: Any) -> Parts:
+    profit = {"car": car, "late": late} | {key: params.pop(key) for key in PROFIT if key in params}
+    parts = t1.build(ctx, markup=markup, slack=slack, **params)
     parts.intake.private = private
     if price == "profit":
         parts.quoter = ProfitQuoter(limit=parts.intake.limit, **profit)
