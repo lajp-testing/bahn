@@ -192,3 +192,39 @@ def test_a_low_battery_gets_a_charging_stop_only_over_200_km():
         charging[km] = post["stops"][0]["withCharging"]
     assert charging == {200: False, 200.1: True}
 
+
+class FakeRestartWorld(FakeLiveWorld):
+    """The desk stopped after the deadline warning at 820 and before it sent the reprice: the gig still has the
+    fees it was posted with."""
+
+    def __init__(self, schedule):
+        super().__init__()
+        self.gig = {"id": "g1", "stops": [{"orderId": "R1", "leg": 0, "kind": "pickup"}, {"orderId": "R1", "leg": 0, "kind": "delivery"}],
+                    "audience": {"experienced": True, "manualLicence": False}, "schedule": schedule, "status": "open",
+                    "postedAt": 555, "feeCents": schedule[0]["feeCents"], "driverId": None}
+
+    def snapshot(self):
+        return {"now": 830, "endsAt": 1440, "orders": [ORDER], "gigs": [self.gig], "openRequests": []}
+
+    def events(self, after=-1):
+        events = [event for _, events in FakeWorld().script for event in events]
+        return [event for event in events if event["kind"] != "gig_viewed"]
+
+    def stream(self, after=None, idle=None):
+        yield {"seq": 4, "at": 1440, "kind": "ledger", "line": {}}
+
+
+def test_a_restart_resends_a_lost_urgent_reprice_but_does_not_restart_one_that_was_sent():
+    from dispatch.live import play_live
+
+    normal = [{"at": 555 + 60 * k, "feeCents": 10000 + 1000 * k} for k in range(6)]  # 1.0 to 1.5 x the typical fee
+    world = FakeRestartWorld(normal)
+    play_live(world, 8, two_towns(), lambda context: load("base")(context), clock=lambda: 1440)
+    reprices = [action for _, action in world.sent if action["type"] == "reprice"]
+    assert [r["gigId"] for r in reprices] == ["g1"]
+    assert reprices[0]["schedule"][0] == {"at": 830, "feeCents": 15000} and reprices[0]["schedule"][-1]["feeCents"] == 25000
+
+    sent = [{"at": 820 + 30 * k, "feeCents": 15000 + 2500 * k} for k in range(5)]  # the urgent reprice went out at 820
+    world = FakeRestartWorld(sent)
+    play_live(world, 8, two_towns(), lambda context: load("base")(context), clock=lambda: 1440)
+    assert not [action for _, action in world.sent if action["type"] == "reprice"]

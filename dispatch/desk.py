@@ -74,6 +74,16 @@ class Desk:
                 self.carry({"type": "post", "stops": gig["stops"], "audience": gig["audience"], "schedule": gig["schedule"]}, gig["id"])
         self.urgent = {e["orderId"] for e in history if e["kind"] == "deadline_close"}
         self.orders = {o["id"]: o for o in snapshot["orders"] if o["id"] in self.requests and o["status"] != "cancelled"}
+        # A deadline warning whose reprice was lost before it was sent leaves the gig on its normal fees.
+        # Reprice an urgent order's open gig unless its schedule already reaches the urgent schedule's top fee,
+        # so a restart does not start the urgent climb again from its first step.
+        for order_id in self.urgent & self.orders.keys():
+            for gig_id in self.gigs_of(order_id):
+                if gig_id in self.booked:
+                    continue
+                urgent = self.fees_for(self.orders[order_id], pickups(self.posts[gig_id]))
+                if max(step["feeCents"] for step in self.posts[gig_id]["schedule"]) < max(step["feeCents"] for step in urgent):
+                    self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": urgent})
         for order in self.orders.values():
             if order["status"] == "waiting" and not self.gigs_of(order["id"]):
                 self.post(order, undelivered(order))
