@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import sys
 import threading
+import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -27,6 +28,7 @@ from . import config
 from .play import read_index, run_week
 
 _print = threading.Lock()
+RETRIES, RETRY_AFTER = 2, 30  # a failed week is played again twice, 30 s apart
 
 
 def line(row: dict[str, Any]) -> str:
@@ -70,13 +72,20 @@ def main() -> None:
     failed: list[Any] = []
 
     def one(seed: Any) -> None:
-        try:
-            row = run_week(args.policy, build, dict(params), args.level, seed, label, track)
-        except BaseException as error:  # the world is deleted; the other weeks go on
+        # A week that fails (a server restart, or all 8 worlds taken) is played again from its start, up to
+        # RETRIES more times: the world is deterministic, so a replay gives the same week.
+        for attempt in range(RETRIES + 1):
+            try:
+                row = run_week(args.policy, build, dict(params), args.level, seed, label, track)
+                break
+            except Exception as error:  # the world is deleted; the other weeks go on
+                with _print:
+                    print(f"  FAILED {seed} (try {attempt + 1} of {RETRIES + 1}): {error!r}", file=sys.stderr, flush=True)
+                    traceback.print_exc()
+                if attempt < RETRIES:
+                    time.sleep(RETRY_AFTER)
+        else:
             failed.append(seed)
-            with _print:
-                print(f"  FAILED {seed}: {error!r}", file=sys.stderr, flush=True)
-                traceback.print_exc()
             return
         rows.append(row)
         with _print:
