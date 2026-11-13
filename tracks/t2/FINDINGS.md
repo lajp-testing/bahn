@@ -2,13 +2,14 @@
 
 ## For other tracks
 
-In one no-wins level 8 week, the first-option switching ratio varies markedly by day and by pickup, delivery and dealer; straight-line distance and hour alone explain little. These are in-sample associations, not independent effects or evidence across worlds. We do not yet know how early the world level can be learned reliably. Some second options cannot win even at one cent when quoted alone.
+In one no-wins level 8 week, the first-option switching ratio varies markedly by day and by pickup, delivery and dealer; straight-line distance and hour alone explain little. These are in-sample associations, not independent effects or evidence across worlds. A second, incomplete level 8 scan gives Monday and Tuesday means 1.387 and 1.468, versus 1.317 and 1.353 in the first world. We do not yet know how early the world level can be learned reliably. Some second options cannot win even at one cent when quoted alone.
 
 ## Findings
 
 | Measurement | Result | Scope |
 |---|---|---|
 | Method: `t2-scan-check` | 0/31 repeat mismatches at 1.4; 0/31 monotonicity violations across 0.8–2.0 | First option, first 31 requests, one level 8 world; not proof for all prices or requests |
+| `t2-scan-2`, level 8, incomplete | 900 first-option requests, through Friday morning | Monday–Thursday means 1.387, 1.468, 1.100, 1.391; Friday is incomplete |
 | `t2-scan-1`, level 8 | 1,040 requests, 1,894 option rows | One neutral-parent week, not a ranked run |
 | First-option mean switching ratios, Monday–Friday | 1.317, 1.353, 1.208, 1.673, 1.556 | Daily sample sizes 219, 204, 191, 247, 179 |
 | Paired same-day minus next-day ratio | Mean +0.189; same-day higher in 558/725 pairs | Each option quoted alone, one week |
@@ -28,6 +29,8 @@ First option only, on `t2-scan-1`; the learning rules see outcomes at the respon
 | Online learning, first option only | 710/1,040 (68.3%) | €21,523.55 |
 | First 50 outcomes calibration | 679/1,040 (65.3%) | €20,132.40 |
 
+On the incomplete 900-request second scan, the same three rules respectively won 533 (59.2%), 596 (66.2%) and 535 (59.4%), with proxy sums €15,500.47, €16,307.98 and €15,157.51. The incomplete week is not comparable as a full-week result.
+
 This is not realised margin or an end-to-end comparison: it ignores how our wins change the competitor, dealer trust and satisfaction, actual driver fees, cancellations and on-time performance. It also ignores choices among multiple quoted options. It is a single-world lead, not an improvement claim.
 
 ## Cost and failures
@@ -37,3 +40,5 @@ The first 31-request method check took 797 HTTP calls. Before the week, a rough 
 ## Stint 1, condensed
 
 One first-option fork probe was fixed and monotone across eight trials. A random-price grid found full-Monday midpoint estimates 1.648 (`t2-study-1`) and 1.459 (`dev-01`); estimates from the first 20–50 quotes were within about 0.05 of the same Monday fit, in sample. `t2-learning-v2` on ten dev weeks yielded −€204,983.18 and 61.9% weighted on time, 0/10 ranked, with starter intake; it does not isolate quote quality. The existing `LearningQuoter` is experimental and cannot rebuild its pending quotes from event-only replay. It has not been made production-ready by this scan.
+
+Offline tests: the prescribed command produced 5 passes and one failure because the existing remote-only guard rejects the temporary slot test. Setting `SPREAD_ON_VPS=1` for this isolated offline test gives 6 passes; no worlds were played by the test.
