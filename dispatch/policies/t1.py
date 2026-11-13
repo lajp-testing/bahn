@@ -15,6 +15,7 @@ def build(ctx: Context, **params: Any) -> Parts:
     limit = params.pop("limit", 15)
     slack = params.pop("slack", 0)
     queue_price = params.pop("queue_price", False)
+    win_price = params.pop("win_price", False)
     defaults = dict(open=1.3, step=0.1, every=60, steps=6)
     defaults.update(params)
-    return Parts(Quoter(markup=markup, options=options), LimitedIntake(limit, slack=slack, queue_price=queue_price), Fees(**defaults), Notes())
+    return Parts(Quoter(markup=markup, options=options), LimitedIntake(limit, slack=slack, queue_price=queue_price, win_price=win_price), Fees(**defaults), Notes())
