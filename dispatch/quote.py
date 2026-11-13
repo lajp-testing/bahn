@@ -5,14 +5,18 @@ import math
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from .parts import Part
+from .places import DELIVERY, PICKUP
 
 if TYPE_CHECKING:
     from .desk import Desk
 
 HOUR, DAY = 60, 24 * 60
-# What an order costs more, in typical fees, and the mean over the dev weeks' orders: for a private address, for a
-# car that is ready on a later day, and for each unit of log(typical fee / list price). tracks/t2/fit5.py.
-DETAIL = ((0.23, 0.10), (-0.15, 0.52), (-0.41, -0.05))
+# What an order costs more, in typical fees, and the mean over 30 practice weeks' orders: for a private address, for a
+# car that is ready on a later day, for each unit of log(typical fee / list price), for a premium car, for each unit
+# of log(1 + drivers who live within 60 km of the delivery place), the same of the pickup place, and for each unit of
+# log(road minutes / 120). Fitted on the dev weeks it explains 10% of the study weeks' cost. tracks/t2/fit8.py.
+DETAIL = ((0.26, 0.08), (-0.16, 0.52), (-0.42, -0.07), (0.14, 0.05), (-0.04, 3.6), (-0.03, 4.9), (-0.06, 0.06))
+NEAR_KM = 60.0
 STRAIN = 0.06  # the share of won orders with a deadline warning or a late delivery, over the control's 30 weeks
 DECLINE_FACTOR = 5  # a quote this many times the list price loses, and a lost quote costs nothing
 
@@ -45,9 +49,10 @@ class DialQuoter(Quoter):
 
     An order costs about `cost_next` typical fees, or `cost_same` when the dealer also offers `same_day` (such
     a car is ready today, so its gig has longer to find a driver at the opening fee). Both are above the fees
-    paid: every order also makes the drivers scarcer for the others. `detail` adds what the dev weeks' orders cost
-    more or less than that (`DETAIL`): a private address is dearer, a car that is ready on a later day cheaper,
-    and so is a request whose typical fee is high for its list price. `brake` reads how scarce this week's drivers
+    paid: every order also makes the drivers scarcer for the others. `detail` adds what the practice weeks' orders cost
+    more or less than that (`DETAIL`): a private address and a premium car are dearer; a car that is ready on a later
+    day is cheaper, and so are a request whose typical fee is high for its list price, a longer drive, and a pickup
+    or a delivery place with many drivers living near. `brake` reads how scarce this week's drivers
     are from the orders themselves: the cost rises by `brake` typical fees for each unit that the share of won
     orders with a deadline warning or a late delivery lies above a usual week's (`STRAIN`), and falls below it.
 
@@ -55,7 +60,9 @@ class DialQuoter(Quoter):
     is what one more on-time order is worth in the dealer's later prices (`ladder_value`). After each answer
     the dial moves by `gain x (won - chance)`: up after a win, down after a loss, so it follows a week, a day
     or a region that the dev weeks did not have. `dealer_gain` does the same for one dealer, and `place_gain` for
-    one pickup place: the competitor's lane factor, and a day's outage around the place. `admit` is the
+    one pickup place: the part of the competitor's lane factor that is new in each world, and a day's outage around the
+    place. `lanes` adds the part that is the same in every world, from `dispatch.places`: a dealer accepts about 10%
+    less for a car delivered to Vantaa, and 12% more for one to Kotka, than the week's level says. `admit` is the
     intake's decision: a request that the intake declines teaches nothing.
 
     The price war is one working day on which every limit is lower by `war` (the dev weeks: 0.25 to 0.34). A dial
@@ -77,7 +84,7 @@ class DialQuoter(Quoter):
                  no_same_day: float = 0.094, by_list: float = 0.12, by_trust: float = 1.0,
                  cost_next: float = 1.13, cost_same: float = 1.01, ladder: float = 0.0, patience: int = 5 * HOUR,
                  floor: float = 1.1, ceiling: float = 2.4, war: float = 0.0, detail: float = 0.0, day_sd: float = 0.0,
-                 same_up: float = 0.0, place_gain: float = 0.0, brake: float = 0.0,
+                 same_up: float = 0.0, place_gain: float = 0.0, brake: float = 0.0, lanes: float = 0.0,
                  admit: Optional[Callable[[dict[str, Any], dict[str, int], "Desk"], dict[str, int]]] = None):
         super().__init__(options="all")
         self.dial, self.scale, self.gain, self.dealer_gain = math.log(level), scale, gain, dealer_gain
@@ -85,6 +92,7 @@ class DialQuoter(Quoter):
         self.cost_next, self.cost_same, self.ladder, self.patience = cost_next, cost_same, ladder, patience
         self.floor, self.ceiling, self.war, self.admit = floor, ceiling, war, admit
         self.detail, self.day_sd, self.same_up, self.place_gain = detail, day_sd, same_up, place_gain
+        self.lanes, self.near = lanes, {}  # place id -> drivers who live within NEAR_KM
         self.place_dial: dict[str, float] = {}  # pickup place id -> its own offset to the dial
         self.brake, self.won, self.strained = brake, 0, set()  # orders won, and those warned of their deadline or late
         self.day, self.at_war, self.war_over = -1, 0.0, False  # the day of the last quote, and the war's probability on it
@@ -104,8 +112,9 @@ class DialQuoter(Quoter):
     def effect(self, request: dict[str, Any]) -> float:
         """The log of the request's limit against the dial."""
         kinds = [option["kind"] for option in request["options"]]
-        dealer = request["dealerId"]
-        return ((0.0 if "same_day" in kinds else self.no_same_day) + self.by_list * math.log(basis(request)["listPriceCents"] / 6000)
+        dealer, leg = request["dealerId"], request["legs"][0]
+        lane = PICKUP.get(leg["pickup"]["placeId"], 0.0) + DELIVERY.get(leg["delivery"]["placeId"], 0.0)
+        return ((0.0 if "same_day" in kinds else self.no_same_day) + self.by_list * math.log(basis(request)["listPriceCents"] / 6000) + self.lanes * lane
                 + self.by_trust * math.log(1 + self.trust.get(dealer, 0) / 100) + self.offsets(dealer, pickup(request)))
 
     def offsets(self, dealer: str, place: str) -> float:
@@ -133,14 +142,23 @@ class DialQuoter(Quoter):
             self.day = now // DAY
             self.at_war = min(0.5, 1 / (5 - self.day)) if self.war and not self.war_over and self.day < 5 else 0.0
 
-    def cost(self, request: dict[str, Any]) -> float:
+    def drivers_near(self, place: str, desk: "Desk") -> int:
+        if place not in self.near:
+            self.near[place] = sum(1 for driver in desk.ctx.roster if desk.ctx.straight_km(place, driver["homePlaceId"]) <= NEAR_KM)
+        return self.near[place]
+
+    def cost(self, request: dict[str, Any], desk: "Desk") -> float:
         same_day = any(option["kind"] == "same_day" for option in request["options"])
         typical = request["referenceFeeCents"] * len(request["legs"])
         factor = (self.cost_same if same_day else self.cost_next) + self.brake * self.strain()
         if self.detail:
-            private = any(leg[end]["privateAddress"] for leg in request["legs"] for end in ("pickup", "delivery"))
-            later = request["legs"][0]["pickup"]["window"]["from"] // DAY > request["arrivedAt"] // DAY
-            shown = (private, later, math.log(typical / basis(request)["listPriceCents"]))
+            first = request["legs"][0]
+            start, end = first["pickup"]["placeId"], first["delivery"]["placeId"]
+            private = any(leg[at]["privateAddress"] for leg in request["legs"] for at in ("pickup", "delivery"))
+            later = first["pickup"]["window"]["from"] // DAY > request["arrivedAt"] // DAY
+            shown = (private, later, math.log(typical / basis(request)["listPriceCents"]), first["car"]["premium"],
+                     math.log(1 + self.drivers_near(end, desk)), math.log(1 + self.drivers_near(start, desk)),
+                     math.log(max(desk.ctx.minutes(start, end), 1) / 120))
             factor += self.detail * sum(more * (value - mean) for (more, mean), value in zip(DETAIL, shown))
         return typical * factor
 
@@ -162,7 +180,7 @@ class DialQuoter(Quoter):
         return self.ladder * later * revenue
 
     def best_markup(self, request: dict[str, Any], desk: "Desk") -> float:
-        effect, cost, list_price = self.effect(request), self.cost(request), basis(request)["listPriceCents"]
+        effect, cost, list_price = self.effect(request), self.cost(request, desk), basis(request)["listPriceCents"]
         steps = range(round(self.floor * 100), round(self.ceiling * 100) + 1)
 
         def best(extra: float) -> float:

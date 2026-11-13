@@ -614,10 +614,26 @@ def test_the_dial_moves_far_on_a_mornings_first_answers_and_little_later():
 def test_detail_prices_a_private_address_up_and_a_car_ready_tomorrow_down():
     private = {**NEXT_DAY, "legs": [{**LEG, "delivery": {**PLACE, "placeId": "tampere", "privateAddress": True}}]}
     later = {**NEXT_DAY, "legs": [{**LEG, "pickup": {**PLACE, "window": {"from": 1440 + 600, "to": 1440 + 1200}}}]}
-    quoter = reach_desk(quoter="dial", detail=1.0).parts.quoter
-    assert quoter.cost(private) - quoter.cost(NEXT_DAY) == 0.23 * 10000
-    assert round(quoter.cost(later) - quoter.cost(NEXT_DAY)) == -0.15 * 10000
-    assert reach_desk(quoter="dial").parts.quoter.cost(private) == 1.13 * 10000  # off by default
+    plain = {**NEXT_DAY, "legs": [{**LEG, "car": {**LEG["car"], "premium": False}}]}
+    desk = reach_desk(quoter="dial", detail=1.0)
+    quoter = desk.parts.quoter
+    assert round(quoter.cost(private, desk) - quoter.cost(NEXT_DAY, desk)) == 2600
+    assert round(quoter.cost(later, desk) - quoter.cost(NEXT_DAY, desk)) == -1600
+    assert round(quoter.cost(NEXT_DAY, desk) - quoter.cost(plain, desk)) == 1400  # a premium car
+    # 25 drivers live in Helsinki and none within 60 km of Tampere: the car to Tampere is the dearer one to move
+    back = {**NEXT_DAY, "legs": [{**LEG, "pickup": {**PLACE, "placeId": "tampere"}, "delivery": PLACE}]}
+    assert round(quoter.cost(NEXT_DAY, desk) - quoter.cost(back, desk)) == round((0.04 - 0.03) * math.log(26) * 10000)
+    off = reach_desk(quoter="dial")
+    assert off.parts.quoter.cost(private, off) == 1.13 * 10000  # off by default
+
+
+def test_lanes_price_by_what_the_competitor_asks_for_the_delivery_place():
+    to_kotka = {**NEXT_DAY, "legs": [{**LEG, "delivery": {**PLACE, "placeId": "kotka"}}]}
+    to_vantaa = {**NEXT_DAY, "legs": [{**LEG, "delivery": {**PLACE, "placeId": "vantaa"}}]}
+    quoter = reach_desk(quoter="dial", lanes=1.0).parts.quoter
+    assert quoter.effect(to_kotka) - quoter.effect(to_vantaa) > 0.15  # a dealer accepts more for a car to Kotka
+    off = reach_desk(quoter="dial").parts.quoter
+    assert off.effect(to_kotka) == off.effect(to_vantaa)  # off by default
 
 
 def test_same_up_prices_same_day_above_the_later_option():
@@ -644,13 +660,13 @@ def test_place_gain_learns_a_pickup_place_apart_from_the_others():
 def test_the_brake_raises_the_cost_in_a_week_of_warnings_and_lowers_it_in_a_calm_one():
     desk = reach_desk(quoter="dial", brake=2.0)
     quoter = desk.parts.quoter
-    usual = quoter.cost(NEXT_DAY)
+    usual = quoter.cost(NEXT_DAY, desk)
     assert usual == 1.13 * 10000  # the week starts as a usual one
     for i in range(60):
         quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"O{i}"}}, desk, False)
-    assert quoter.cost(NEXT_DAY) < usual  # sixty orders and no warning: a calm week
+    assert quoter.cost(NEXT_DAY, desk) < usual  # sixty orders and no warning: a calm week
     for i in range(20):
         quoter.observe({"kind": "deadline_close", "orderId": f"O{i}", "lastPickupAt": 900}, desk, False)
     quoter.observe({"kind": "ledger", "line": {"kind": "late_refund", "orderId": "O0", "cents": -100}}, desk, False)  # warned and late: one order
-    assert len(quoter.strained) == 20 and quoter.cost(NEXT_DAY) > usual
+    assert len(quoter.strained) == 20 and quoter.cost(NEXT_DAY, desk) > usual
     assert reach_desk(quoter="dial").parts.quoter.strain() == 0

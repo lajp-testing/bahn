@@ -20,7 +20,7 @@ INTAKE = ("max_drive", "min_drivers", "near_km", "same_day", "future_same_day", 
           "brake_drivers", "brake_drive", "long_lanes", "batch_slots", "noted_slots", "private_slots", "trade_ins",
           "no_private", "no_trade_ins", "thin_drivers", "thin_both",
           "long_max", "long_markup", "expand_brake", "long_same_day")
-DIAL = ("level", "scale", "gain", "dealer_gain", "no_same_day", "by_list", "by_trust", "cost_next", "cost_same", "ladder", "patience", "war", "detail", "day_sd", "same_up", "place_gain", "brake",
+DIAL = ("level", "scale", "gain", "dealer_gain", "no_same_day", "by_list", "by_trust", "cost_next", "cost_same", "ladder", "patience", "war", "detail", "day_sd", "same_up", "place_gain", "brake", "lanes",
         "floor", "ceiling")
 DENSITY = ("dense", "dense_km", "far_1", "far_1_at", "far_2", "far_2_at")
 
