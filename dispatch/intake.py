@@ -37,6 +37,8 @@ class LimitedIntake(Intake):
             and (not desk.gigs_of(order["id"]) or any(gig not in desk.booked for gig in desk.gigs_of(order["id"])))
         )
         later = {kind: price for kind, price in prices.items() if kind != "same_day"}
+        if any(leg[side]["privateAddress"] for leg in request["legs"] for side in ("pickup", "delivery")):
+            return decline(request)
         if not later or unbooked + len(self.pending) >= self.limit:
             return decline(request)
         self.pending[request["id"]] = request["respondBy"]
