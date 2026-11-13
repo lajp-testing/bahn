@@ -162,13 +162,15 @@ class ReachIntake(Intake):
                 # The old car is collected in the same visit as delivery of the new one.
                 paired = i > 0 and leg["pickup"]["placeId"] == legs[i - 1]["delivery"]["placeId"]
                 at += 30 if plates else 0
+                if i == 0:  # the note's facts are about the first car
+                    at = max(at, desk.parts.notes.earliest_pickup(request))
                 at = self.open_at(leg["pickup"], at, deadline, pickup=True, paired=paired)
                 car = leg["car"]
                 charging = car["electric"] and car["chargePercent"] is not None and car["chargePercent"] < 30
                 charging &= desk.ctx.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) > 200
                 at += drives[i] + (40 if charging else 0)
                 at = self.open_at(leg["delivery"], at, deadline, pickup=False)
-            if at <= deadline - 60:
+            if at <= min(deadline, desk.parts.notes.latest_delivery(request, deadline)) - 60:
                 kept[kind] = round(prices[kind] * self.long_markup) if long else prices[kind]
         return kept
 
