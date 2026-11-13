@@ -120,3 +120,16 @@ So the dealer is a real unit for the price level, as the handbook's competitor n
 ### Step 4 (early, offline): the spread fit (`tracks/t2/spread_fit.py`)
 
 Fitting one level per day and the spread jointly by grid on the same 7,909 requests: the log-likelihood rises to spread 0.40-0.45 (LL -4502.8, day levels 1.04-1.29) and falls after 0.50. The best spread is about double the quoter's 0.2. Caveat: the effective ratio is measured against the quoter's own moving level, and a single level per day cannot track the quoter's within-day steps, so the fit inflates the spread. Worth one run at `spread=0.4`; the true switching-price stdev in the handbook is 0.2-0.35, so 0.4 is at the edge of plausible.
+
+### Step 2: a learned offset per dealer — loses at every step size
+
+` ProfitQuoter` gained `dealer` (step size, default 0): each dealer gets an offset to the level, learned from its own wins and losses (clamped to ±0.4, kept for the whole week); `chance` takes the offset and `observe` updates both the global level and the dealer offset with the same chance. All defaults keep the mainline unchanged; tests pass (21).
+
+| label | change | margin EUR | orders | on time | worst | ranked |
+|---|---|---:|---:|---:|---:|---|
+| `t2s5-base` | none | 88,588 | 2,288 | 97.8% | 96.4% | 10/10 |
+| `t2s5-dealer002` | dealer=0.02 | 87,079 | 2,264 | 97.7% | 96.1% | 10/10 |
+| `t2s5-dealer005` | dealer=0.05 | 86,597 | 2,253 | 98.0% | 95.9% | 10/10 |
+| `t2s5-dealer01` | dealer=0.1 | 85,503 | 2,231 | 97.8% | 93.5% | 10/10 |
+
+All three lose margin, monotonically in the step size, and all lose orders (−24 at 0.02, −57 at 0.1). `dealer002` splits 5/10 weeks (−1,509 total): noise-level, but never positive. Why the measurement did not translate: (1) the dealer differences in step 1 are measured against the quoter's own level, and the learning rule has to find them from single win/loss bits with a moving global level — the offset noise is paid on every quote; (2) the competitor answers per dealer (handbook: where we win most it cuts its prices), so exploiting a dealer that buys easily invites the cut and the learned offset chases a level that moves away. Per-dealer offsets stay default-off (`dealer=0`).
