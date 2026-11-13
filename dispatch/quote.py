@@ -9,6 +9,7 @@ from .parts import Part
 if TYPE_CHECKING:
     from .desk import Desk
 
+HOUR, DAY = 60, 24 * 60
 DECLINE_FACTOR = 5  # a quote this many times the list price loses, and a lost quote costs nothing
 
 
@@ -33,32 +34,35 @@ class Quoter(Part):
 class DialQuoter(Quoter):
     """Prices each request at the markup with the best expected margin, and learns the week's price level.
 
-    A dealer takes a quote whose markup over list is under a limit that the dealer does not tell. The 1.4, 1.5
-    and 1.6 dev weeks put the limit of a request at about `level` (the dial), times an effect of the request:
-    higher when the dealer does not offer `same_day`, for a higher list price, and by up to 25% for a dealer
-    with 25 on-time orders. Around that the limits scatter with `scale` (a logistic in the log of the markup).
+    A dealer takes a quote whose markup over list is under a limit that the dealer does not tell. The dev weeks
+    put the limit of a request at about `level` (the dial), times an effect of the request: higher when the
+    dealer does not offer `same_day`, for a higher list price, and by `by_trust` percent for each on-time order
+    that the dealer counts. Around that the limits scatter with `scale` (a logistic in the log of the markup).
 
-    The cost of an order is about `cost_next` typical fees, or `cost_same` when the dealer also offers
-    `same_day` (such a car is ready today, so its gig has longer to find a driver at the opening fee).
+    An order costs about `cost_next` typical fees, or `cost_same` when the dealer also offers `same_day` (such
+    a car is ready today, so its gig has longer to find a driver at the opening fee). Both are above the fees
+    paid: every order also makes the drivers scarcer for the others.
 
-    The quoter asks for the markup `m` that makes `(m x list - cost + ladder) x chance(m)` largest. `ladder` is
-    what one more on-time order is worth in the dealer's later prices; it falls to nothing by Friday night.
-    After each answer the dial moves by `gain x (won - chance)`: up after a win, down after a loss, so that
-    it follows a week, a day or a price war that the dev weeks did not have. `dealer_gain` does the same
-    for one dealer. `admit` is the intake's decision: a request that the intake declines teaches nothing."""
+    The quoter asks for the markup `m` that makes `(m x list - cost + ladder) x chance(m)` largest. The ladder
+    is what one more on-time order is worth in the dealer's later prices (`ladder_value`). After each answer
+    the dial moves by `gain x (won - chance)`: up after a win, down after a loss, so it follows a week, a day
+    or a price war that the dev weeks did not have. `dealer_gain` does the same for one dealer. `admit` is the
+    intake's decision: a request that the intake declines teaches nothing."""
 
     def __init__(self, level: float = 1.33, scale: float = 0.09, gain: float = 0.03, dealer_gain: float = 0.0,
-                 no_same_day: float = 0.094, by_list: float = 0.12, by_trust: float = 0.233,
-                 cost_next: float = 1.13, cost_same: float = 1.01, ladder: float = 0.0,
+                 no_same_day: float = 0.094, by_list: float = 0.12, by_trust: float = 1.0,
+                 cost_next: float = 1.13, cost_same: float = 1.01, ladder: float = 0.0, patience: int = 5 * HOUR,
                  floor: float = 1.1, ceiling: float = 2.4,
                  admit: Optional[Callable[[dict[str, Any], dict[str, int], "Desk"], dict[str, int]]] = None):
         super().__init__(options="all")
         self.dial, self.scale, self.gain, self.dealer_gain = math.log(level), scale, gain, dealer_gain
         self.no_same_day, self.by_list, self.by_trust = no_same_day, by_list, by_trust
-        self.cost_next, self.cost_same, self.ladder = cost_next, cost_same, ladder
+        self.cost_next, self.cost_same, self.ladder, self.patience = cost_next, cost_same, ladder, patience
         self.floor, self.ceiling, self.admit = floor, ceiling, admit
         self.dealer_dial: dict[str, float] = {}  # dealer id -> its own offset to the dial
+        self.asked: dict[str, int] = {}  # dealer id -> its requests so far
         self.trust: dict[str, int] = {}  # dealer id -> on-time orders, halved by a late one, at most 25
+        self.coming: dict[str, int] = {}  # dealer id -> orders won and not yet delivered
         self.quoted: dict[str, tuple[float, float, str, dict[str, int]]] = {}  # request id -> (markup, effect, dealer, prices)
         self.dealer_of: dict[str, str] = {}  # order id -> dealer id
         self.on_time: set[str] = set()  # the delivered orders counted as on time
@@ -71,7 +75,7 @@ class DialQuoter(Quoter):
         kinds = [option["kind"] for option in request["options"]]
         dealer = request["dealerId"]
         return ((0.0 if "same_day" in kinds else self.no_same_day) + self.by_list * math.log(basis(request)["listPriceCents"] / 6000)
-                + self.by_trust * self.trust.get(dealer, 0) / 25 + self.dealer_dial.get(dealer, 0.0))
+                + self.by_trust * math.log(1 + self.trust.get(dealer, 0) / 100) + self.dealer_dial.get(dealer, 0.0))
 
     def chance(self, markup: float, effect: float) -> float:
         return 1 / (1 + math.exp(-(self.dial + effect - math.log(markup)) / self.scale))
@@ -80,30 +84,41 @@ class DialQuoter(Quoter):
         same_day = any(option["kind"] == "same_day" for option in request["options"])
         return request["referenceFeeCents"] * len(request["legs"]) * (self.cost_same if same_day else self.cost_next)
 
-    def ladder_value(self, request: dict[str, Any], desk: "Desk") -> float:
-        """What one more on-time order for this dealer is worth, in cents: `ladder` on Monday morning, nothing
-        from Friday night or once the dealer has 25."""
-        if self.trust.get(request["dealerId"], 0) >= 25:
+    def ladder_value(self, request: dict[str, Any], desk: "Desk", revenue: float) -> float:
+        """What one more on-time order for this dealer is worth, in cents. A counted order lets each later request
+        of the dealer take a price 1% higher at the same chance, so it is worth `ladder` (0.01) of the revenue
+        that those requests should bring: `revenue` each, for as many as the dealer's rate so far promises from
+        the day after, when the order counts. `patience` minutes stand in for the hours not yet seen, so a
+        dealer's first requests promise little. Nothing once the dealer's counted and coming orders reach 25."""
+        dealer = request["dealerId"]
+        if not self.ladder or self.trust.get(dealer, 0) + self.coming.get(dealer, 0) >= 25:
             return 0.0
-        return self.ladder * max(0.0, 1 - desk.now / (5 * 1440))
+        later = self.asked.get(dealer, 0) * (worked(5 * DAY) - worked(desk.now + DAY)) / (worked(desk.now) + self.patience)
+        return self.ladder * later * revenue
 
     def best_markup(self, request: dict[str, Any], desk: "Desk") -> float:
-        effect, cost, extra = self.effect(request), self.cost(request), self.ladder_value(request, desk)
-        list_price = basis(request)["listPriceCents"]
+        effect, cost, list_price = self.effect(request), self.cost(request), basis(request)["listPriceCents"]
         steps = range(round(self.floor * 100), round(self.ceiling * 100) + 1)
-        best = max(steps, key=lambda step: (step / 100 * list_price - cost + extra) * self.chance(step / 100, effect))
+
+        def best(extra: float) -> float:
+            return max(steps, key=lambda step: (step / 100 * list_price - cost + extra) * self.chance(step / 100, effect)) / 100
+
+        plain = best(0.0)
+        extra = self.ladder_value(request, desk, plain * list_price * self.chance(plain, effect))
         # A request that costs more than the ceiling pays: quote above the cost anyway, and lose it.
-        return max(best / 100, 1.05 * (cost - extra) / list_price)
+        return max(best(extra) if extra else plain, 1.05 * (cost - extra) / list_price)
 
     # --- quotes and what their answers teach ---
 
     def prices(self, request: dict[str, Any], desk: "Desk") -> dict[str, int]:
         if request["id"] not in self.quoted:  # a quote stays as it is: a desk that restarts quotes the same again
+            dealer = request["dealerId"]
+            self.asked[dealer] = self.asked.get(dealer, 0) + 1
             markup = self.best_markup(request, desk)
             prices = {option["kind"]: round(option["listPriceCents"] * markup) for option in request["options"]}
             sent = self.admit(request, prices, desk) if self.admit else prices
             learns = any(sent.get(kind) == cents for kind, cents in prices.items())
-            self.quoted[request["id"]] = (markup if learns else 0.0, self.effect(request) - self.dealer_dial.get(request["dealerId"], 0.0), request["dealerId"], prices)
+            self.quoted[request["id"]] = (markup if learns else 0.0, self.effect(request) - self.dealer_dial.get(dealer, 0.0), dealer, prices)
         return self.quoted[request["id"]][3]
 
     def learn(self, request_id: str, won: bool) -> None:
@@ -120,23 +135,39 @@ class DialQuoter(Quoter):
         if kind == "price_request" and replay:
             self.prices(event["request"], desk)
         elif kind == "order_won":
-            self.dealer_of[event["order"]["id"]] = event["order"]["dealerId"]
+            dealer = self.dealer_of[event["order"]["id"]] = event["order"]["dealerId"]
+            self.coming[dealer] = self.coming.get(dealer, 0) + 1
             self.learn(event["order"]["id"], True)
         elif kind == "order_lost":
             self.learn(event["requestId"], False)
+        elif kind == "order_cancelled":
+            self.arrived(event["orderId"])
         elif kind == "ledger" and event["line"].get("orderId") in self.dealer_of:
             self.account(event["line"]["kind"], event["line"]["orderId"])
+
+    def arrived(self, order_id: str) -> None:
+        """The order is no longer coming: delivered, late, or cancelled."""
+        if order_id in self.dealer_of and order_id not in self.on_time and order_id not in self.late:
+            self.coming[self.dealer_of[order_id]] -= 1
 
     def account(self, line: str, order_id: str) -> None:
         """The dealer's trust: one up for an order delivered on time, halved by a late one."""
         dealer = self.dealer_of[order_id]
         count = self.trust.get(dealer, 0)
         if line == "revenue" and order_id not in self.late and order_id not in self.on_time:
+            self.arrived(order_id)
             self.on_time.add(order_id)
             self.trust[dealer] = min(25, count + 1)
         elif line in ("late_refund", "undelivered_penalty") and order_id not in self.late:
+            self.arrived(order_id)
             self.late.add(order_id)
             self.trust[dealer] = (count - (1 if order_id in self.on_time else 0)) // 2
+
+
+def worked(minute: int) -> int:
+    """The working minutes of the week before `minute`: Monday to Friday, 08:00 to 18:00, when dealers ask."""
+    day, of_day = divmod(minute, DAY)
+    return 5 * 10 * HOUR if day >= 5 else day * 10 * HOUR + min(max(of_day - 8 * HOUR, 0), 10 * HOUR)
 
 
 def basis(request: dict[str, Any]) -> dict[str, Any]:
