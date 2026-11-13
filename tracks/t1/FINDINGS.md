@@ -74,6 +74,28 @@ week, about €24k list), pickups with fewer than 3 drivers near (50, €4.5k) a
 | + `open=0.7` | €78,100 | +€8,836 | 10 of 10 | 92.0% | dev-10 fails 93% |
 | `thin_drivers=20` (long legs from thin pickups) | €65,502 | −€3,762 | | 97.5% | Those legs earn €38 an order: too dear a brake |
 
+### On the dial quoter with night fees (e113e30; control `dn19@2c73800`, €79,624, worst week 94.0%)
+
+The dial wins about 350 orders a week, so drivers are nearer their limit and lateness binds sooner. It prices private
+addresses at a profit (€286 a week), so `no_private` and `private_slots` stop paying. Its cost model makes long lanes pay.
+
+| Variant | Dev total | vs dn19 | Better on | Worst week | What it shows |
+| --- | --- | --- | --- | --- | --- |
+| `private_slots` | €78,335 | −€1,289 | 5 of 10 | 91.1% | |
+| `thin_drivers=20 thin_both` | €80,128 | +€504 | 5 of 10 | 93.0% | |
+| + `near_km=80` | €83,007 | +€3,383 | 7 of 10 | 92.9% | |
+| `max_drive=360` | €79,967 | +€343 | | 94.0% | |
+| `long_lanes` (gate, up to 600 min) | €82,091 | +€2,467 | 7 of 10 | 90.6% | Over 420 min loses money; short lanes get later |
+| + `long_max=420` | €86,242 | +€6,618 | 9 of 10 | 90.7% | |
+| + `long_markup=1.15` | €87,066 | +€7,442 | 9 of 10 | 90.7% | 1.15 × the dial's price, set in the intake: the dial does not learn from these |
+| + `long_markup=1.25` | €85,001 | +€5,377 | 10 of 10 | 92.2% | |
+| **`long_lanes long_markup=1.15 thin_both thin_drivers=20`** (0da56fb) | **€90,496** | **+€10,872** | **8 of 10** | **94.1%** | Thin ends get three days only, long lanes too |
+| + `long_same_day=false` | €87,796 | +€8,172 | 9 of 10 | 90.7% | |
+| + `long_same_day=false expand_brake=0.04` | €87,483 | +€7,859 | 9 of 10 | 90.9% | |
+
+dev-10 decides every variant: a Salo bulk order on Thursday and the Oulu lanes. Near-identical variants land between
+90.7% and 94.1% there, so the margin gain is solid and the worst-week pass is thin. Holdout decides.
+
 **Ruled out.** Same-day on a car ready today: in `sd@f5a6b3b` even short lanes from pickups with 20 or more drivers
 within 30 km and 6 hours of slack were late 25% of the time, at €16 an order.
 
