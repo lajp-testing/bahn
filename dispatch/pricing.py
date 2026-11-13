@@ -27,6 +27,7 @@ import math
 from typing import TYPE_CHECKING, Any
 
 from .parts import Part
+from .towns import DELIVERY
 
 if TYPE_CHECKING:
     from .desk import Desk
@@ -40,7 +41,7 @@ class ProfitQuoter(Part):
 
     def __init__(self, start: float = 1.4, spread: float = 0.2, step: float = 0.06, boost: float = 3.0, cost: float = 1.2,
                  queue: float = 0.3, limit: int = 15, low: float = 0.9, high: float = 2.6, car: float = 0.0, late: float = 0.0,
-                 trust: float = 0.0, invest: float = 0.0, share: float = 0.25, lag: float = 0.15):
+                 trust: float = 0.0, invest: float = 0.0, share: float = 0.25, lag: float = 0.15, dealer: float = 0.0, towns: float = 0.0):
         self.level, self.spread, self.step, self.boost = start, spread, step, boost
         self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
         # `car` > 0: the cost is `car` times the fee the fees part expects for this car, instead of `cost` times the typical fee.
@@ -57,10 +58,21 @@ class ProfitQuoter(Part):
         self.open: dict[str, str] = {}       # order won and not yet delivered -> dealer
         self.asked: dict[str, int] = {}      # dealer -> list price of its requests so far, in cents
         self.factors: dict[str, float] = {}  # request -> the dealer's factor when we quoted
+        # `dealer` > 0: each dealer gets its own offset to the level, learned from its wins and losses.
+        # `towns` > 0: the level also moves by the delivery town's lane part (dispatch/towns.py), scaled by this.
+        self.dealer, self.dealers = dealer, {}   # step size, dealer -> offset, kept for the whole week
+        self.towns = towns
+        self.offsets: dict[str, float] = {}      # request -> the level offset used when we quoted
+        self.owners: dict[str, str] = {}         # request -> the dealer, needed for a loss
 
-    def chance(self, ratio: float) -> float:
+    def offset(self, request: dict[str, Any]) -> float:
+        """How much this request's level moves: its dealer's learned offset and its delivery town's lane part."""
+        dealer = self.dealers.get(request["dealerId"], 0.0)
+        return dealer + (self.towns * DELIVERY.get(request["legs"][0]["delivery"]["placeId"], 0.0) if self.towns else 0.0)
+
+    def chance(self, ratio: float, offset: float = 0.0) -> float:
         """The chance that a dealer takes a price of `ratio` times the list price."""
-        return 1 / (1 + math.exp(max(-40.0, min(40.0, (ratio - self.level) / self.spread))))
+        return 1 / (1 + math.exp(max(-40.0, min(40.0, (ratio - self.level - offset) / self.spread))))
 
     def factor(self, dealer: str) -> float:
         """How much higher than a new dealer's this dealer's level is."""
@@ -92,11 +104,12 @@ class ProfitQuoter(Part):
             # On time, the order adds 1% (while the dealer still counts); late, it takes half the count away.
             gain = self.invest * 0.01 * future * ((1 - risk) * (count + waiting < 25) - risk * count / 2)
         prices = {}
+        offset = self.offset(request)
         for option in request["options"]:
             cost = (fee - gain) / option["listPriceCents"] + charge  # in list prices
             # A late order gives back part of its price: the expected loss grows with the price itself.
             floor = max(cost, 0.5 * fee / option["listPriceCents"])
-            best = max((floor + 0.02 + 0.01 * i for i in range(260)), key=lambda ratio: (ratio * (1 - risk) - cost) * self.chance(ratio / factor))
+            best = max((floor + 0.02 + 0.01 * i for i in range(260)), key=lambda ratio: (ratio * (1 - risk) - cost) * self.chance(ratio / factor, offset))
             prices[option["kind"]] = round(option["listPriceCents"] * best)
         return prices
 
@@ -107,6 +120,8 @@ class ProfitQuoter(Part):
             lists = {option["kind"]: option["listPriceCents"] for option in request["options"]}
             self.sent[request["id"]] = {kind: cents / lists[kind] for kind, cents in action["prices"].items() if kind in lists}
             self.factors[request["id"]] = self.factor(request["dealerId"])
+            self.offsets[request["id"]] = self.offset(request)
+            self.owners[request["id"]] = request["dealerId"]
 
     def observe(self, event: dict[str, Any], desk: "Desk", replay: bool) -> None:
         kind = event["kind"]
@@ -120,10 +135,11 @@ class ProfitQuoter(Part):
         if kind not in ("order_won", "order_lost"):
             return
         won = kind == "order_won"
-        if won:
-            self.open[event["order"]["id"]] = event["order"]["dealerId"]
         name = event["order"]["id"] if won else event["requestId"]
         sent, factor = self.sent.pop(name, None), self.factors.pop(name, 1.0)
+        offset, dealer = self.offsets.pop(name, 0.0), self.owners.pop(name, "")
+        if won:
+            self.open[event["order"]["id"]] = event["order"]["dealerId"]
         if not sent:
             return
         # A win shows the taken option's price was low enough; a loss shows even the lowest one was too high.
@@ -134,7 +150,11 @@ class ProfitQuoter(Part):
             self.day, self.seen_today = event["at"] // DAY, 0
         step = self.step * max(1.0, self.boost / math.sqrt(1 + self.seen_today / 3))
         self.seen_today += 1
-        self.level = min(self.high, max(self.low, self.level + step * ((1.0 if won else 0.0) - self.chance(ratio / factor))))
+        chance = self.chance(ratio / factor, offset)
+        self.level = min(self.high, max(self.low, self.level + step * ((1.0 if won else 0.0) - chance)))
+        if self.dealer:
+            who = event["order"]["dealerId"] if won else dealer
+            self.dealers[who] = min(0.4, max(-0.4, self.dealers.get(who, 0.0) + self.dealer * ((1.0 if won else 0.0) - chance)))
 
     def count(self, line: dict[str, Any]) -> None:
         """Keeps each dealer's count as the dealer does: one more for an order on time, half after a late one."""

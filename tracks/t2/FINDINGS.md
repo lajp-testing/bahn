@@ -53,3 +53,29 @@ The first 31-request method check took 797 HTTP calls. Before the week, a rough 
 One first-option fork probe was fixed and monotone across eight trials. A random-price grid found full-Monday midpoint estimates 1.648 (`t2-study-1`) and 1.459 (`dev-01`); estimates from the first 20–50 quotes were within about 0.05 of the same Monday fit, in sample. `t2-learning-v2` on ten dev weeks yielded −€204,983.18 and 61.9% weighted on time, 0/10 ranked, with starter intake; it does not isolate quote quality. The existing `LearningQuoter` is experimental and cannot rebuild its pending quotes from event-only replay. It has not been made production-ready by this scan.
 
 Offline tests: the prescribed command produced 5 passes and one failure because the existing remote-only guard rejects the temporary slot test. Setting `SPREAD_ON_VPS=1` for this isolated offline test gives 6 passes; no worlds were played by the test.
+
+## Stint 5: a level per dealer
+
+Baseline `t2s5-base` (mainline, trust on): EUR 88,588, 2,288 orders, 97.8% on time, worst week 96.4%, 10/10 ranked — matches the stated mainline exactly.
+
+### Step 1: per-dealer win rates at the same effective ratio (`tracks/t2/dealers.py`)
+
+7,909 really-quoted requests over the 10 dev weeks. The effective ratio is (lowest quoted price / list) / (the dealer's trust factor at that moment, rebuilt from the ledger). Six largest dealers: D01 2,319, D02 939, D03 651, D04 452, D05 415, D06 314 requests.
+
+Share won per ratio band (n, share, mean ratio):
+
+| dealer | <1.2 | 1.2-1.4 | 1.4-1.6 | >1.6 |
+|---|---|---|---|---|
+| D01 | 38.9% | 46.9% | 35.6% | 11.5% |
+| D02 | 23.5% | 40.3% | 35.6% | 14.7% |
+| D03 | 20.0% | 23.3% | 24.5% | 11.9% |
+| D04 | 19.2% | 28.8% | 31.6% | 10.4% |
+| D05 | 18.5% | 20.5% | 24.6% | 16.9% |
+| D06 | 41.7% | 36.5% | 35.6% | 11.2% |
+| others | 28.7% | 32.4% | 29.6% | 8.3% |
+
+- **At the same effective ratio, dealers buy at clearly different rates.** D01 is above the pack in every band (e.g. 46.9% vs 32.4% of others at 1.2-1.4); D03 and D05 are below in every band (20-25% vs 29-32%). The ordering is the same in all four bands, so it is a level offset, not noise. D06 looks high too but is small (314 requests).
+- **A dealer's share won drifts from day to day**, but the per-day mean ratio barely moves (D01: 26.4% won at ratio 1.49 on Monday vs 56.1% at 1.40 on Thursday). Part of that is the shared day level (price-war days), so the band table is the cleaner evidence.
+- Caveat: the effective ratio is measured against the quoter's own level, so band win rates are not calibrated in absolute terms (the <1.2 band wins less often than 1.2-1.4, because low ratios cluster on days where the quoter's level lags the true one). The dealer comparison within a band is still apples-to-apples.
+
+So the dealer is a real unit for the price level, as the handbook's competitor note suggests. Step 2 gives each dealer its own learned offset.
