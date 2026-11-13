@@ -165,3 +165,31 @@ On the old mainline (stint 4) the peak was at towns=2.0 (+1,842); on the current
 - Keep: `towns=1.5` (delivery-town lane offsets, `dispatch/towns.py`), +1,568 over the base on the dev weeks, all weeks ranked, on time up. Held out for the orchestrator's holdout check.
 - Reject: per-dealer learned offsets (`dealer`), all step sizes negative; `spread=0.4`, catastrophic.
 - 9 of 16 runs used.
+
+## Stint 6: same-day options and the curve's shape
+
+Test bed: the mainline with track 1's same-day admission (`--set same_day_slack=360 --set same_day_drivers=80`), expected about EUR 100,657. `same` (stint 6) is a level offset for a `same_day` option; `kind_offset` (within_3_days, re-added through the same code path) and `shape`/`shape_scale` (the measured curve) are default-off.
+
+### Step 1 measurement: the same-day premium (`tracks/t2/kinds2.py`)
+
+Leftover = an option's switching ratio minus its world-and-day mean of `next_day` rows (switch_high=0 rows skipped):
+
+| kind | n | mean | q25 | q50 | q75 |
+|---|---:|---:|---:|---:|---:|
+| next_day | 2,942 | 0.000 | −0.148 | −0.001 | 0.154 |
+| same_day | 3,918 | +0.008 | −0.144 | −0.007 | 0.144 |
+| within_3_days | 131 | +0.048 | −0.073 | +0.077 | 0.224 |
+
+The pooled +0.008 is an artifact of composition. Only scan-1 scanned two options of the same request; scans 2–6 scanned one option per request, and their `next_day` rows are only requests *without* a same-day option (list EUR 89.79 vs 76.93, lane 231 vs 172 km — disjoint populations). Split by world, the same_day leftover is +0.140 in scan-1 but −0.02 to −0.06 in scans 2–6, exactly where the populations are disjoint. The only within-request evidence is scan-1's 723 paired requests: same_day ratio minus next_day ratio **+0.186** (558/725 pairs higher; list +610 cents, absolute switch price +1,664 cents). The handbook fits this: the competitor's price is list × factors (the same for every option of a request), and the dealer adds the value of each option's speed. So the premium is real but measured in one world only; the `same` sweep (0.1/0.2/0.3) arbitrates on the test bed.
+
+### Step 2 measurement: the true shape (`tracks/t2/shape.py`, `dispatch/shape.py`)
+
+z = switching ratio minus the world-and-day mean of the same kind (same_day rows, the most common kind: 3,918 rows, 30 world-days). S(z) = share of rows with leftover above z, against the logistic the quoter assumed:
+
+| z | −0.4 | −0.3 | −0.2 | −0.1 | 0 | +0.1 | +0.2 | +0.3 | +0.4 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| S(z) | 0.979 | 0.938 | 0.836 | 0.672 | 0.474 | 0.293 | 0.158 | 0.080 | 0.037 |
+| logistic 0.2 | 0.881 | 0.818 | 0.731 | 0.622 | 0.500 | 0.378 | 0.269 | 0.182 | 0.119 |
+| logistic 0.3 | 0.791 | 0.731 | 0.661 | 0.583 | 0.500 | 0.417 | 0.339 | 0.269 | 0.209 |
+
+The true curve is **steeper in the middle** than the logistic 0.2 (S falls 0.84→0.16 over ±0.2 vs 0.73→0.27; the middle slope matches a logistic with spread ≈0.13) and **thinner in both tails** (2% of mass beyond ±0.4 vs 12%). It is not flatter, so the stint-5 spread=0.4 failure does not predict a failure for the table; a steeper curve moves the profit-maximising price *down*, towards more volume. next_day rows give nearly the same curve. The table is `dispatch/shape.py` (`SURVIVAL`), used by `shape="table"` with linear interpolation.
