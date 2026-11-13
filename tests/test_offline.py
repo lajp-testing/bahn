@@ -296,6 +296,18 @@ def test_a_ranking_run_is_never_deleted_on_an_error_or_by_the_next_process():
             slot = slots.acquire("orch", Client(False), keep="wrank")  # resuming it keeps it
             assert slot is not None and slot.left_behind() == "wrank" and deleted == []
             slot.release()
+            # A track's slot that a killed process left naming the run: resuming in orch's slot clears it there.
+            with open(os.path.join(folder, "slot-0"), "w", encoding="utf-8") as file:
+                file.write("wrank")
+            with slots.adopt(Client(False), "wrank", board=True, track="orch"):
+                assert open(os.path.join(folder, "slot-0"), encoding="utf-8").read() == ""
+                assert open(os.path.join(folder, "slot-7"), encoding="utf-8").read() == "wrank"
+            # An ended ranking run left in a slot is not deleted either: the slot is only freed.
+            with open(os.path.join(folder, "slot-0"), "w", encoding="utf-8") as file:
+                file.write("wrank")
+            slot = slots.acquire("t1", Client(True))
+            assert slot is not None and slot.left_behind() == "" and deleted == []
+            slot.release()
         finally:
             config.SLOTS = old
 

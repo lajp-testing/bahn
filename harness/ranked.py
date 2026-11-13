@@ -96,7 +96,7 @@ def main() -> None:
         board = left["boardRun"] is not None
     label = ("ranked-" if board else "resumed-") + POLICY + "".join(f"-{k}{v}" for k, v in PARAMS.items()) + f"@{args.commit[:7]}"
     row = run_week(POLICY, load(POLICY), dict(PARAMS), LEVEL, None, label, TRACK, board=board, client=client, resume=args.resume)
-    print(f"ranking run {row['worldId']}: margin €{row['marginCents'] / 100:,.2f}  {row['wonOrders']} orders  "
+    print(f"{'ranking run' if board else 'practice world'} {row['worldId']}: margin €{row['marginCents'] / 100:,.2f}  {row['wonOrders']} orders  "
           f"{row['onTimeShare']:.1%} on time  {'ranked' if row['ranked'] else 'NOT RANKED'}  {row['requests']} requests  {row['seconds']:.0f} s")
 
 

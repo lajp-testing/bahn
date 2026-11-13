@@ -63,6 +63,9 @@ def acquire(track: str, client: Client, wait: bool = True, keep: Optional[str] =
                     slot.release()
                     raise SystemExit(f"Slot {index} holds ranking run {stale}, which has not ended. Resume it with "
                                      f"python -m harness.ranked --resume {stale}; deleting it would play it to its end without the system.")
+                if left is not None and left["boardRun"] is not None:  # an ended ranking run: keep it, only free the slot
+                    slot.record("")
+                    return slot
                 try:
                     client.world(stale).delete()
                 except SpreadError:
@@ -122,7 +125,29 @@ def adopt(client: Client, world_id: str, board: bool, track: Optional[str] = Non
     It is never deleted on an error: a ranking run counts even when deleted."""
     track = track or config.track()
     _check(track, None, board)
-    return _held(track, client, lambda: client.world(world_id), delete_on_error=False, keep=world_id)
+    def make() -> World:
+        forget(world_id)  # the slot of the process that stopped still names it: the next process there would delete it
+        return client.world(world_id)
+
+    return _held(track, client, make, delete_on_error=False, keep=world_id)
+
+
+def forget(world_id: str) -> None:
+    """Clears `world_id` from every slot that no live process holds. A slot that this process holds is locked
+    too, so the slot that adopts the world keeps its record."""
+    for index in range(8):
+        path = os.path.join(config.SLOTS, f"slot-{index}")
+        if not os.path.exists(path):
+            continue
+        with open(path, "a+", encoding="utf-8") as file:
+            try:
+                fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                continue
+            slot = Slot(index, file)
+            if slot.left_behind() == world_id:
+                slot.record("")
+            fcntl.flock(file, fcntl.LOCK_UN)
 
 
 APPROVAL = "SPREAD_ALLOW_RANKED"
