@@ -10,7 +10,7 @@ from ..quote import Quoter
 
 
 def build(ctx: Context, **params: Any) -> Parts:
-    markup = params.pop("markup", 1.6)
+    markup = params.pop("markup", 1.8)
     options = params.pop("options", "all")
     limit = params.pop("limit", 15)
     defaults = dict(open=1.3, step=0.1, every=60, steps=6)

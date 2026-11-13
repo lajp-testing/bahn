@@ -10,6 +10,9 @@ The intake limits unbooked orders plus quotes awaiting a decision to 15, and dec
 | `t1-stint2-limit15-sameday-fee13` | 10 | €22,092 | 90.8% | 7/10 |
 | `t1-stint2-unlimited-later-fee13` | 10 | −€10,423 | 92.4% | 8/10 |
 | `t1-stint2-no-private-fee13` | 10 | €15,455 | 97.9% | 10/10 |
+| `t1-stint2-no-private-urgent25` | 10 | €11,889 | 97.9% | 10/10 |
+| `t1-stint2-no-private-limit25` | 10 | €10,310 | 96.8% | 10/10 |
+| `t1-stint2-no-private-markup18` | 10 | €19,787 | 98.2% | 10/10 |
 | `base` | 10 | −€689,088 | 45.1% | 0/10 |
 | `t1-limit15-later-price16-fee15` | 10 | −€31,979 | 96.0% | 10/10 |
 | `t1-price16-fee15` | 4 | −€16,953 | 86.2% | 1/4 |
@@ -44,3 +47,9 @@ Offering same-day with limit 15: €22,092, 2,259 orders, 90.8% on time, worst d
 Removing the limit while still declining same-day: −€10,423, 2,080 orders, 92.4% on time, worst dev-07 82.1%, 8/10 ranked. Rejected.
 
 Declining private-address requests: €15,455, 1,573 orders, 97.9% on time, worst dev-07 95.0%, 10/10 ranked. Kept: +€3,341 over fee13 with every week above 92%.
+
+Urgent opening 2.5 instead of 1.5 with no private orders: €11,889, 1,576 orders, 97.9% on time, worst dev-07 95.0%, 10/10 ranked. Rejected: margin fell €3,566 without improving the worst week.
+
+No private orders, limit 25: €10,310, 1,716 orders, 96.8% on time, worst dev-10 92.1%, 10/10 ranked. Rejected: margin fell €5,145.
+
+No private orders, markup 1.8: €19,787, 707 orders, 98.2% on time, worst dev-10 95.3%, 10/10 ranked. Kept: +€4,332 despite substantially fewer orders; this is a margin comparison, not an inference that higher prices always win.
