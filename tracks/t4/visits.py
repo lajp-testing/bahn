@@ -8,7 +8,7 @@ from pathlib import Path
 index = Path('/home/agent/.t3/projects/bahn/data/runs.jsonl')
 rows = [json.loads(line) for line in index.open()]
 labels = sys.argv[1:]
-seeds = set.intersection(*[{r['seed'] for r in rows if r['label'] == label} for label in labels])
+seeds = set.intersection(*[{r['seed'] for r in rows if r['label'] == label and (Path(r['folder']) / 'events.jsonl.gz').stat().st_size > 0} for label in labels])
 print('paired seeds:', ', '.join(sorted(seeds)))
 for label in labels:
     selected = {r['seed']: r for r in rows if r['label'] == label and r['seed'] in seeds}
