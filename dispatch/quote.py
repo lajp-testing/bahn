@@ -78,13 +78,16 @@ class DialQuoter(Quoter):
     answer settled. So the first answers of a day move the dial far, and the later ones little.
 
     With `same_up`, a `same_day` option beside a later one costs that share more: a dealer who values the speed
-    pays for it, and another takes the later option, which leaves the gig longer to find its driver."""
+    pays for it, and another takes the later option, which leaves the gig longer to find its driver.
+
+    `only_same` is the limit of a request whose only option is `same_day`, for a car that is ready on a later day:
+    the practice weeks' dealers accept about 17% more there than with a later option beside it (tracks/t2/fit10.py)."""
 
     def __init__(self, level: float = 1.33, scale: float = 0.09, gain: float = 0.03, dealer_gain: float = 0.0,
                  no_same_day: float = 0.094, by_list: float = 0.12, by_trust: float = 1.0,
                  cost_next: float = 1.13, cost_same: float = 1.01, ladder: float = 0.0, patience: int = 5 * HOUR,
                  floor: float = 1.1, ceiling: float = 2.4, war: float = 0.0, detail: float = 0.0, day_sd: float = 0.0,
-                 same_up: float = 0.0, place_gain: float = 0.0, brake: float = 0.0, lanes: float = 0.0,
+                 same_up: float = 0.0, place_gain: float = 0.0, brake: float = 0.0, lanes: float = 0.0, only_same: float = 0.0,
                  admit: Optional[Callable[[dict[str, Any], dict[str, int], "Desk"], dict[str, int]]] = None):
         super().__init__(options="all")
         self.dial, self.scale, self.gain, self.dealer_gain = math.log(level), scale, gain, dealer_gain
@@ -92,7 +95,7 @@ class DialQuoter(Quoter):
         self.cost_next, self.cost_same, self.ladder, self.patience = cost_next, cost_same, ladder, patience
         self.floor, self.ceiling, self.war, self.admit = floor, ceiling, war, admit
         self.detail, self.day_sd, self.same_up, self.place_gain = detail, day_sd, same_up, place_gain
-        self.lanes, self.near = lanes, {}  # place id -> drivers who live within NEAR_KM
+        self.lanes, self.only_same, self.near = lanes, only_same, {}  # place id -> drivers who live within NEAR_KM
         self.place_dial: dict[str, float] = {}  # pickup place id -> its own offset to the dial
         self.brake, self.won, self.strained = brake, 0, set()  # orders won, and those warned of their deadline or late
         self.day, self.at_war, self.war_over = -1, 0.0, False  # the day of the last quote, and the war's probability on it
@@ -114,7 +117,8 @@ class DialQuoter(Quoter):
         kinds = [option["kind"] for option in request["options"]]
         dealer, leg = request["dealerId"], request["legs"][0]
         lane = PICKUP.get(leg["pickup"]["placeId"], 0.0) + DELIVERY.get(leg["delivery"]["placeId"], 0.0)
-        return ((0.0 if "same_day" in kinds else self.no_same_day) + self.by_list * math.log(basis(request)["listPriceCents"] / 6000) + self.lanes * lane
+        options = self.only_same if kinds == ["same_day"] else 0.0 if "same_day" in kinds else self.no_same_day
+        return (options + self.by_list * math.log(basis(request)["listPriceCents"] / 6000) + self.lanes * lane
                 + self.by_trust * math.log(1 + self.trust.get(dealer, 0) / 100) + self.offsets(dealer, pickup(request)))
 
     def offsets(self, dealer: str, place: str) -> float:

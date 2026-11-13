@@ -543,6 +543,16 @@ def test_the_dial_prices_by_cost_and_chance_and_moves_with_the_answers():
     assert quoted(desk, {**NEXT_DAY, "id": "R3"})["next_day"] > after_loss
 
 
+def test_only_same_raises_the_price_of_a_request_with_same_day_alone():
+    later = {**REQUEST, "note": None, "options": [{"kind": "same_day", "deadline": 2640, "listPriceCents": 20000}]}  # ready on Tuesday
+    plain = quoted(reach_desk(quoter="dial", future_same_day=True), later)["same_day"]
+    assert plain < 100000  # reach takes it
+    assert quoted(reach_desk(quoter="dial", future_same_day=True, only_same=0.17), later)["same_day"] > 1.1 * plain
+    both = {**REQUEST, "id": "R0", "note": None}  # same_day beside next_day: unchanged
+    assert quoted(reach_desk(quoter="dial", only_same=0.17), both) == quoted(reach_desk(quoter="dial"), both)
+    assert quoted(reach_desk(quoter="dial", only_same=0.17), NEXT_DAY) == quoted(reach_desk(quoter="dial"), NEXT_DAY)
+
+
 def test_a_request_that_the_intake_declines_teaches_the_dial_nothing():
     desk = reach_desk(quoter="dial")
     quoter = desk.parts.quoter
