@@ -20,12 +20,16 @@ class Fees(Part):
 
     def __init__(self, open: float = 1.0, step: float = 0.1, every: int = HOUR, steps: int = 6,
                  urgent_open: float = 1.5, urgent_step: float = 0.25, urgent_every: int = 30, urgent_steps: int = 5,
-                 night: bool = False, sleep: int = 23, wake: int = 7):
+                 night: bool = False, sleep: int = 23, wake: int = 7, ramp: int = 0):
         self.open, self.step, self.every, self.steps = open, step, every, steps
         self.urgent_open, self.urgent_step, self.urgent_every, self.urgent_steps = urgent_open, urgent_step, urgent_every, urgent_steps
         # night=true: a normal schedule climbs only while drivers read, from `wake` to `sleep` o'clock. Without it a
         # gig posted in the afternoon reaches its top fee overnight and the first drivers up book it there.
         self.night, self.sleep, self.wake = night, sleep * HOUR, wake * HOUR
+        # ramp=4: over the 4 hours before the deadline warning (3 hours before the order's last pickup) the fee climbs
+        # from the normal schedule's top towards `urgent_open`, a step an hour. Without it a gig that nobody took waits
+        # at its top fee for the warning and then jumps: half of those gigs arrive late.
+        self.ramp = ramp
 
     def awake(self, start: int, minutes: int) -> int:
         """The minute `minutes` of reading time after `start`, skipping the nights."""
@@ -47,8 +51,16 @@ class Fees(Part):
         fee = desk.requests[order["id"]]["referenceFeeCents"] * cars / len(order["legs"])
         first, step, every, steps = (self.urgent_open, self.urgent_step, self.urgent_every, self.urgent_steps) if urgent else (self.open, self.step, self.every, self.steps)
         at = (lambda k: desk.now if k == 0 else self.awake(desk.now, k * every)) if self.night and not urgent else (lambda k: desk.now + k * every)
+        plan = [(at(k), first + k * step) for k in range(1 if desk.level == 1 else steps)]
+        if self.ramp and not urgent and desk.level > 1:
+            warning, top = order["lastPickupAt"] - 3 * HOUR, plan[-1][1]
+            ramp = [(warning - HOUR * (self.ramp + 1 - k), top + (self.urgent_open - top) * k / (self.ramp + 1)) for k in range(1, self.ramp + 1)]
+            both, plan = sorted(plan + [(minute, factor) for minute, factor in ramp if minute > desk.now]), []
+            for minute, factor in both:  # one schedule in time order whose fee never falls
+                if not plan or factor > plan[-1][1]:
+                    plan = plan[:-1 if plan and plan[-1][0] == minute else None] + [(minute, factor)]
         # int(x + 0.5) rounds halves up, as the kit's starters do.
-        return [{"at": at(k), "feeCents": max(1, int(fee * (first + k * step) + 0.5))} for k in range(1 if desk.level == 1 else steps)]
+        return [{"at": minute, "feeCents": max(1, int(fee * factor + 0.5))} for minute, factor in plan]
 
 
 class DensityFees(Fees):
