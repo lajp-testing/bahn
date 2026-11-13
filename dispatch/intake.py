@@ -205,15 +205,6 @@ class ReachIntake(Intake):
         same_day = not brake and (self.same_day or (self.future_same_day and self.future_ready(request)))
         kept = {kind: cents for kind, cents in prices.items() if same_day or kind != "same_day"} if reachable else {}
         legs = request["legs"]
-        # thin_drivers: a leg of two hours or more from a pickup with fewer drivers near it is offered with
-        # three days only; on base@f5a6b3b such legs were late 11.8% of the time on next_day, 0% on three days.
-        # thin_both: instead, a leg of any length with that few drivers near both ends (12.5% late, €17 an order).
-        def thin(place: str) -> bool:
-            return self.drivers_near(place, desk) < self.thin_drivers
-        if self.thin_drivers and any(thin(leg["pickup"]["placeId"]) and (
-                thin(leg["delivery"]["placeId"]) if self.thin_both
-                else desk.ctx.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) >= 120) for leg in legs):
-            kept = {kind: cents for kind, cents in kept.items() if kind == "within_3_days"}
         # no_private / no_trade_ins: these classes earn about nothing at the quoter's prices but are late
         # far more often, and a late order halves its dealer's trust count. With private_slots as well, a private
         # request is quoted only when it passes the expansion gate.
@@ -223,6 +214,15 @@ class ReachIntake(Intake):
             kept = {}
         if not kept and self.expanding and not brake:
             kept = self.expansion_options(request, prices, desk)
+        # thin_drivers: a leg of two hours or more from a pickup with fewer drivers near it is offered with three
+        # days only, also after the expansion gate; on base@f5a6b3b such legs were late 11.8% on next_day, 0% on three days.
+        # thin_both: instead, a leg of any length with that few drivers near both ends (12.5% late, €17 an order).
+        def thin(place: str) -> bool:
+            return self.drivers_near(place, desk) < self.thin_drivers
+        if self.thin_drivers and any(thin(leg["pickup"]["placeId"]) and (
+                thin(leg["delivery"]["placeId"]) if self.thin_both
+                else desk.ctx.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) >= 120) for leg in legs):
+            kept = {kind: cents for kind, cents in kept.items() if kind == "within_3_days"}
         if kept and self.expanding:
             self.pending[request["id"]] = request
         return kept or decline(request)

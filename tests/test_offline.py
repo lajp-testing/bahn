@@ -507,3 +507,8 @@ def test_thin_drivers_offers_a_long_leg_from_a_thin_pickup_with_three_days_only(
         desk = reach_desk(thin_drivers=thin, thin_both=True)  # no driver lives near Tampere: short legs count too
         desk.quote(request)
         assert desk.outbox[-1]["prices"] == expected
+    for thin, expected in ((0, {"next_day": 22500, "within_3_days": 18000}), (26, {"within_3_days": 18000})):
+        desk = reach_desk(thin_drivers=thin, thin_both=True, long_lanes=True)  # a long lane, through the gate
+        desk.ctx.road_minutes[("helsinki", "tampere")] = 360
+        desk.quote({**request, "note": None})
+        assert desk.outbox[-1]["prices"] == expected
