@@ -1,14 +1,5 @@
-# Track 4: Notes
+# Track 4: notes
 
-**Question.** What does each note mean?
+Training corpus: all notes from existing dev-01 through dev-08 reveals (3,074 request records, including any repeated runs). The corpus builder retains the request and, for won orders, all leg truth. Dev-09 and dev-10 are reserved for testing and were not examined while writing rules.
 
-## Findings
-
-Nothing measured yet.
-
-| Label | Weeks | Margin | On time | Ranked | What it shows |
-|---|---|---|---|---|---|
-
-## What failed
-
-Nothing yet.
+First candidate recognizes explicit manual-licence, plates and summer-tyre phrases. Unrecognized facts are unknown, not false; all nonempty notes remain unsure. The policy uses the first two requirements on the first post and retains the starter's windows. It does not yet interpret dates, hours or corrections. This is an intentionally incomplete candidate, not an improvement claim.

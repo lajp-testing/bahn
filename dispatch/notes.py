@@ -92,3 +92,49 @@ def window_from_note(note: Optional[dict[str, Any]], window: dict[str, int], sto
         elif BEFORE.search(around):
             end = min(end, time)
     return {"from": start, "to": end} if start <= end else window
+
+# Track 4's conservative reader. None means that a field has not been established;
+# it must not be interpreted as a negative fact.
+from dataclasses import dataclass
+
+
+@dataclass
+class NoteFacts:
+    earliest_pickup: Optional[int] = None
+    pickup_hours: Optional[tuple[int, int]] = None
+    release: Optional[int] = None
+    delivery_hours: Optional[tuple[int, int]] = None
+    deadline: Optional[int] = None
+    manual: Optional[bool] = None
+    plates: Optional[bool] = None
+    summer_tyres: Optional[bool] = None
+    sure: bool = False
+
+
+def read_note(request: dict[str, Any]) -> NoteFacts:
+    """Extract only unambiguous positive requirements; unresolved text is unsure."""
+    facts = NoteFacts()
+    note = request.get('note')
+    if not note or not note.get('text', '').strip():
+        facts.sure = True
+        return facts
+    text = note['text'].lower()
+    if re.search(r'manuaal|manual gearbox|manual transmission|stick shift|manuell växel', text):
+        facts.manual = True
+    if re.search(r'no plates|without plates|ei rekkareita|kilvet (?:puuttuu|poistetu)|rekisterikilvet irrotettu|ilman kilpi|siirtokilvet|koekilvet|transfer plates|trade plates', text):
+        facts.plates = True
+    if re.search(r'summer ty(?:re|r)es on|no winters|sommardäck på|kesärenkaat alla|kesärenkailla', text):
+        facts.summer_tyres = True
+    return facts
+
+
+class TrackNotes(Notes):
+    """Keep the starter's windows while applying certain equipment requirements."""
+
+    def risk(self, request: dict[str, Any], desk: "Desk") -> float:
+        return 0.0 if read_note(request).sure else 1.0
+
+    def plan(self, order: dict[str, Any], legs: list[int], request: dict[str, Any], retry: Retry, desk: "Desk") -> tuple[list[dict[str, Any]], dict[str, bool]]:
+        facts = read_note(request)
+        retry = Retry(retry.pickup_from, retry.manual_licence or bool(facts.manual), retry.plates or bool(facts.plates))
+        return super().plan(order, legs, request, retry, desk)
