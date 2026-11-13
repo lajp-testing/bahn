@@ -23,8 +23,9 @@ class Intake(Part):
 class LimitedIntake(Intake):
     """Limit unbooked orders, including quotes awaiting a dealer decision."""
 
-    def __init__(self, limit: int = 15, private: bool = False, slack: int = 0):
+    def __init__(self, limit: int = 15, private: bool = False, slack: int = 0, queue_price: bool = False):
         self.limit, self.private, self.slack = limit, private, slack  # `private`: take requests with a private address
+        self.queue_price = queue_price
         self.pending: dict[str, int] = {}
 
     def admit(self, request: dict[str, Any], prices: dict[str, int], desk: "Desk") -> dict[str, int]:
@@ -48,5 +49,8 @@ class LimitedIntake(Intake):
             return decline(request)
         if not later or unbooked + len(self.pending) >= self.limit:
             return decline(request)
+        if self.queue_price:
+            factor = 0.9 + 0.2 * (unbooked + len(self.pending)) / self.limit
+            later = {kind: round(price * factor) for kind, price in later.items()}
         self.pending[request["id"]] = request["respondBy"]
         return later
