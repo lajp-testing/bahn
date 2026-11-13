@@ -2,14 +2,25 @@
 
 ## For other tracks
 
-In one no-wins level 8 week, the first-option switching ratio varies markedly by day and by pickup, delivery and dealer; straight-line distance and hour alone explain little. These are in-sample associations, not independent effects or evidence across worlds. A second, incomplete level 8 scan gives Monday and Tuesday means 1.387 and 1.468, versus 1.317 and 1.353 in the first world. We do not yet know how early the world level can be learned reliably. Some second options cannot win even at one cent when quoted alone.
+What a request's switching price depends on (first-option ratio to list; four complete no-wins level 8 scans: `t2-scan-1` 1,040, `t2-scan-2` 1,035, `t2-scan-3` 1,039, `t2-scan-4` 1,031 requests; `tracks/t2/structure.py`):
+
+- **A day level per world.** Daily means 1.21–1.67, 1.10–1.62, 1.13–1.42, 1.19–1.52 across the four weeks; within-day stdev 0.14–0.31. The day factor is new each day and each world.
+- **The price war is a whole-day drop, on a different day each world.** Day 2 in scans 1–2 (0.82x and 0.76x the mean of the other days, n=191 each), day 1 in scan-3 (0.83x, n=204), day 3 in scan-4 (0.82x, n=238). Nearly all requests arrive inside 08:00–18:00, so the day-wide drop is what you see; quote about 20% lower that day or expect losses. A day mean near 0.8x the running week mean is the signature.
+- **The outage hits one pickup region, about +25–40% there.** Scan-1: Uusimaa pickups (Helsinki/Vantaa/Espoo/Porvoo/Hyvinkaa, all within 80 km) on Thursday, region mean 1.81 vs 1.41 outside (in/out 1.27, n 162/85). Scan-2: the same region on Friday (1.79 vs 1.42, in/out 1.26, n 98/81). Scan-3: Oulu pickups on Wednesday, 1.90 that day vs 1.33 for Oulu pickups on other days (+43%, n 16 vs 42). Scan-4: cannot tell — the best candidates (north on Friday: Oulu pickups +11% n=30, Ylivieska deliveries +18% n=8; southwest deliveries on Tuesday +13% n=23) are well below the handbook's ~30%, so the outage there is either in a thinly requested region or too weak to see. Day and region move per world; the visible effect is on the pickup side.
+- **The part that holds across worlds is on the delivery town.** After removing each seed-day mean, delivery-town leftovers correlate between every pair of worlds (Pearson r=0.45–0.69, six pairs, 18–19 towns with n>=15 each); pickup-town r=−0.18 to +0.28 and dealer r=−0.36 to +0.32 do not. Same sign in all four weeks: hyvinkaa −0.155/−0.138/−0.185/−0.111, espoo −0.059/−0.157/−0.143/−0.069, vantaa −0.150/−0.028/−0.137/−0.175, kuopio +0.064/+0.241/+0.179/+0.167, pori +0.070/+0.078/+0.122/+0.332, rovaniemi +0.050/+0.036/+0.159/+0.220, vaasa +0.204/+0.023/+0.140/+0.051, ylivieska +0.169/+0.116/+0.335, lahti and salo positive in all four, lappeenranta and mikkeli positive in the weeks that have them. This matches the handbook's lane part that follows drivers near the delivery place: quote up for cars going north and east (pori, ylivieska, rovaniemi, kuopio, vaasa) and down for cars into hyvinkaa, vantaa and espoo.
+- **Lane length has no stable effect.** km-band leftovers stay within ±0.10 and flip sign between weeks (n 102–374 per band per week).
+- **How fast the day level shows.** The first 10 requests of a day estimate the whole-day mean within −12% to +14% (20 day-week pairs; worst 0.883 on scan-3's war day, 1.142 on scan-2's), the first 20 within −7% to +8%, the first 40 within −4% to +5%.
+
+Older single-week associations (day, dealer, towns explain 13–34% each in-sample) are below. Some second options cannot win even at one cent when quoted alone.
 
 ## Findings
 
 | Measurement | Result | Scope |
 |---|---|---|
 | Method: `t2-scan-check` | 0/31 repeat mismatches at 1.4; 0/31 monotonicity violations across 0.8–2.0 | First option, first 31 requests, one level 8 world; not proof for all prices or requests |
-| `t2-scan-2`, level 8, incomplete | 900 first-option requests, through Friday morning | Monday–Thursday means 1.387, 1.468, 1.100, 1.391; Friday is incomplete |
+| `t2-scan-2`, level 8, complete | 1,035 first-option requests | Monday–Friday means 1.387, 1.468, 1.100, 1.391, 1.622 (n 219, 204, 191, 242, 179) |
+| `t2-scan-3`, level 8, complete | 1,039 first-option requests | Monday–Friday means 1.265, 1.126, 1.419, 1.394, 1.339 (n 219, 204, 191, 246, 179) |
+| `t2-scan-4`, level 8, complete | 1,031 first-option requests | Monday–Friday means 1.363, 1.494, 1.456, 1.191, 1.516 (n 219, 204, 191, 238, 179) |
 | `t2-scan-1`, level 8 | 1,040 requests, 1,894 option rows | One neutral-parent week, not a ranked run |
 | First-option mean switching ratios, Monday–Friday | 1.317, 1.353, 1.208, 1.673, 1.556 | Daily sample sizes 219, 204, 191, 247, 179 |
 | Paired same-day minus next-day ratio | Mean +0.189; same-day higher in 558/725 pairs | Each option quoted alone, one week |
@@ -17,7 +28,7 @@ In one no-wins level 8 week, the first-option switching ratio varies markedly by
 
 Two option rows lost at one cent. In particular R00604's next-day option lost twice at one cent and also at 0.5, 1 and 2 times list; its same-day option won twice at one cent, won at 0.5 and lost at 1 and 2. The scan records the former as a zero bracket, meaning no tested positive price wins, not an exact zero-cent switch. The scanner verifies a four-times upper bracket and stops on a violation. Seven bisections give a bracket 0.03125 wide; this is about 2% around ratios near 1.5, not uniform relative precision. Thresholds near a quoted price have classification uncertainty; the scoring below counts wins only at or below the known winning bound.
 
-The Wednesday trough and Thursday rise are visible, but one week does not identify a price war or outage region. No cross-world lane effect or level comparison has yet been established. The neutral parent is checked for order wins, and copies separately quote each option; a copy at each price serves all simultaneous requests. Independence of those simultaneous quotes has not been separately established.
+The Wednesday trough and Thursday rise of scan-1 turned out to be that world's price war (Wednesday) and outage (Thursday, Uusimaa); the cross-world comparison above now establishes the stable delivery-town lane part. The neutral parent is checked for order wins, and copies separately quote each option; a copy at each price serves all simultaneous requests. Independence of those simultaneous quotes has not been separately established.
 
 ## Offline quoting proxy
 
