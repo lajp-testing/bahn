@@ -23,7 +23,9 @@ Friday median booking fee was 1.5 times typical, trade-ins 1.2, and the other gr
 
 ## Experiments
 
-`t3-m15-base-v1`: markup 1.5 with starter schedule, 10 dev weeks, total margin −€5,025.12, 3,823 orders, 77.0% on time, ranked 0/10. Matched `t3-m15-flat15-v1` so far: 8 paired seeds, starter €25,318 and 80.9% on time; flat −€17,392 and 79.6% on time. Both rank 0/8. Flat has lower margin on all eight; two weeks remain, one retrying a server timeout. This is a preliminary result, not a 10-week finding.
+`t3-m15-base-v1`: markup 1.5 with starter schedule, 10 dev weeks, total margin −€5,025.12, 3,823 orders, 77.0% on time, ranked 0/10. `t3-m15-flat15-v1`: flat 1.5 times typical, including after warning, total margin −€43,415, 3,957 orders, 76.5% on time, ranked 0/10. Flat won margin on 1/10 seeds and lost €38,390 in total. Neither qualifies as an improvement: neither ranks. The policy retains the starter schedule.
+
+For the eight matched seeds with usable event logs, driver fees per delivered leg were €106.92 for the starter versus €113.70 flat; 538 drops from 3,579 bookings versus 482 from 3,626. Two flat runs (dev-03 and dev-04) have empty event files despite completed result rows, so these fee and drop figures exclude both pairs. These metrics include late deliveries, and different orders are won as trust evolves. The within-week Monday–Friday difference above cannot establish learning: workload and deadlines change too. Direct offers, alternative flat multiples and raise timings remain untested.
 
 ## What failed / limitations
 

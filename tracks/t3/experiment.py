@@ -6,7 +6,11 @@ for label in sys.argv[1:]:
     rows={r['seed']:r for r in read_index() if r['label']==label and r['seed'].startswith('dev-')}
     fee=delivered=drops=books=0
     for r in rows.values():
-        with gzip.open(Path(r['folder'])/'events.jsonl.gz','rt') as f:
+        path = Path(r['folder'])/'events.jsonl.gz'
+        if not path.stat().st_size:
+            print(label, r['seed'], 'empty events: excluded', file=sys.stderr)
+            continue
+        with gzip.open(path,'rt') as f:
             for line in f:
                 e=json.loads(line)
                 if e['kind']=='ledger' and e['line']['kind']=='driver_fee': fee-=e['line']['cents']
