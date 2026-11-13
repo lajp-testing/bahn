@@ -19,16 +19,36 @@ class Fees(Part):
     `urgent_every` minutes, `urgent_steps` fees in all (1.5, 1.75 … 2.5). Level 1 takes one fee only."""
 
     def __init__(self, open: float = 1.0, step: float = 0.1, every: int = HOUR, steps: int = 6,
-                 urgent_open: float = 1.5, urgent_step: float = 0.25, urgent_every: int = 30, urgent_steps: int = 5):
+                 urgent_open: float = 1.5, urgent_step: float = 0.25, urgent_every: int = 30, urgent_steps: int = 5,
+                 night: bool = False, sleep: int = 23, wake: int = 7):
         self.open, self.step, self.every, self.steps = open, step, every, steps
         self.urgent_open, self.urgent_step, self.urgent_every, self.urgent_steps = urgent_open, urgent_step, urgent_every, urgent_steps
+        # night=true: a normal schedule climbs only while drivers read, from `wake` to `sleep` o'clock. Without it a
+        # gig posted in the afternoon reaches its top fee overnight and the first drivers up book it there.
+        self.night, self.sleep, self.wake = night, sleep * HOUR, wake * HOUR
+
+    def awake(self, start: int, minutes: int) -> int:
+        """The minute `minutes` of reading time after `start`, skipping the nights."""
+        t = start
+        while True:
+            day, clock = divmod(t, 24 * HOUR)
+            if clock < self.wake:
+                t = day * 24 * HOUR + self.wake
+            elif clock >= self.sleep:
+                t = (day + 1) * 24 * HOUR + self.wake
+            elif minutes < self.sleep - clock:
+                return t + minutes
+            else:
+                minutes -= self.sleep - clock
+                t = (day + 1) * 24 * HOUR + self.wake
 
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
         """The schedule for `cars` of the order's cars, starting at `desk.now`."""
         fee = desk.requests[order["id"]]["referenceFeeCents"] * cars / len(order["legs"])
         first, step, every, steps = (self.urgent_open, self.urgent_step, self.urgent_every, self.urgent_steps) if urgent else (self.open, self.step, self.every, self.steps)
+        at = (lambda k: desk.now if k == 0 else self.awake(desk.now, k * every)) if self.night and not urgent else (lambda k: desk.now + k * every)
         # int(x + 0.5) rounds halves up, as the kit's starters do.
-        return [{"at": desk.now + k * every, "feeCents": max(1, int(fee * (first + k * step) + 0.5))} for k in range(1 if desk.level == 1 else steps)]
+        return [{"at": at(k), "feeCents": max(1, int(fee * (first + k * step) + 0.5))} for k in range(1 if desk.level == 1 else steps)]
 
 
 class DensityFees(Fees):
