@@ -28,8 +28,9 @@ from dispatch.policies import load
 from . import config, slots
 from .play import run_week
 
-# The frozen candidate: markup 1.5, fees open at 0.85 x typical, same_day quoted when the car is ready a day later.
-POLICY, PARAMS, LEVEL = "reach", {"open": 0.85, "future_same_day": True}, 8
+# The frozen candidate: markup 1.5, fees open at 0.85 x typical, same_day quoted when the car is ready a day later,
+# and the fee climb paused from 19:00 to 06:00, when drivers view but hardly book.
+POLICY, PARAMS, LEVEL = "reach", {"open": 0.85, "future_same_day": True, "night": True, "sleep": 19, "wake": 6}, 8
 TRACK = "orch"
 # Helsinki times when practice falls to 20 requests a second (test finals) or the final is set.
 QUIET_NOT = [((5, 13, 45), (5, 14, 20)), ((5, 19, 45), (5, 20, 20)), ((6, 7, 30), (6, 8, 40))]  # (weekday, hour, minute)
