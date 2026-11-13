@@ -150,6 +150,16 @@ def main():
               ['day', 'n', 'day mean', 'other days mean', 'ratio'],
               [[d, sum(1 for r in srows if r['day'] == d), round(dmean[d], 3),
                 round(others[d], 3), round(dmean[d] / others[d], 3)] for d in days])
+        war = min(days, key=lambda d: dmean[d] / others[d])
+        rows_out = []
+        for d in days:
+            for label, sel in (('08-18', lambda r: 480 <= r['arrival'] % 1440 < 1080),
+                               ('outside', lambda r: not 480 <= r['arrival'] % 1440 < 1080)):
+                group = [r['ratio'] for r in srows if r['day'] == d and sel(r)]
+                if group:
+                    rows_out.append([d, label, len(group), round(mean(group), 3)])
+        table(f'd. {seed}: intraday means (lowest day vs others = {war})',
+              ['day', 'window', 'n', 'mean'], rows_out)
         best = []
         for d in days:
             for anchor in towns:
