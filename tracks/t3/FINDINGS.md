@@ -23,7 +23,7 @@ Friday median booking fee was 1.5 times typical, trade-ins 1.2, and the other gr
 
 ## Experiments
 
-`t3-m15-base-v1`: markup 1.5 with starter schedule, 10 dev weeks, total margin −€5,025.12, 3,823 orders, 77.0% on time, ranked 0/10. Matched flat 1.5 weeks are running.
+`t3-m15-base-v1`: markup 1.5 with starter schedule, 10 dev weeks, total margin −€5,025.12, 3,823 orders, 77.0% on time, ranked 0/10. Matched `t3-m15-flat15-v1` so far: 8 paired seeds, starter €25,318 and 80.9% on time; flat −€17,392 and 79.6% on time. Both rank 0/8. Flat has lower margin on all eight; two weeks remain, one retrying a server timeout. This is a preliminary result, not a 10-week finding.
 
 ## What failed / limitations
 
