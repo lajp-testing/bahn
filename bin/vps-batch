@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Runs a batch script on the practice machine as a detached systemd unit: it keeps running when the
+# connection from here drops. The script runs in a frozen copy of this checkout, so later edits here
+# do not change it mid-batch.
+#
+#   bin/vps-batch <name> <script>     start; the unit is bahn-<name>, the log bahn/data/logs/<name>.log
+#   bin/vps-batch <name>              show its state and the end of its log, and copy results back
+#
+# The script gets SPREAD_HOME, SPREAD_ON_VPS, SPREAD_VERSION and PYTHONUNBUFFERED, and sets SPREAD_TRACK itself.
+set -euo pipefail
+home="${SPREAD_HOME:-/home/agent/.t3/projects/bahn}"
+vps="$(grep -E '^SPREAD_VPS=' "$home/.env" | cut -d= -f2-)"
+key="$(grep -E '^SPREAD_VPS_KEY=' "$home/.env" | cut -d= -f2-)"
+name="${1:?usage: bin/vps-batch <name> [<script>]}"
+ssh=(ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o ControlMaster=no -o ControlPath=none -o ConnectTimeout=10 -o LogLevel=ERROR)
+root="$(git rev-parse --show-toplevel)"
+if [ "$#" -ge 2 ]; then
+  version="$(cd "$root" && python3 -c 'from harness import config; print(config.git_version())')"
+  rsync -az --delete --exclude .git --exclude data --exclude __pycache__ --exclude .direnv --exclude result --exclude .env \
+    -e "${ssh[*]}" "$root/" "$vps:bahn/trees/batch-$name/"
+  rsync -az -e "${ssh[*]}" "$2" "$vps:bahn/trees/batch-$name/.batch.sh"
+  "${ssh[@]}" "$vps" "mkdir -p bahn/data/logs && systemd-run --quiet --collect --unit=bahn-$name --working-directory=\$HOME/bahn/trees/batch-$name \
+    --setenv=HOME=\$HOME --setenv=SPREAD_HOME=\$HOME/bahn --setenv=SPREAD_ON_VPS=1 --setenv=SPREAD_VERSION=$version --setenv=PYTHONUNBUFFERED=1 \
+    bash -c 'bash .batch.sh >> \$HOME/bahn/data/logs/$name.log 2>&1' && systemctl is-active bahn-$name"
+else
+  "${ssh[@]}" "$vps" "systemctl is-active bahn-$name || true; tail -n 12 bahn/data/logs/$name.log"
+  rsync -azu -e "${ssh[*]}" "$vps:bahn/data/runs" "$home/data/" 2>/dev/null || true
+  copy="$(mktemp)"
+  if rsync -az -e "${ssh[*]}" "$vps:bahn/data/runs.jsonl" "$copy" 2>/dev/null; then (cd "$root" && SPREAD_HOME="$home" python3 -m harness.merge_index "$copy") || true; fi
+  rm -f "$copy"
+  rsync -azu -e "${ssh[*]}" "$vps:bahn/trees/batch-$name/tracks/" "$root/tracks/" 2>/dev/null || true
+fi
