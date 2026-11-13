@@ -85,3 +85,39 @@ No private orders, markup 1.8: €19,787, 707 orders, 98.2% on time, worst dev-1
 No private orders, markup 1.7: €21,279, 1,099 orders, 97.6% on time, worst dev-07 95.2%, 10/10 ranked. Kept: +€1,492 over markup 1.8.
 
 Remaining work: complete the limit and markup sweeps and the fee comparison under the kept policy; test dynamic, regional and selective same-day intake on all ten seeds. Further investigate snow, flu and the two difficult weeks. The current rule is a measured candidate, not a completed search for the maximum.
+
+## Fourth stint: admission against the current mainline
+
+`t1s4-base` reproduces €73,495.20 margin, 1,873 orders, 98.1% on time, worst 96.9%, 10/10 ranked. The order allocation report totals €74,163 because it excludes some account lines; use the runner's account score for comparisons. Of 1,873 orders, 36 were late or undelivered; those averaged −€4.6, while 91 lanes of at least 500 km averaged €114.8 despite 87.9% on time. Private orders averaged €58 across 68 orders, with 88.2% on time. These descriptive groups are not causal. The world runs until the following Wednesday 22:00; Friday is not the end of the world. Selective same-day and slack tests are in progress.
+
+`t1s4-same360-30` admits same-day with at least 360 minutes after driving and 30 resident drivers within 30 km of pickup. It made €81,048.30, 2,177 orders, 96.6% on time, worst 92.4%, 10/10 ranked. Rejected against the 93% floor despite a €7,553 gain. The slack sweep is running.
+
+`t1s4-slack720` made €76,581.20, 1,946 orders, 98.2% on time, worst 96.8%, 10/10 ranked. It gains €3,086 over baseline and wins 8/10 paired weeks, meeting the 93% floor. This is a candidate; 1080 and 2160 are in progress.
+
+`t1s4-slack1080` made €74,881.59, 1,906 orders, 98.1% on time, worst 97.0%, 10/10 ranked. It gains €1,386 over baseline in 6/10 weeks, but trails slack720.
+
+`t1s4-slack2160` made €46,763.52, 1,213 orders, 99.7% on time, worst 98.3%, 10/10 ranked. Rejected: too restrictive, €26,732 below baseline.
+
+Baseline reveals contain 2,402 same-day options quoted at five times list, average list €74.32, and 1,219 next-day options at that decline price, average list €99.48. Reveal does not show competitor prices, so it cannot directly identify what those dealers would have paid. Three selective same-day variants are in progress.
+
+`t1s4-same480-30` combines slack720 with same-day slack480 and at least 30 drivers near pickup. It made €80,187.99, 2,151 orders, 97.0% on time, worst 95.8%, 10/10 ranked; +€6,693 over baseline, higher in 8/10 weeks. It is the leading qualifying candidate. The combination changes both general and same-day slack; the margin gain cannot be attributed solely to same-day admission.
+
+`t1s4-same360-80` combines slack720, same-day slack360 and 80 drivers within 30 km. It made €83,222.74, 2,201 orders, 97.6% on time, worst 94.5%, 10/10 ranked. It gains €9,728 over baseline and improves 9/10 weeks, but loses €2,329 on dev-07. This is the highest-margin qualifying candidate so far.
+
+`t1s4-same480-80` made €81,361.49, 2,175 orders, 97.7% on time, worst 96.1%, 10/10 ranked. It gains €7,866 over baseline in 6/10 weeks, less margin but a higher worst week than same360-80.
+
+Among baseline orders, 100 had negative allocated margin, totaling −€1,349.23; 23 were late or undelivered, 96 non-private, 99 next-day. This does not isolate a clean group to decline; allocation excludes some account lines.
+
+`t1s4-morning20` adds a limit of 20 before noon to same360-80: €84,248.20, 2,211 orders, 97.6% on time, worst 95.7%, 10/10 ranked. Against same360-80 it gains €1,025 but improves only 5/10 weeks, so the incremental benefit is uncertain. `t1s4-morning10` makes €76,321.73, 2,066 orders, 97.9% on time, worst 96.5%, 10/10 ranked; rejected against same360-80.
+
+`t1s4-long1440` raises minimum slack for non-same-day options on first-leg lanes of 500 km or more to 1,440 minutes, keeping same360-80 otherwise: €83,434.25, 2,209 orders, 97.5% on time, worst 94.2%, 10/10 ranked. Its €212 gain over same360-80 appears in only 4/10 weeks, so is noise; rejected as an additional rule. Long2160 is running.
+
+`t1s4-long2160` made €80,931.29, 2,231 orders, 97.5% on time, worst 95.5%, 10/10 ranked. Rejected against same360-80. Both long-lane experimental parameters were removed after testing; the evidence does not justify an extra part.
+
+`t1s4-same240-80` makes €81,040.06, 2,221 orders, 96.4% on time, worst 94.3%, 10/10 ranked. It falls €2,183 below same360-80 and is rejected in favor of that rule.
+
+`t1s4-same360-150` makes €80,210.98, 2,157 orders, 97.4% on time, worst 94.5%, 10/10 ranked. It falls €3,012 below same360-80 with no worst-week improvement; rejected. Morning25 is in progress.
+
+`t1s4-morning25` sets the morning limit to 25 on same360-80: €86,852.03, 2,257 orders, 97.3% on time, worst 95.7%, 10/10 ranked. It gains €13,356.83 over baseline and €2,603.83 over morning20, with 7 higher, 1 lower, 2 identical weeks. It is the highest-margin qualifying combination. Morning30 is in progress to check whether further increases help.
+
+`t1s4-morning30` made €84,313.41, 2,228 orders, 96.9% on time, worst 92.6%, 10/10 ranked. Rejected: below the 93% floor and €2,539 below morning25. The best command is `SPREAD_TRACK=t1 bin/vps python3 -m harness.run --policy main --seeds dev --label t1s4-morning25 --set slack=720 --set same_day_slack=360 --set same_day_drivers=80 --set morning_limit=25`. The 25 threshold is a dev-set selection, not independent validation; the orchestrator should check holdouts. Next test rules using driver supply and time rather than a fixed morning limit, and assess robustness on independent study weeks. No ranking or holdout worlds were played.

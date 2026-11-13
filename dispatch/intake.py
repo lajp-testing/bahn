@@ -23,8 +23,11 @@ class Intake(Part):
 class LimitedIntake(Intake):
     """Limit unbooked orders, including quotes awaiting a dealer decision."""
 
-    def __init__(self, limit: int = 15, private: bool = False, slack: int = 0, queue_price: bool = False, win_price: bool = False):
+    def __init__(self, limit: int = 15, private: bool = False, slack: int = 0, queue_price: bool = False, win_price: bool = False, same_day_slack: int = -1, same_day_drivers: int = 0, morning_limit: int = 0):
         self.limit, self.private, self.slack = limit, private, slack  # `private`: take requests with a private address
+        self.morning_limit = morning_limit
+        self.same_day_slack = same_day_slack
+        self.same_day_drivers = same_day_drivers
         self.queue_price = queue_price
         self.win_price = win_price
         self.quoted: set[str] = set()
@@ -46,11 +49,18 @@ class LimitedIntake(Intake):
             leg = request["legs"][0]
             drive = desk.ctx.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"])
             start = max(desk.now, notes.earliest_pickup(request))
+            nearby = sum(desk.ctx.straight_km(driver["homePlaceId"], leg["pickup"]["placeId"]) <= 30
+                         for driver in desk.ctx.roster) if self.same_day_slack >= 0 else 0
             later = {o["kind"]: prices[o["kind"]] for o in request["options"]
-                     if o["kind"] in prices and notes.latest_delivery(request, o["deadline"]) - start - drive >= self.slack}
+                     if o["kind"] in prices and (
+                         ((o["kind"] != "same_day" or self.same_day_slack < 0) and notes.latest_delivery(request, o["deadline"]) - start - drive >= self.slack)
+                         or (o["kind"] == "same_day" and self.same_day_slack >= 0
+                             and nearby >= self.same_day_drivers
+                             and notes.latest_delivery(request, o["deadline"]) - start - drive >= self.same_day_slack))}
         if not self.private and any(leg[side]["privateAddress"] for leg in request["legs"] for side in ("pickup", "delivery")):
             return decline(request)
-        if not later or unbooked + len(self.pending) >= self.limit:
+        limit = self.morning_limit if self.morning_limit and desk.now % 1440 < 12 * 60 else self.limit
+        if not later or unbooked + len(self.pending) >= limit:
             return decline(request)
         if self.queue_price:
             load = (unbooked + len(self.pending)) / self.limit
