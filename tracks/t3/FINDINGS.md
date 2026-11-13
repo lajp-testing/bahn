@@ -2,6 +2,12 @@
 
 ## For other tracks
 
+Fourth stint: `Fees.expected(request, desk)` predicts the total driver fees in cents, using 0.966 times typical plus 0.076 for fewer than 30 drivers near pickup, 0.090 for fewer than 10 near delivery, 0.213 for a lane of at least 500 km, and 0.331 for any private address. These are additive and based on 824 non-cancelled orders in `t3-main-low20-v1` dev-01–06; term sample counts are respectively 338, 354, 92, 96 (overlapping). `Fees.late_risk` uses the same groups: −0.0017 + 0.0269 − 0.0130 + 0.0855 + 0.1676, clipped to [0, 1]. Both are observational, not causal, and use the first leg for location and distance; multi-leg and changed schedules are not separately calibrated. They are not yet wired into the quoter.
+
+Validation on dev-07–10 (718 orders): mean absolute fee error €28.83 per order; actual total €84,793, predicted €83,740. Actual/predicted totals: sparse pickup €47,303/€45,927 (373), sparse delivery €36,575/€36,040 (265), long lanes €30,451/€31,382 (133), private €14,175/€14,400 (98). Actual/predicted late shares: all 4.7%/4.8%, sparse pickup 6.4%/5.8%, sparse delivery 6.4%/4.4%, long 12.8%/11.5%, private 14.3%/19.0%. These four weeks were not fitted; they still share the development seed set and older policy, with potential distribution shift under the new 24-hour slack rule. Fit and validation can be reproduced with `nix develop --command python tracks/t3/fit_expected.py`.
+
+Fourth stint matched baseline `t3-stint4-baseline`, with slack=1440, private=true, queue_price=true, win_price=true: €64,350.29, 97.5% on time, 10/10 ranked; mean booked fee 1.107 times typical and 0.110 drops per booking. Patience and rescue experiments are running.
+
 `t3-main-low20-v1` (opening density estimate + 0.15, +0.1 every 20 minutes to 1.5, starter urgent) on main: €54,426.26, 96.0% on time, worst 93.1%, 10/10 ranked; mean booked fee 1.128 times typical, 207 drops / 1,772 bookings. Main baseline: −€27,162.41, 97.1%, worst 94.9%, 10/10. Same seeds; notes differ from the older `t3-density-buffer-v1`, so its €37,962.14 is not a controlled comparison. Further schedules and flat control are running.
 
 Third stint mainline baseline `t3-stint3-main`: −€27,162.41, 97.1% on time, worst 94.9%, ranked 10/10 on dev. New fee experiments are in progress; earlier `t3-density-buffer-v1` used starter notes, so it is not a same-parts comparison to main.

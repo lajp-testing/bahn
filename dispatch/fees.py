@@ -33,6 +33,24 @@ class Fees(Part):
         multiple = 0.7 + (0.25 if private else 0)
         return max(1, int(request["referenceFeeCents"] * multiple + 0.5))
 
+    def _cost_features(self, request: dict[str, Any], desk: "Desk") -> tuple[bool, bool, bool, bool]:
+        leg = request["legs"][0]
+        pickup, delivery = leg["pickup"]["placeId"], leg["delivery"]["placeId"]
+        near = lambda place: sum(desk.ctx.straight_km(place, d["homePlaceId"]) <= 30 for d in desk.ctx.roster)
+        private = any(leg[side].get("privateAddress") for leg in request["legs"] for side in ("pickup", "delivery"))
+        return near(pickup) < 30, near(delivery) < 10, desk.ctx.km(pickup, delivery) >= 500, private
+
+    def expected(self, request: dict[str, Any], desk: "Desk") -> int:
+        """Expected total driver fees, calibrated to saved low20 orders."""
+        features = self._cost_features(request, desk)
+        multiple = 0.966 + sum(c for c, active in zip((0.076, 0.090, 0.213, 0.331), features) if active)
+        return max(1, round(request["referenceFeeCents"] * multiple))
+
+    def late_risk(self, request: dict[str, Any], desk: "Desk") -> float:
+        """Empirical late share under low20; clipped additive group model."""
+        features = self._cost_features(request, desk)
+        return min(1.0, max(0.0, -0.0017 + sum(c for c, active in zip((0.0269, -0.0130, 0.0855, 0.1676), features) if active)))
+
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
         """The schedule for `cars` of the order's cars, starting at `desk.now`."""
         fee = desk.requests[order["id"]]["referenceFeeCents"] * cars / len(order["legs"])
@@ -45,14 +63,20 @@ class MeasuredFees(Fees):
     """Density-based opening with a configurable early rise."""
 
     def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
-                 cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, **kwargs: Any):
+                 cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, hold_until: int = 0, rescue_fraction: float = 0, **kwargs: Any):
         super().__init__(**kwargs)
         self.buffer, self.rise, self.interval, self.cap = buffer, rise, interval, cap
-        self.deadline_margin, self.max_raises = deadline_margin, max_raises
+        self.deadline_margin, self.max_raises, self.hold_until = deadline_margin, max_raises, hold_until
+        self.rescue_fraction = rescue_fraction
 
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
         if urgent:
-            return super().schedule(order, cars, urgent, desk)
+            schedule = super().schedule(order, cars, urgent, desk)
+            if self.rescue_fraction:
+                cap = max(1, int(order["priceCents"] * self.rescue_fraction * cars / len(order["legs"])))
+                for item in schedule:
+                    item["feeCents"] = min(item["feeCents"], cap)
+            return schedule
         request = desk.requests[order["id"]]
         typical = request["referenceFeeCents"] * cars / len(order["legs"])
         # Keep the tested opening rule independent of the experimental refit.
@@ -64,4 +88,4 @@ class MeasuredFees(Fees):
         interval = self.interval
         if self.deadline_margin and count:
             interval = max(1, min(interval, (order["lastPickupAt"] - desk.now - self.deadline_margin) // count))
-        return [{"at": desk.now + k * interval, "feeCents": max(1, int(typical * min(self.cap, first + k * self.rise) + 0.5))} for k in range(1 if desk.level == 1 else count + 1)]
+        return [{"at": desk.now + (max(0, order["lastPickupAt"] - desk.now - self.hold_until) if k and self.hold_until else 0) + k * interval, "feeCents": max(1, int(typical * min(self.cap, first + k * self.rise) + 0.5))} for k in range(1 if desk.level == 1 else count + 1)]
