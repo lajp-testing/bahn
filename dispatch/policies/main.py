@@ -20,7 +20,7 @@ from ..pricing import ProfitQuoter
 from . import t1
 
 
-PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "car", "late", "trust", "invest", "share", "lag")
+PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "car", "late", "trust", "invest", "share", "lag", "dealer", "towns")
 FEES = ("fee_buffer", "fee_rise", "fee_cap", "fee_max_raises", "fee_hold_until", "fee_deadline_margin")  # passed to the fees without the prefix
 
 

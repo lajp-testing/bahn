@@ -53,3 +53,115 @@ The first 31-request method check took 797 HTTP calls. Before the week, a rough 
 One first-option fork probe was fixed and monotone across eight trials. A random-price grid found full-Monday midpoint estimates 1.648 (`t2-study-1`) and 1.459 (`dev-01`); estimates from the first 20–50 quotes were within about 0.05 of the same Monday fit, in sample. `t2-learning-v2` on ten dev weeks yielded −€204,983.18 and 61.9% weighted on time, 0/10 ranked, with starter intake; it does not isolate quote quality. The existing `LearningQuoter` is experimental and cannot rebuild its pending quotes from event-only replay. It has not been made production-ready by this scan.
 
 Offline tests: the prescribed command produced 5 passes and one failure because the existing remote-only guard rejects the temporary slot test. Setting `SPREAD_ON_VPS=1` for this isolated offline test gives 6 passes; no worlds were played by the test.
+
+## Stint 4: lane offsets in the live quoter
+
+**Baseline.** `t2s4-base` (`--policy main`, defaults, current code): EUR 73,495 margin over the 10 dev weeks, 1,873 orders, 98.1% on time, 10/10 ranked, worst week 96.9%. This matches the mainline's known numbers.
+
+**The delivery-town table.** `tracks/t2/towns.py` reads all six scans, takes each first-option request's switching ratio minus its world-and-day mean (as `structure.py`), and shrinks each delivery town's mean leftover by `n / (n + 30)`. The result is `dispatch/towns.py` (`DELIVERY`), 30 towns, from hyvinkaa −0.136 and vantaa −0.111 to ylivieska +0.142 and kuopio +0.102. The keys match `request["legs"][0]["delivery"]["placeId"]` in a saved events file exactly (all 30 present on both sides).
+
+**The quoter change.** `ProfitQuoter` gained `towns` (scale for the table), `region` and `region_area` (step sizes for pickup learning, see below), all default 0 so the mainline is unchanged. `chance` takes an `offset`; the level used for a request is `self.level + offset`, where the offset is the delivery town's table entry times `towns` plus what the day has taught about the pickup. The offset used at quote time is stored with the sent ratios and the same offset feeds the learning update in `observe`.
+
+Runs in flight: `t2s4-towns1` (towns=1), `t2s4-towns05` (towns=0.5), `t2s4-towns15` (towns=1.5).
+
+**Option kinds win differently at the same ratio (step 3 evidence).** `tracks/t2/kinds.py` on the ten `t2s4-base` weeks: of our quoted options (declined 4x quotes excluded), `next_day` was taken 1,840/6,608 (27.8%) but `within_3_days` only 56/1,676 (3.3%). Per band (win share, n): 1.2-1.4: 31% (1,786) vs 2% (350); 1.4-1.6: 32% (2,599) vs 4% (654); 1.6-2: 23% (1,444) vs 5% (450). The dealer's switching price for a `within_3_days` option sits well below the one level the quoter keeps, so those quotes are priced too high. `kind_offset` (default 0) adds to the level of every `within_3_days` option; negative values price them down. Each option's own offset is stored with its sent ratio, so the learning update uses the same offset the price was made with.
+
+**Results (10 dev weeks each, margin EUR vs `t2s4-base` 73,495 / 1,873 orders / 98.1% / 10/10).**
+
+| label | change | margin EUR | orders | on time | worst | ranked |
+|---|---|---:|---:|---:|---:|---|
+| `t2s4-base` | none | 73,495 | 1,873 | 98.1% | 96.9% | 10/10 |
+| `t2s4-towns2p0` | towns=2.0 | **75,337** | 1,913 | 98.3% | 97.1% | 10/10 |
+| `t2s4-towns15` | towns=1.5 | 74,798 | 1,908 | 98.3% | 97.1% | 10/10 |
+| `t2s4-towns25` | towns=2.5 | 74,341 | 1,898 | 98.4% | 96.9% | 10/10 |
+| `t2s4-towns15reg01` | towns=1.5, region=0.1 | 73,857 | 1,898 | 98.3% | 97.5% | 10/10 |
+| `t2s4-region01` | region=0.1 | 73,454 | 1,878 | 98.2% | 96.6% | 10/10 |
+| `t2s4-towns05` | towns=0.5 | 72,513 | 1,874 | 98.2% | 95.8% | 10/10 |
+| `t2s4-region005` | region=0.05 | 72,105 | 1,848 | 98.2% | 96.6% | 10/10 |
+| `t2s4-kindm04` | kind_offset=−0.4 | 72,044 | 1,857 | 98.3% | 96.9% | 10/10 |
+| `t2s4-region02` | region=0.2 | 72,014 | 1,837 | 98.1% | 96.0% | 10/10 |
+| `t2s4-towns1` | towns=1 | 71,326 | 1,873 | 98.3% | 95.8% | 10/10 |
+| `t2s4-kindm02` | kind_offset=−0.2 | 70,936 | 1,849 | 98.5% | 96.9% | 10/10 |
+
+**The delivery-town table pays only when it is strong.** The curve is not monotonic: towns=0.5 loses 982, towns=1 loses 2,169 (worse on 7/10 weeks), towns=1.5 gains 1,302, towns=2.0 gains 1,842 (higher on 5/10 weeks, all ranked, worst week 97.1%), towns=2.5 falls back to +846. The peak is at 2.0. The mechanism shows in the volume: at 2.0 we win 1,913 orders vs 1,873 (+40), and the biggest gains are the weeks that gained the most orders (dev-04 +11 orders/+814 EUR, dev-05 +11/+711, dev-01 +4/+442). At strength 2 the big negative-leftover delivery towns (hyvinkaa −0.27, vantaa −0.22, espoo −0.14, helsinki −0.11 at that scale) are quoted low enough to win real extra volume, and that volume is on time and profitable; the positive towns quoted higher lose little. At weak strengths the same quotes move prices without crossing any dealer's switching price, so the mix just gets worse; past 2.0 the extra discount in the big towns stops paying. **Recommendation for the mainline: `towns=2`** (`bin/vps python3 -m harness.run --policy main --seeds dev --set towns=2`, label `t2s4-towns2p0`, EUR 75,337 vs 73,495). The gain is above the noise bar with every week still ranked; the weeks split 5/10, so the orchestrator should re-check it on the holdout seeds before adopting.
+
+**Region learning on top of towns loses too.** `towns=1.5 region=0.1` gives 73,857, i.e. 941 less than towns=1.5 alone (74,798): the pickup offsets are noise that the town offsets then have to price through. Region stays default-off.
+
+**Same-day pickup learning does not pay.** region=0.05 loses 1,390 (and 25 orders), region=0.1 is a wash (−41), region=0.2 loses 1,481 (and 36 orders). The outage-day pickup premium (+25–43% in one 80 km region, one day a week) is too rare and too thinly sampled per town to learn faster than it costs: most days the region offsets are noise around zero, and every quote pays the spread of that noise. The 80 km-area keying (`region_area`) was implemented but never run — the town-keyed version already fails, and the area key only smooths the same signal.
+
+**Pricing `within_3_days` down does not pay either.** kind_offset=−0.2 loses 1,559 and kind_offset=−0.4 loses 1,451. The rare within_3_days wins (5.6 a week) are not worth the margin given up: the dealer who would have taken our next_day option at a good price sometimes takes the now-cheaper within_3_days option instead. The parameter stays default-off.
+
+## Stint 5: a level per dealer
+
+Baseline `t2s5-base` (mainline, trust on): EUR 88,588, 2,288 orders, 97.8% on time, worst week 96.4%, 10/10 ranked — matches the stated mainline exactly.
+
+### Step 1: per-dealer win rates at the same effective ratio (`tracks/t2/dealers.py`)
+
+7,909 really-quoted requests over the 10 dev weeks. The effective ratio is (lowest quoted price / list) / (the dealer's trust factor at that moment, rebuilt from the ledger). Six largest dealers: D01 2,319, D02 939, D03 651, D04 452, D05 415, D06 314 requests.
+
+Share won per ratio band (n, share, mean ratio):
+
+| dealer | <1.2 | 1.2-1.4 | 1.4-1.6 | >1.6 |
+|---|---|---|---|---|
+| D01 | 38.9% | 46.9% | 35.6% | 11.5% |
+| D02 | 23.5% | 40.3% | 35.6% | 14.7% |
+| D03 | 20.0% | 23.3% | 24.5% | 11.9% |
+| D04 | 19.2% | 28.8% | 31.6% | 10.4% |
+| D05 | 18.5% | 20.5% | 24.6% | 16.9% |
+| D06 | 41.7% | 36.5% | 35.6% | 11.2% |
+| others | 28.7% | 32.4% | 29.6% | 8.3% |
+
+- **At the same effective ratio, dealers buy at clearly different rates.** D01 is above the pack in every band (e.g. 46.9% vs 32.4% of others at 1.2-1.4); D03 and D05 are below in every band (20-25% vs 29-32%). The ordering is the same in all four bands, so it is a level offset, not noise. D06 looks high too but is small (314 requests).
+- **A dealer's share won drifts from day to day**, but the per-day mean ratio barely moves (D01: 26.4% won at ratio 1.49 on Monday vs 56.1% at 1.40 on Thursday). Part of that is the shared day level (price-war days), so the band table is the cleaner evidence.
+- Caveat: the effective ratio is measured against the quoter's own level, so band win rates are not calibrated in absolute terms (the <1.2 band wins less often than 1.2-1.4, because low ratios cluster on days where the quoter's level lags the true one). The dealer comparison within a band is still apples-to-apples.
+
+So the dealer is a real unit for the price level, as the handbook's competitor note suggests. Step 2 gives each dealer its own learned offset.
+
+### Step 4 (early, offline): the spread fit (`tracks/t2/spread_fit.py`)
+
+Fitting one level per day and the spread jointly by grid on the same 7,909 requests: the log-likelihood rises to spread 0.40-0.45 (LL -4502.8, day levels 1.04-1.29) and falls after 0.50. The best spread is about double the quoter's 0.2. Caveat: the effective ratio is measured against the quoter's own moving level, and a single level per day cannot track the quoter's within-day steps, so the fit inflates the spread. Worth one run at `spread=0.4`; the true switching-price stdev in the handbook is 0.2-0.35, so 0.4 is at the edge of plausible.
+
+### Step 2: a learned offset per dealer — loses at every step size
+
+` ProfitQuoter` gained `dealer` (step size, default 0): each dealer gets an offset to the level, learned from its own wins and losses (clamped to ±0.4, kept for the whole week); `chance` takes the offset and `observe` updates both the global level and the dealer offset with the same chance. All defaults keep the mainline unchanged; tests pass (21).
+
+| label | change | margin EUR | orders | on time | worst | ranked |
+|---|---|---:|---:|---:|---:|---|
+| `t2s5-base` | none | 88,588 | 2,288 | 97.8% | 96.4% | 10/10 |
+| `t2s5-dealer002` | dealer=0.02 | 87,079 | 2,264 | 97.7% | 96.1% | 10/10 |
+| `t2s5-dealer005` | dealer=0.05 | 86,597 | 2,253 | 98.0% | 95.9% | 10/10 |
+| `t2s5-dealer01` | dealer=0.1 | 85,503 | 2,231 | 97.8% | 93.5% | 10/10 |
+
+All three lose margin, monotonically in the step size, and all lose orders (−24 at 0.02, −57 at 0.1). `dealer002` splits 5/10 weeks (−1,509 total): noise-level, but never positive. Why the measurement did not translate: (1) the dealer differences in step 1 are measured against the quoter's own level, and the learning rule has to find them from single win/loss bits with a moving global level — the offset noise is paid on every quote; (2) the competitor answers per dealer (handbook: where we win most it cuts its prices), so exploiting a dealer that buys easily invites the cut and the learned offset chases a level that moves away. Per-dealer offsets stay default-off (`dealer=0`).
+
+### Step 3: the delivery-town table on the new mainline — towns=1.5 gains, peak moved left
+
+`dispatch/towns.py` (the stint 4 `DELIVERY` table) brought over by hand and wired into the current quoter: `towns` (scale, default 0) adds `towns * DELIVERY.get(delivery placeId)` to the level offset that `chance` takes; the same offset feeds the learning update. Defaults keep the mainline unchanged; tests pass (21).
+
+| label | change | margin EUR | orders | on time | worst | ranked |
+|---|---|---:|---:|---:|---:|---|
+| `t2s5-base` | none | 88,588 | 2,288 | 97.8% | 96.4% | 10/10 |
+| `t2s5-towns15` | towns=1.5 | **90,156** | 2,291 | 98.3% | 96.5% | 10/10 |
+| `t2s5-towns2` | towns=2 | 87,401 | 2,261 | 97.8% | 93.9% | 10/10 |
+
+On the old mainline (stint 4) the peak was at towns=2.0 (+1,842); on the current mainline towns=2 loses (−1,187, 4/10 weeks) and towns=1.5 gains +1,568 (6/10 weeks, all ranked, on time up in 8/10 weeks, dev-08 +1,635 the largest). The gain is just above the noise threshold with 6/10 agreement, so the peak is being bracketed with towns=1 and towns=1.75 before any recommendation.
+
+### Step 3 continued: the towns hill on the new mainline, and the spread test
+
+| label | change | margin EUR | orders | on time | worst | ranked | weeks better than base |
+|---|---|---:|---:|---:|---:|---|---:|
+| `t2s5-base` | none | 88,588 | 2,288 | 97.8% | 96.4% | 10/10 | — |
+| `t2s5-towns1` | towns=1 | 90,140 | 2,294 | 98.1% | 95.7% | 10/10 | 7/10 |
+| `t2s5-towns15` | towns=1.5 | **90,156** | 2,291 | 98.3% | 96.5% | 10/10 | 6/10 |
+| `t2s5-towns175` | towns=1.75 | 90,101 | 2,295 | 98.5% | 97.0% | 10/10 | 6/10 |
+| `t2s5-towns2` | towns=2 | 87,401 | 2,261 | 97.8% | 93.9% | 10/10 | 4/10 |
+| `t2s5-spread04` | spread=0.4 | 64,715 | 1,263 | 97.9% | 95.7% | 10/10 | 0/10 |
+
+- **The delivery-town table pays on the current mainline, with a broad flat hill from 1.0 to 1.75** (+1,552, +1,568, +1,513). towns=1 passes the evidence rule outright (7/10 weeks); towns=1.5 has the highest total and the best on-time of the three. towns=2 falls off the hill (−1,187), so the optimum sits near 1.5, half of stint 4's 2.0 — the trust and limit changes moved the operating point. Recommendation for the mainline: `towns=1.5` (EUR 90,156, +1,568, 98.3% on time, worst 96.5%, 10/10).
+- **spread=0.4 is a disaster**: −23,873 and half the orders (1,263 vs 2,288). A flatter chance curve moves the profit-maximising price up, so we price ourselves out of half the requests. This confirms the step 4 caveat: the offline fit's 0.40-0.45 is an artifact of measuring the ratio against the quoter's own moving level, not the dealers' true spread. The quoter's `spread=0.2` stays.
+
+### Stint 5 bottom line
+
+- Keep: `towns=1.5` (delivery-town lane offsets, `dispatch/towns.py`), +1,568 over the base on the dev weeks, all weeks ranked, on time up. Held out for the orchestrator's holdout check.
+- Reject: per-dealer learned offsets (`dealer`), all step sizes negative; `spread=0.4`, catastrophic.
+- 9 of 16 runs used.
