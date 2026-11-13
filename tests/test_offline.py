@@ -166,3 +166,15 @@ def test_the_live_desk_rejoins_and_answers_the_stream():
     kinds = [action["type"] for _, action in world.sent]
     assert kinds == ["post", "reprice"]  # the order without a gig is posted on rejoin; the warning makes it urgent
     assert seen[:2] == [("price_request", True), ("order_won", True)] and ("deadline_close", False) in seen
+
+
+def test_reach_quotes_reachable_cars_above_list_and_declines_the_rest():
+    context = ctx()  # one driver, living in Tampere; Helsinki to Tampere is 106 road minutes
+    world = FakeWorld()
+    play(world, context, load("reach")(context, min_drivers=1))
+    # The pickup in Helsinki has no driver within 60 km: a losing quote at 5 x list, not no quote.
+    assert world.sent[0][1]["prices"] == {"same_day": 100000}
+    world = FakeWorld()
+    play(world, context, load("reach")(context, min_drivers=0, markup=1.5))
+    # Reachable: every option but same_day, at 1.5 x list.
+    assert world.sent[0][1]["prices"] == {"next_day": 22500}
