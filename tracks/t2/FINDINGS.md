@@ -2,7 +2,16 @@
 
 ## For other tracks
 
-In one no-wins level 8 week, the first-option switching ratio varies markedly by day and by pickup, delivery and dealer; straight-line distance and hour alone explain little. These are in-sample associations, not independent effects or evidence across worlds. A second, incomplete level 8 scan gives Monday and Tuesday means 1.387 and 1.468, versus 1.317 and 1.353 in the first world. We do not yet know how early the world level can be learned reliably. Some second options cannot win even at one cent when quoted alone.
+What a request's switching price depends on (first-option ratio to list, two complete no-wins level 8 scans `t2-scan-1` 1,040 and `t2-scan-2` 1,035 requests, `structure.py`):
+
+- **A day level per world.** Daily means 1.21–1.67 (scan-1) and 1.10–1.62 (scan-2); within-day stdev 0.17–0.31. The day factor is new each day and each world.
+- **The price war is the whole-day signal.** Day 2 (Wednesday) in both weeks: the day mean is 0.82x (scan-1) and 0.76x (scan-2) the mean of the other days, n=191 both. Nearly all requests arrive inside 08:00–18:00, so the day-wide drop is what you see; quote ~20% lower that day or expect losses.
+- **The outage hits one pickup region.** In both weeks the region is Uusimaa (Helsinki/Vantaa/Espoo/Porvoo/Hyvinkaa, all within 80 km): Thursday in scan-1 (region mean 1.81 vs 1.41 outside, in/out 1.27, n 162/85), Friday in scan-2 (1.79 vs 1.42, in/out 1.26, n 98/81). Dealers there accept ~25–30% more that day; the day and the region anchor move per world.
+- **The part that holds across worlds is on the delivery town.** After removing each day's mean, delivery-town leftovers correlate between the two worlds (Pearson r=0.45, 18 towns with n>=15 each); pickup-town r=0.28 (15) and dealer r=0.05 (10) do not. Same-sign delivery towns in both weeks: hyvinkaa −0.155/−0.149, espoo −0.059/−0.142, vantaa −0.150/−0.041, ylivieska +0.169/+0.128, pori +0.070/+0.095, porvoo +0.067/+0.078, rovaniemi +0.050/+0.035, oulu +0.016/+0.010, kuopio +0.064/+0.217. This matches the handbook's lane part that follows drivers near the delivery place.
+- **Lane length has no stable effect.** km-band leftovers stay within ±0.04 in both weeks (n 102–359 per band).
+- **How fast the day level shows.** The first 10 requests of a day estimate the whole day mean within ~±10%, the first 20 within ~±8%, the first 40 within ~5% (10 day-seed pairs; worst first-10 case 1.14 on the war day, scan-2).
+
+Numbers from two worlds; scans 3 and 4 are running to confirm. Older single-week associations (day, dealer, towns explain 13–34% each in-sample) are below. Some second options cannot win even at one cent when quoted alone.
 
 ## Findings
 
