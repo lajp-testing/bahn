@@ -26,6 +26,11 @@ class Notes(Part):
         audience = {"experienced": any(leg["car"]["premium"] for leg in order["legs"]), "manualLicence": retry.manual_licence}
         return stops_for(order, legs, request["note"], retry), audience
 
+    def again(self, action: dict[str, Any], order: dict[str, Any], desk: "Desk") -> tuple[list[dict[str, Any]], dict[str, bool]]:
+        """The stops and drivers for a gig that expired without a driver. One of its windows has ended, perhaps at a
+        site's closing time before the window's own end: the starter posts it again without its own stop windows."""
+        return [{k: v for k, v in stop.items() if k != "window"} for stop in action["stops"]], action["audience"]
+
 
 def stops_for(order: dict[str, Any], legs: list[int], note: Optional[dict[str, Any]], retry: Retry) -> list[dict[str, Any]]:
     """A pickup and a delivery for each leg. An electric car under 30% gets a charging stop.
@@ -138,3 +143,107 @@ class TrackNotes(Notes):
         facts = read_note(request)
         retry = Retry(retry.pickup_from, retry.manual_licence or bool(facts.manual), retry.plates or bool(facts.plates))
         return super().plan(order, legs, request, retry, desk)
+
+
+# --- The reader's facts, used in planning (dispatch/reader.py reads the note) ---
+
+from .reader import Facts, read  # noqa: E402
+
+
+class ReadNotes(Notes):
+    """Plans a gig's stops from what the note states (`dispatch.reader`).
+
+    A note's facts are about the first car of the request: the one at the dealer.
+    - Ready or handed over later: the pickup window starts then.
+    - The pickup site really closes earlier, or opens later: the pickup gets a window inside one day's real hours.
+      A stop has one window, so when that day passes without a driver the gig expires and the desk plans the next day.
+    - A deadline in the note, or a delivery site that really closes earlier: the delivery window ends then.
+    - No plates: the driver fetches transfer plates. A manual gearbox: only drivers with that licence.
+    """
+
+    def __init__(self) -> None:
+        self._facts: dict[str, Facts] = {}
+
+    def facts(self, request: dict[str, Any]) -> Facts:
+        """What the request's note states. Without a note: nothing, and sure."""
+        if request["id"] not in self._facts:
+            note = request["note"]
+            self._facts[request["id"]] = read(note["text"], note["language"], request["arrivedAt"]) if note else Facts()
+        return self._facts[request["id"]]
+
+    def risk(self, request: dict[str, Any], desk: "Desk") -> float:
+        return 0.0 if self.facts(request).sure else 1.0
+
+    def earliest_pickup(self, request: dict[str, Any]) -> int:
+        """The first minute the request's first car can be collected."""
+        return max(request["legs"][0]["pickup"]["window"]["from"], self.facts(request).ready or 0)
+
+    def latest_delivery(self, request: dict[str, Any], deadline: int) -> int:
+        """The last minute the first car can arrive and be on time, for an option's deadline."""
+        facts, place = self.facts(request), request["legs"][0]["delivery"]
+        end = min(deadline, facts.deadline or deadline)
+        hours = _real(place["hours"], facts.delivery_hours)
+        if hours and not place["privateAddress"]:
+            end = _last_open(end, hours)
+        return end
+
+    def plan(self, order: dict[str, Any], legs: list[int], request: dict[str, Any], retry: Retry, desk: "Desk") -> tuple[list[dict[str, Any]], dict[str, bool]]:
+        facts = self.facts(request)
+        audience = {"experienced": any(leg["car"]["premium"] for leg in order["legs"]), "manualLicence": retry.manual_licence or facts.manual}
+        stops: list[dict[str, Any]] = []
+        for leg in legs:
+            car, pickup, delivery = order["legs"][leg]["car"], order["legs"][leg]["pickup"], order["legs"][leg]["delivery"]
+            first = leg == 0  # the note is about the car at the dealer
+            low_battery = car["electric"] and car["chargePercent"] is not None and car["chargePercent"] < 30
+            collect: dict[str, Any] = {"orderId": order["id"], "leg": leg, "kind": "pickup", "withPlates": retry.plates or (first and facts.plates), "withCharging": low_battery}
+            deliver: dict[str, Any] = {"orderId": order["id"], "leg": leg, "kind": "delivery"}
+            start = max(pickup["window"]["from"], retry.pickup_from, (facts.ready or 0) if first else 0)
+            hours = _real(pickup["hours"], facts.pickup_hours) if first and not pickup["privateAddress"] else None
+            if hours and hours != (pickup["hours"]["opens"], pickup["hours"]["closes"]):
+                opens, closes = _next_open(max(start, desk.now + 1), hours, pickup["hours"])
+                collect["window"] = {"from": max(start, opens), "to": closes}
+            elif start > pickup["window"]["from"]:
+                collect["window"] = {"from": start, "to": max(pickup["window"]["to"], start)}
+            if first and not delivery["privateAddress"]:
+                end = self.latest_delivery(request, order["deadline"])
+                if end < order["deadline"] and end > desk.now:  # once it is late anyway, the car goes without a window
+                    deliver["window"] = {"from": delivery["window"]["from"], "to": max(end, delivery["window"]["from"])}
+            stops += [collect, deliver]
+        return stops, audience
+
+    def again(self, action: dict[str, Any], order: dict[str, Any], desk: "Desk") -> tuple[list[dict[str, Any]], dict[str, bool]]:
+        """A gig expired without a driver: plan its cars again from now, with the note's facts."""
+        legs = list(dict.fromkeys(stop["leg"] for stop in action["stops"]))
+        plates = any(stop.get("withPlates") for stop in action["stops"])
+        return self.plan(order, legs, desk.requests[order["id"]], Retry(0, action["audience"]["manualLicence"], plates), desk)
+
+
+def _real(stated: Optional[dict[str, Any]], noted: Optional[tuple[Optional[int], Optional[int]]]) -> Optional[tuple[int, int]]:
+    """A site's real hours as (opens, closes) minutes of the day: the note's, where it gives them."""
+    if stated is None:
+        return None
+    opens, closes = noted or (None, None)
+    return (stated["opens"] if opens is None else opens, stated["closes"] if closes is None else closes)
+
+
+def _next_open(at: int, hours: tuple[int, int], stated: dict[str, Any]) -> tuple[int, int]:
+    """The first weekday interval of real opening hours that has not ended at the minute `at`."""
+    day = at // DAY
+    for _ in range(14):
+        if day % 7 in stated["weekdays"] and at < day * DAY + hours[1] - 15:
+            return day * DAY + hours[0], day * DAY + hours[1]
+        day += 1
+    return at, at + DAY
+
+
+def _last_open(end: int, hours: tuple[int, int]) -> int:
+    """The last minute at or before `end` at which the site is really open."""
+    day, minute = end // DAY, end % DAY
+    if minute > hours[1]:
+        return day * DAY + hours[1]
+    if minute < hours[0]:  # before opening on that day: the evening before
+        day -= 1
+        while day % 7 >= 5:
+            day -= 1
+        return day * DAY + hours[1]
+    return end
