@@ -85,3 +85,23 @@ No private orders, markup 1.8: €19,787, 707 orders, 98.2% on time, worst dev-1
 No private orders, markup 1.7: €21,279, 1,099 orders, 97.6% on time, worst dev-07 95.2%, 10/10 ranked. Kept: +€1,492 over markup 1.8.
 
 Remaining work: complete the limit and markup sweeps and the fee comparison under the kept policy; test dynamic, regional and selective same-day intake on all ten seeds. Further investigate snow, flu and the two difficult weeks. The current rule is a measured candidate, not a completed search for the maximum.
+
+## Fourth stint: admission against the current mainline
+
+`t1s4-base` reproduces €73,495.20 margin, 1,873 orders, 98.1% on time, worst 96.9%, 10/10 ranked. The order allocation report totals €74,163 because it excludes some account lines; use the runner's account score for comparisons. Of 1,873 orders, 36 were late or undelivered; those averaged −€4.6, while 91 lanes of at least 500 km averaged €114.8 despite 87.9% on time. Private orders averaged €58 across 68 orders, with 88.2% on time. These descriptive groups are not causal. The world runs until the following Wednesday 22:00; Friday is not the end of the world. Selective same-day and slack tests are in progress.
+
+`t1s4-same360-30` admits same-day with at least 360 minutes after driving and 30 resident drivers within 30 km of pickup. It made €81,048.30, 2,177 orders, 96.6% on time, worst 92.4%, 10/10 ranked. Rejected against the 93% floor despite a €7,553 gain. The slack sweep is running.
+
+`t1s4-slack720` made €76,581.20, 1,946 orders, 98.2% on time, worst 96.8%, 10/10 ranked. It gains €3,086 over baseline and wins 8/10 paired weeks, meeting the 93% floor. This is a candidate; 1080 and 2160 are in progress.
+
+`t1s4-slack1080` made €74,881.59, 1,906 orders, 98.1% on time, worst 97.0%, 10/10 ranked. It gains €1,386 over baseline in 6/10 weeks, but trails slack720.
+
+`t1s4-slack2160` made €46,763.52, 1,213 orders, 99.7% on time, worst 98.3%, 10/10 ranked. Rejected: too restrictive, €26,732 below baseline.
+
+Baseline reveals contain 2,402 same-day options quoted at five times list, average list €74.32, and 1,219 next-day options at that decline price, average list €99.48. Reveal does not show competitor prices, so it cannot directly identify what those dealers would have paid. Three selective same-day variants are in progress.
+
+`t1s4-same480-30` combines slack720 with same-day slack480 and at least 30 drivers near pickup. It made €80,187.99, 2,151 orders, 97.0% on time, worst 95.8%, 10/10 ranked; +€6,693 over baseline, higher in 8/10 weeks. It is the leading qualifying candidate. The combination changes both general and same-day slack; the margin gain cannot be attributed solely to same-day admission.
+
+`t1s4-same360-80` combines slack720, same-day slack360 and 80 drivers within 30 km. It made €83,222.74, 2,201 orders, 97.6% on time, worst 94.5%, 10/10 ranked. It gains €9,728 over baseline and improves 9/10 weeks, but loses €2,329 on dev-07. This is the highest-margin qualifying candidate so far.
+
+`t1s4-same480-80` made €81,361.49, 2,175 orders, 97.7% on time, worst 96.1%, 10/10 ranked. It gains €7,866 over baseline in 6/10 weeks, less margin but a higher worst week than same360-80.
