@@ -5,7 +5,8 @@
 #   bin/vps python3 -m harness.run --policy t1 --seeds dev
 #   bin/vps python3 tracks/t2/fork_test.py
 #
-# It copies this checkout to the machine, runs the command there, then copies the results back:
+# It copies this checkout to the machine, runs the command there (detached: a dropped connection does not stop it),
+# then copies the results back:
 # the shared data folder (data/runs, data/runs.jsonl) and whatever the command wrote under tracks/.
 # The slot locks live on that machine, so every command that plays weeks must go through here.
 # Commands that only read saved weeks run locally, as before.
@@ -27,9 +28,28 @@ ssh=(ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o ControlMaster=no -o
 rsync -az --delete --exclude .git --exclude data --exclude __pycache__ --exclude .direnv --exclude result --exclude .env \
   -e "${ssh[*]}" "$root/" "$vps:bahn/trees/$name/"
 
-# -tt: when this command is stopped, the command on the machine stops too, and its worlds are freed.
-status=0
-"${ssh[@]}" -tt "$vps" "cd bahn/trees/$name && SPREAD_HOME=\$HOME/bahn SPREAD_ON_VPS=1 SPREAD_TRACK=$SPREAD_TRACK SPREAD_VERSION=$version PYTHONUNBUFFERED=1 $(printf '%q ' "$@")" < /dev/null | stdbuf -oL tr -d '\r' || status="${PIPESTATUS[0]}"
+# The command runs detached on the machine and writes to a log there. This side follows the log. When the
+# connection drops, the command goes on; this side reconnects and prints what it missed. When this side
+# is stopped (Ctrl-C, kill), it stops the command too, so its worlds are freed.
+log="bahn/data/logs/vps-$name-$(date +%s)-$$.log"
+"${ssh[@]}" "$vps" "mkdir -p bahn/data/logs && cd bahn/trees/$name && (setsid nohup env SPREAD_HOME=\$HOME/bahn SPREAD_ON_VPS=1 SPREAD_TRACK=$SPREAD_TRACK SPREAD_VERSION=$version PYTHONUNBUFFERED=1 \
+  bash -c $(printf '%q' "$(printf '%q ' "$@"); echo \"__exit \$?\"") > \$HOME/$log 2>&1 < /dev/null & echo \$! > \$HOME/$log.pid)"
+trap '"${ssh[@]}" "$vps" "kill -- -\$(cat \$HOME/$log.pid) 2>/dev/null" || true; exit 130' INT TERM
+seen=0
+state="$(mktemp)"
+while true; do
+  echo "0 255" > "$state"
+  "${ssh[@]}" -o ServerAliveCountMax=4 "$vps" "tail --pid=\$(cat \$HOME/$log.pid) -n +$((seen + 1)) -f \$HOME/$log" < /dev/null \
+    | awk -v state="$state" '/^__exit [0-9]+$/ { code = $2; next } { print; fflush(); n++ } END { print n + 0, (code == "" ? 255 : code) > state }' || true
+  read -r got status < "$state"
+  seen=$((seen + got))
+  [ "$status" != 255 ] && break
+  # No exit line yet: the connection broke, or the log ended without one. Look again when the machine answers.
+  if "${ssh[@]}" "$vps" "! kill -0 \$(cat \$HOME/$log.pid) 2>/dev/null && ! grep -q '^__exit' \$HOME/$log" 2>/dev/null; then status=1; break; fi
+  sleep 5
+done
+rm -f "$state"
+trap - INT TERM
 
 mkdir -p "$home/data"
 # Weeks are written on the practice machine only, and this copy never goes back up. --update keeps a newer local file.
