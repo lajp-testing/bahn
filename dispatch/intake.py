@@ -33,8 +33,9 @@ class ReachIntake(Intake):
                  future_same_day: bool = False, late_budget: float = 0.0, budget_after: int = 40,
                  brake_drivers: int = 10, brake_drive: int = 180, long_lanes: bool = False,
                  batch_slots: bool = False, noted_slots: bool = False, private_slots: bool = False,
-                 trade_ins: bool = False, no_private: bool = False, no_trade_ins: bool = False, thin_drivers: int = 0):
-        self.no_private, self.no_trade_ins, self.thin_drivers = no_private, no_trade_ins, thin_drivers
+                 trade_ins: bool = False, no_private: bool = False, no_trade_ins: bool = False, thin_drivers: int = 0,
+                 thin_both: bool = False):
+        self.no_private, self.no_trade_ins, self.thin_drivers, self.thin_both = no_private, no_trade_ins, thin_drivers, thin_both
         self.max_drive, self.min_drivers, self.near_km, self.same_day = max_drive, min_drivers, near_km, same_day
         # future_same_day: a `same_day` option on a car that is ready a day or more after the request is not an
         # urgent order, so quote it on a plain single-car request (the fresh-angles thread's future_ready).
@@ -202,8 +203,12 @@ class ReachIntake(Intake):
         legs = request["legs"]
         # thin_drivers: a leg of two hours or more from a pickup with fewer drivers near it is offered with
         # three days only; on base@f5a6b3b such legs were late 11.8% of the time on next_day, 0% on three days.
-        if self.thin_drivers and any(desk.ctx.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) >= 120
-                                     and self.drivers_near(leg["pickup"]["placeId"], desk) < self.thin_drivers for leg in legs):
+        # thin_both: instead, a leg of any length with that few drivers near both ends (12.5% late, €17 an order).
+        def thin(place: str) -> bool:
+            return self.drivers_near(place, desk) < self.thin_drivers
+        if self.thin_drivers and any(thin(leg["pickup"]["placeId"]) and (
+                thin(leg["delivery"]["placeId"]) if self.thin_both
+                else desk.ctx.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) >= 120) for leg in legs):
             kept = {kind: cents for kind, cents in kept.items() if kind == "within_3_days"}
         # no_private / no_trade_ins: these classes earn about nothing at the quoter's prices but are late
         # far more often, and a late order halves its dealer's trust count. With private_slots as well, a private
