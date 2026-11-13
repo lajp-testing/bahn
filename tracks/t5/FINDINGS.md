@@ -1,6 +1,6 @@
 # Track 5: more cars per driver
 
-**Verdict: not established.** The direct-offer pilot covered one gig: 8 offers sent, 4 read, 0 accepted; this cannot establish whether offers beat the app. The multi-seed copy study is underway.
+**Verdict: not established.** The direct-offer pilot covered one gig: 8 offers sent, 4 read, 0 accepted; this cannot establish whether offers beat the app. At 1.0 times typical fee, none of 315 offers across 30 gigs in two seeds was accepted. No evidence yet shows that direct offers find a driver more often or cheaply than the app; the lower-fee comparison is underway.
 
 **Earlier stint:** The saved-week screen finds 17 consecutive same-town gig pairs across 10 mainline dev weeks (1.7 per week), but does not measure how many orders a combined gig or direct offer could add, nor its fee saving. No policy should be adopted on this evidence. The required driving-time feasibility analysis and copy experiments remain to be done.
 
@@ -25,3 +25,7 @@ Calculate realistic candidate pairs using the world map and site hours, stratify
 ## Direct offers: pilot
 
 `t5-pilot-1-rules` sampled one open gig at 30 minutes, with offers at 1.0 times typical fee. Pickup-home: 3 sent, 2 read, 0 accepted (1 gig); delivery-home: 3 sent, 0 read, 0 accepted (1 gig); working near pickup: 0 sent (1 gig); viewers: 2 sent, 2 read, 0 accepted (1 gig). Expired offers may have been unread or no longer fit. The pilot is not an effectiveness estimate.
+
+## Direct offers: rule screen
+
+`t5-rules-1` and `t5-rules-2`: 30 gigs, 15 per seed, still open 30 minutes after posting, weekdays 07:00–22:45. Each rule ran in its own copy for 15 minutes. Pickup-home: 90 sent, 17 read, 0 accepted (30 gigs); delivery-home: 90 sent, 9 read, 0 accepted (30 gigs); working near pickup: 59 sent, 28 read, 0 accepted (27 gigs with candidates); viewers: 76 sent, 32 read, 0 accepted (28 gigs with candidates). An expiry can mean unread or that the gig no longer fits, so read counts are minimums. All four rules tied on acceptance; viewers were chosen provisionally for a fresh lower-fee screen because they had the most definite reads, not because acceptance was demonstrated. Planned working-driver destinations were included without predicted delivery time, a loose proxy for about-to-finish.
