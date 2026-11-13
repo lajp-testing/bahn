@@ -103,6 +103,7 @@ def test_a_part_can_ask_for_a_wake_up():
 def test_slots_are_exclusive_and_bounded(monkeypatch=None):
     with tempfile.TemporaryDirectory() as folder:
         old, config.SLOTS = config.SLOTS, folder
+        only, config.REMOTE_ONLY = config.REMOTE_ONLY, os.path.join(folder, "REMOTE_ONLY")  # this test takes local locks
         try:
             first = slots.acquire("t4", client=None)
             assert first is not None and first.index == 6
@@ -115,7 +116,7 @@ def test_slots_are_exclusive_and_bounded(monkeypatch=None):
             again.release()
             other.release()
         finally:
-            config.SLOTS = old
+            config.SLOTS, config.REMOTE_ONLY = old, only
 
 
 def test_only_the_orchestrator_plays_ranking_runs_and_holdout():
