@@ -21,14 +21,15 @@ key="$(grep -E '^SPREAD_VPS_KEY=' "$home/.env" | cut -d= -f2-)"
 root="$(git rev-parse --show-toplevel)"
 name="$(basename "$root")"
 version="$(cd "$root" && python3 -c 'from harness import config; print(config.git_version())')"
-ssh=(ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o ControlMaster=auto -o "ControlPath=$HOME/.ssh/cm-bahn-%C" -o ControlPersist=15m -o ServerAliveInterval=15 -o LogLevel=ERROR)
+# One connection for each command: a shared connection carries at most 10 sessions, and four tracks need more.
+ssh=(ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o ControlMaster=no -o ControlPath=none -o ServerAliveInterval=15 -o LogLevel=ERROR)
 
 rsync -az --delete --exclude .git --exclude data --exclude __pycache__ --exclude .direnv --exclude result --exclude .env \
   -e "${ssh[*]}" "$root/" "$vps:bahn/trees/$name/"
 
 # -tt: when this command is stopped, the command on the machine stops too, and its worlds are freed.
 status=0
-"${ssh[@]}" -tt "$vps" "cd bahn/trees/$name && SPREAD_HOME=\$HOME/bahn SPREAD_ON_VPS=1 SPREAD_TRACK=$SPREAD_TRACK SPREAD_VERSION=$version PYTHONUNBUFFERED=1 $(printf '%q ' "$@")" < /dev/null | tr -d '\r' || status="${PIPESTATUS[0]}"
+"${ssh[@]}" -tt "$vps" "cd bahn/trees/$name && SPREAD_HOME=\$HOME/bahn SPREAD_ON_VPS=1 SPREAD_TRACK=$SPREAD_TRACK SPREAD_VERSION=$version PYTHONUNBUFFERED=1 $(printf '%q ' "$@")" < /dev/null | stdbuf -oL tr -d '\r' || status="${PIPESTATUS[0]}"
 
 mkdir -p "$home/data"
 # Weeks are written on the practice machine only, and this copy never goes back up. --update keeps a newer local file.
