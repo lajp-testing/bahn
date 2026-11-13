@@ -473,3 +473,19 @@ def test_no_private_and_no_trade_ins_decline_those_classes_even_when_reachable()
     desk = reach_desk(min_drivers=0, no_private=True, no_trade_ins=True)
     desk.quote(REQUEST)  # a plain request is unchanged
     assert desk.outbox[-1]["prices"] == {"next_day": 22500}
+
+
+def test_thin_drivers_offers_a_long_leg_from_a_thin_pickup_with_three_days_only():
+    request = {**REQUEST, "options": REQUEST["options"] + [{"kind": "within_3_days", "deadline": 5520, "listPriceCents": 12000}]}
+    for thin, expected in ((0, {"next_day": 22500, "within_3_days": 18000}), (25, {"next_day": 22500, "within_3_days": 18000}),
+                           (26, {"next_day": 22500, "within_3_days": 18000})):
+        desk = reach_desk(thin_drivers=thin)  # 25 drivers live in Helsinki; the leg drives 106 minutes
+        desk.quote(request)
+        assert desk.outbox[-1]["prices"] == expected
+    for thin, expected in ((25, {"next_day": 22500, "within_3_days": 18000}), (26, {"within_3_days": 18000})):
+        desk = reach_desk(thin_drivers=thin)
+        desk.ctx.road_minutes[("helsinki", "tampere")] = 120
+        desk.quote(request)
+        assert desk.outbox[-1]["prices"] == expected
+    desk.quote(REQUEST)  # no three-day option: declined
+    assert desk.outbox[-1]["prices"] == {"same_day": 100000}
