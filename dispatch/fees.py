@@ -26,12 +26,11 @@ class Fees(Part):
     def estimate(self, request: dict[str, Any], desk: "Desk") -> int:
         """Experimental two-hour retained-booking fee, not a full delivery cost.
 
-        Single-car fork samples suggest a premium when pickup-area drivers are sparse;
-        trade-ins and later drops are not calibrated by this estimate.
+        Fork samples suggest a premium for private-address orders; trade-ins and later
+        drops are not calibrated by this estimate.
         """
-        pickup = request["legs"][0]["pickup"]["placeId"]
-        nearby = sum(desk.ctx.straight_km(pickup, d["homePlaceId"]) <= 30 for d in desk.ctx.roster)
-        multiple = 0.6 + (0.15 if nearby < 30 else 0)
+        private = any(leg[side].get("privateAddress") for leg in request["legs"] for side in ("pickup", "delivery"))
+        multiple = 0.7 + (0.25 if private else 0)
         return max(1, int(request["referenceFeeCents"] * multiple + 0.5))
 
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
@@ -43,12 +42,26 @@ class Fees(Part):
 
 
 class MeasuredFees(Fees):
-    """Experimental single-car booking estimate with an early reliability buffer."""
+    """Density-based opening with a configurable early rise."""
+
+    def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
+                 cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, **kwargs: Any):
+        super().__init__(**kwargs)
+        self.buffer, self.rise, self.interval, self.cap = buffer, rise, interval, cap
+        self.deadline_margin, self.max_raises = deadline_margin, max_raises
 
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
         if urgent:
             return super().schedule(order, cars, urgent, desk)
         request = desk.requests[order["id"]]
-        base = self.estimate(request, desk) * cars / len(order["legs"])
         typical = request["referenceFeeCents"] * cars / len(order["legs"])
-        return [{"at": desk.now + k * 30, "feeCents": max(1, int(base + typical * (0.45 + k * 0.15) + 0.5))} for k in range(1 if desk.level == 1 else 3)]
+        # Keep the tested opening rule independent of the experimental refit.
+        pickup = request["legs"][0]["pickup"]["placeId"]
+        nearby = sum(desk.ctx.straight_km(pickup, d["homePlaceId"]) <= 30 for d in desk.ctx.roster)
+        estimate = int(request["referenceFeeCents"] * (0.6 + (0.15 if nearby < 30 else 0)) + 0.5)
+        first = max(1, estimate) / request["referenceFeeCents"] + self.buffer
+        count = min(self.max_raises, max(0, int((self.cap - first) / self.rise + 0.999999)))
+        interval = self.interval
+        if self.deadline_margin and count:
+            interval = max(1, min(interval, (order["lastPickupAt"] - desk.now - self.deadline_margin) // count))
+        return [{"at": desk.now + k * interval, "feeCents": max(1, int(typical * min(self.cap, first + k * self.rise) + 0.5))} for k in range(1 if desk.level == 1 else count + 1)]
