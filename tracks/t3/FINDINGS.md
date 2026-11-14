@@ -109,6 +109,18 @@ The order mix moved towards the cheap, safe groups (`tracks/t3/shift.py`): order
 
 Note: the interrupted first attempt left dev-05–10 of `t3s5-model2` twice in the index (same margins, deterministic world); `harness.run` and `harness.compare` take one row per seed, but `harness.orders` counts both copies — `shift.py` dedupes.
 
+### Step 4: where the fee opens (`far_open`, `soon_open`)
+
+`MeasuredFees` gained two knobs, both 0 by default (`fee_far_open`, `fee_soon_open` in `FEES`): `far_open` comes off the opening when the first leg's pickup window opens 12 h or more after `desk.now`; `soon_open` goes on top when the car is ready within 3 h and the minute of the day is 15:00 or later. The opening rule itself (0.6, +0.15 sparse, +0.15 buffer) is unchanged; the knobs move it before the rise begins. Offline tests: 22 passed.
+
+| Label | Margin | Orders | On time | Worst week | Verdict |
+|---|---:|---:|---:|---:|---|
+| `t3s5-far01` (far_open 0.1) | €95,730.65 | 2,489 | 96.6% | 90.4% | fails: −€10,167 and below the floor |
+| `t3s5-soon015` (soon_open 0.15) | €103,597.77 | 2,745 | 96.4% | 92.9% | fails: −€2,300, floor held |
+| `t3s5-model2-open` (model 2 + both) | €97,366.71 | 2,383 | 96.6% | 93.5% | fails: −€8,531 |
+
+Both directions lose. Opening far-lead gigs lower books them too cheap: the far group was already the cheapest, safest one, and its fee cut is not repaid by extra wins. Opening ready-soon gigs higher after 15:00 loses margin as well, even though the ready-soon group is the dear one. The knobs stay at their default 0; the mainline's opening rule is unchanged, and the refit's pricing of the dear groups (step 3) is the only change this stint keeps.
+
 ## Fourth stint schedules (10 matched dev weeks each)
 
 All use slack=1440, private=true, queue_price=true, win_price=true. Rescue50 changes urgent fees alone; other variants change normal timing alone. Every row ranked 10/10.

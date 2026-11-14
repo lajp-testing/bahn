@@ -89,7 +89,7 @@ class MeasuredFees(Fees):
 
     def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
                  cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, hold_until: int = 0, rescue_fraction: float = 0,
-                 quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, **kwargs: Any):
+                 quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, far_open: float = 0, soon_open: float = 0, **kwargs: Any):
         super().__init__(**kwargs)
         self.model = model  # 2: the refitted expected fee and late risk (MODEL2 above)
         # `quiet_from` > 0: the fee does not rise from this minute of the day until `quiet_to` the next morning.
@@ -98,6 +98,9 @@ class MeasuredFees(Fees):
         self.buffer, self.rise, self.interval, self.cap = buffer, rise, interval, cap
         self.deadline_margin, self.max_raises, self.hold_until = deadline_margin, max_raises, hold_until
         self.rescue_fraction = rescue_fraction
+        # Where the gig opens: the far lead group books cheap and is almost never late, the ready-soon group after
+        # 15:00 is dear and late-prone (the stint's cost table), so the opening moves before the rise begins.
+        self.far_open, self.soon_open = far_open, soon_open
 
     def after(self, start: int, minutes: int) -> int:
         """The minute that is `minutes` of the drivers' day after `start`: the quiet hours do not count."""
@@ -130,6 +133,12 @@ class MeasuredFees(Fees):
         nearby = sum(desk.ctx.straight_km(pickup, d["homePlaceId"]) <= 30 for d in desk.ctx.roster)
         estimate = int(request["referenceFeeCents"] * (0.6 + (0.15 if nearby < 30 else 0)) + 0.5)
         first = max(1, estimate) / request["referenceFeeCents"] + self.buffer
+        if self.far_open or self.soon_open:
+            lead = request["legs"][0]["pickup"]["window"]["from"] - desk.now
+            if self.far_open and lead >= 12 * HOUR:
+                first -= self.far_open
+            if self.soon_open and lead <= 3 * HOUR and desk.now % (24 * HOUR) >= 15 * HOUR:
+                first += self.soon_open
         count = min(self.max_raises, max(0, int((self.cap - first) / self.rise + 0.999999)))
         interval = self.interval
         if self.deadline_margin and count:
