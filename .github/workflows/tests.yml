@@ -1,0 +1,32 @@
+# The offline tests on a CRACI runner (https://docs.craci.com).
+# The job may reach only GitHub (checkout) and PyPI (pytest): the network policy blocks every
+# other host, so a test that tried to call the Spread API would fail here instead of using a key.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    runs-on: craci
+    timeout-minutes: 10
+    steps:
+      - uses: cracicorp/setup@v1
+        with:
+          size: "2"
+          network: |
+            default: deny
+            presets: [github, pypi]
+      - uses: actions/checkout@v4
+      # The dispatcher needs only the standard library; the tests need only pytest.
+      # The image's Python 3.12 is Ubuntu's, which refuses user installs without the flag.
+      - run: python3 -m pip install --user --break-system-packages pytest==9.1.1
+      - name: python -m pytest -q tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          SPREAD_HOME: ${{ runner.temp }}/spread
+        run: python3 -m pytest -q -p no:cacheprovider tests

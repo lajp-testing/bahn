@@ -123,8 +123,136 @@ Where long lanes stand in the frozen build: of about 138 long requests a week, t
 26; fewer than 6 qualified drivers near the pickup, 23; a private address, 14); the rest are quoted at about 1.8 × list
 and win 22% (300-420 min) or 15% (over 420). The 14 long orders a week earn €44 an order, 3.6% late.
 
+### Long-lane pricing, thin pickups and on-time brakes (327f4ce flags; branches volume-long, volume-combo, volume-area)
+
+Control: `vol-rd-ll+mk115+tb20+nosd@e9f4286` (€95,969, worst 95.2%), then the frozen gate `vol-lp-readgate@edc1eb4`
+(€96,887, worst 94.4%; holdout €110,970, +€5,159 on the nosd freeze, worst 95.9%, frozen at 3ea3f7f).
+
+| Variant | Dev vs control | Better on | Worst week | What it shows |
+| --- | --- | --- | --- | --- |
+| `long_dial` target 0.30, open 1.0 | −€1,050 | 5 of 10 | 93.4% | Long quotes fall to 1.65 × list and win 37%; long margin +€200 a week, short lanes −€390, private −€200 |
+| + `long_drive=300 long_fee_step=0.15` | −€2,186 | | | A faster long-leg fee climb costs |
+| `long_dial` target 0.22, open 1.15 | +€974 | 5 of 10 | 94.6% | Holdout €105,924 against €105,811: flat. The dev gain was noise |
+| `thin_gate=3` (fewer than 6 qualified drivers, three days only) | ±0 | | | Only about 1 such long request a week offers within_3_days |
+| `thin_gate=1 thin_days=false thin_markup=1.15` | +€58 | | | thin_both still holds them back: both ends are thin |
+| `gate_drivers=4` | ±0 to the cent | | | The driver count is not the binding limit |
+| `queue_div=2` | −€1,401 | | | |
+| `late_budget=0.03` | −€1,564 | 0 of 10 | | t2-study-12 91.6% → 94.0% |
+| the gate reads notes (edc1eb4) | +€918 | 7 of 10 | 94.4% | **Frozen** |
+| readgate + `long_dial` 0.22 | +€2,991 on the frozen gate | 9 of 10 | 92.97% | t2-study-12 93.3% (frozen gate 92.2%) |
+| + `late_budget` 0.04 / 0.05 | | | 92.9% | Worse: the whole-week brake keeps only dense southern lanes, the ones a flu day makes late |
+| + `area_brake=20` | +€33 on the frozen gate | 6 of 10 | 94.6% | On time 97.4% against 96.8%; t2-study-12 93.9%. On orch |
+| `area_brake` 10 / 20 on the frozen gate alone | −€2,511 / −€3,632 | 3 of 10 | 94.4% / 94.1% | |
+
+**t2-study-12, the frozen build's worst unseen week (91.6%).** 30 of 33 late orders had the deadline warning with no
+driver booked: short southern lanes (Hyvinkää, Vantaa, Espoo, Lempäälä) on Wednesday and Thursday, no drops, no no-shows.
+The bulk order (Porvoo, Friday, 26 won) had none late. It reads as a flu day. `area_brake=k` gives the three-day option
+only where the unbooked work near a pickup on its ready day reaches one driver-day per k drivers within 60 km.
+
+**Long lanes are priced about right.** A cheaper long price wins more long cars but they take drivers from short lanes,
+and a fixed 1.15 does as well as a learned level on holdout.
+
 **Ruled out.** Same-day on a car ready today: in `sd@f5a6b3b` even short lanes from pickups with 20 or more drivers
 within 30 km and 6 hours of slack were late 25% of the time, at €16 an order.
+
+### Same-day slack with a brake, and the lanes combination (branches volume-slack, volume-lanes)
+
+`same_day_slack=1440` (815c5f4) earns about +€11k on dev, but plain it plays t2-study-12 at 89.8% and dev-10 at 91.6%,
+and on lanes it plays t2-fresh-04 at 89.8% and -08 at 87.0%. Its extra late orders are Friday short lanes.
+
+| Label (control) | Dev | Worst week | Unseen weeks |
+|---|---|---|---|
+| `vol-sl+d22+ab20@2d00aba` (rg-sl@7caf8ff, €108,026) | −€30, 5 of 10 | 93.5% (dev-10; 91.6%) | study-12 92.5%. Holdout €121,224, +€10,254 on readgate, worst 95.6% |
+| `vol-sl+ab10` / `+ab20` / `slack_load=20` / `slack_risk` 4, 8 / `slack_window=600` | −€466 to +€588 | 91.6–92.5% | |
+| `vol-sl1800+ab10@be4a14a` | −€6,147 | 93.6% | |
+| `vol-ln-nfl+d22+ab20@7488efd` (rg-nfl@7507a3c, €106,642), on ec29ab2 with lanes=1 and slack_friday=false | +€2,322, 6 of 10 | 95.6% (94.2%) | fresh-04 / 06 / 07 / 08: 90.8 / 84.2 / 90.4 / 92.8% (rg-nfl 88.5 / 82.9 / 86.4 / 90.3%); study-12 93.1% |
+
+### The flu Friday (t2-fresh-06, dev-10) and caps per deadline day (branches volume-batchcap, volume-daycap2)
+
+**It is the flu, not the bulk order.** Drops between 00:00 and 06:00: 21 on fresh-06's Friday and 28 on dev-10's, and 11 or fewer
+on every other weekday (the handbook: drops at night are rare). All 52 late Friday orders of fresh-06 were won on
+Wednesday or Thursday; 16 lost their booking at Friday 00:17–00:59, and the rest were never booked. Friday 06–18 had 35
+bookings against 60–75 on other days, the gigs expired at 18:00 when pickup closed, and were booked 10–40 minutes later
+for Saturday. The real bulk orders that week (Pori ×30, Porvoo ×25) were not late. Intake cannot react once the
+flu shows, because the day's work is already sold, so a cap must act on what is due on a day before it comes.
+
+On e33175a with lanes=1, against `rg-lanes1@90a19a6` (dev €98,847; fresh-04 / 06 / 07 / 08 at 96.6 / 82.6 / 92.1 / 90.1%):
+
+| Switch | Dev | fresh-04 / 06 / 07 / 08 |
+|---|---|---|
+| `batch_cap=2` (cars of one batch due on one day) | −€4,474, 4 of 10 | 95.8 / 87.5 / – / 91.5% |
+| `batch_cap=2 due_cap=12 due_min=20` | −€11,419, 1 of 10 | 95.2 / 91.8 / 93.8 / 92.7% |
+| `batch_cap=3` | −€888 (9 weeks) | – / 84.3 / 92.4 / 91.3% |
+| `due_cap` 5 / 8 / 20 (orders due per area per driver nearby) | +€55 / −€1,489 (9 weeks) / – | 84.6 / 88.6 / 89.7% on fresh-06 |
+| `day_cap=0.12` (orders due on a working day per driver of the week, not the last Monday; 9297e41) | +€712, binds only on dev-10 (94.7%) | 96.7 / 88.1 / 92.2 / 90.2% |
+| `day_cap=0.10` | **+€1,126**, binds only on dev-10 (97.1%), worst week 96.1% | 96.7 / **90.2** / 92.2 / 90.2% |
+| `day_cap=0.09` | +€103 over 9 weeks, binds only on dev-10 (96.2%) | 96.7 / **91.4** / 92.2 / 90.2% |
+| `day_cap=0.13 batch_cap=2` | | 95.8 / 88.1 / 91.7 / 91.5% |
+| `day_cap=0.12` + `batch_cap` 2 / 3 only on a day with 0.08 / 0.06 due per driver (`batch_load`) | | 96.7 / 88.6–89.0 / 89.5–89.8 / 90.0–90.2% |
+
+A cap on batches is too blunt: it drops batch cars on calm days too. A cap on what is due that day costs nothing on
+dev, but counting only undelivered orders lets fresh-06's Friday fill before it binds.
+
+### On top of the quoter's crowd (round-crowd 1199df8, `crowd=0.1 room=8`; control `lcr10r8@95326e6`, dev €98,059)
+
+| Label (bahn-vcrowd 2c3e268, bahn-vcslack af6a6af) | Dev | fresh-04 / 06 / 07 / 08 |
+|---|---|---|
+| crowd alone | | 98.3 / 93.5 / 94.4 / 92.2% |
+| `vol-cr8+dy10@2c3e268` (+ `day_cap=0.10`) | dev-10 +€11 | 98.4 / 93.2 / 94.5 / 92.2%: crowd already prices the full day, so the cap does not bind |
+| `vol-cr8-nfl+d22+ab20@af6a6af` (+ Friday-less slack, long dial 0.22, `area_brake=20`) | **+€6,277**, 7 of 10, worst week 95.1% | 95.2 / 92.1 / 91.9 / 92.4% |
+| `vol-cr8-sl+d22+ab20@af6a6af` (the same with slack on Fridays) | | 95.5 / 90.8 / 92.6 / **89.3%** (not ranked) |
+| `vol-cr8-nfl@af6a6af` (crowd + Friday-less slack only) | **+€8,338**, 8 of 10, worst week 94.9% | 94.1 / 91.2 / 90.2 / 92.0% |
+| `vol-cr8-nfl+ab20@af6a6af` | +€7,118, 9 of 10, worst week 96.0% | 96.4 / 90.6 / 90.4 / 91.4% |
+
+All 20 t2-fresh weeks: `vol-cr8-nfl+d22+ab20` €233,838, worst 91.9%, 20 of 20 ranked; `vol-cr8-nfl` €229,602, worst 90.2%,
+20 of 20; against `ltd1cr@95326e6` (crowd + today_days) €220,773, worst 93.2%, and `lcr10r10@95326e6` €218,603, worst 90.1%.
+Both slack builds beat ltd1cr on 15 of 20 weeks, and both fall under 93% on the same three weeks, fresh-06, 07 and 08,
+the crowded ones. Their extra margin is real, but the floor is thinner.
+
+`today_days=1 same_up=0.15` (ltd1cr's two switches) on top of `vol-cr8-nfl+d22+ab20`: dev €102,461, +€725 on ltd1cr but
+−€1,876 on the slack build; fresh-04 / 06 / 07 / 08 at 97.6 / 90.9 / 93.6 / 93.4%. today_days and slack go after the same
+orders, so they do not stack.
+
+`far_lead=30` (875cdd1, after track 3's finding on ltd1cr: no next_day on a lane of 500 road minutes or more whose last
+pickup that still meets the deadline is under 30 hours after the answer). On `vol-cr8-nfl+d22+ab20`: dev +€585, 7 of 10,
+worst week 95.9%; fresh-04 / 06 / 07 / 08 at 94.7 / 92.1 / 91.9 / 92.9% (+€1,003 on the four). On `vol-cr8-nfl`: dev +€85,
+fresh unchanged except fresh-08 at 91.6%. All 20 fresh weeks on the full build: €234,157, +€319 on af6a6af, worst 91.9%,
+20 of 20 ranked. A small, safe gain: the class is about one order a week.
+
+### On the Sunday build (3a2dce2, ltd3h8cr's flags; control `ltd3h8cr@95326e6`, dev €106,041; branch volume-sunday)
+
+| Change | Dev | Notes |
+|---|---|---|
+| `same_day_slack=1440 slack_friday=false` | +€294, 2 of 10 | 6 weeks identical to the cent: today_days=3 already takes the same orders |
+| + long dial, `area_brake=20`, `far_lead=30` | −€928 (9 weeks) | 145 fewer orders |
+| `private_slots=true` | −€867 | worst 95.0% |
+| `trade_ins=true` | −€20 (8 weeks) | |
+| `long_sd_days=3` (same_day on long lanes for Mon–Wed deadlines) | −€504 (8 weeks), 0 of 8 | |
+| `min_drivers=2` | +€821, 4 of 10 | worst 95.1% |
+| `near_markup=1.0` (lanes under 420 min at 1.0, the rest at 1.15) | +€919 (9 weeks) | fresh-06 / 07 / 08 at 90.1 / 93.2 / 90.8% (ltd3h8cr 92.2 / 94.4 / 92.0%), −€4,730 |
+| **`long_markup=1.05`** | **+€1,373, 7 of 10, worst 95.3%** | fresh and study playing |
+
+**long_markup=1.05 passed holdout and orch** (integrator): holdout €122,045 (+€5,869 on ltd3h8cr, 10 of 10, worst 94.6%),
+orch-01..10 €120,259 (+€6,201, 8 of 10, worst 93.3%), all 20 fresh ranked (+€5,866), but fresh-08 at 90.4% (92.1%).
+fresh-08's extra late orders are long next_day runs north: long next_day 16 late of 30 (ltd3h8cr 8 of 13), espoo→oulu
+(405 min) ×9; short orders are no worse (22 of 380 against 24 of 393). **`far_lead=48 far_drive=400`** (no next_day on a
+lane of 400+ minutes whose last pickup is under 48 hours after the answer) cuts that class to 6 late of 18: fresh-08 92.8%
+(+€3,028), dev €107,559 (+€1,518 on ltd3h8cr), fresh-06/07 unchanged. `far_lead=30 far_drive=400` is −€507 on lm105.
+**But fl48 fails orch** (integrator, vol-sun-lm105+fl48d400@3c1eb0c): orch-01..10 €118,579, −€1,680 on lm105, 3 of 10,
+orch-08 92.4% (lm105 93.3%); holdout −€920, 5 of 10. The guard buys fresh floor with orch floor and margin: dropped.
+`trade_ins=true trade_hour=true` on fl48 (7a310c1): dev +€1,736, fresh +€356, trade-ins still 29% late: no holdout.
+
+**ahead_from moves (sl-wkah@f7ebca4, sl-ah10@2bba163, 70 weeks).** A move earns €30–41 an order. Moves onto Friday are
+late 5–8% on fresh and orch, 2–3% on dev and holdout: a weekday guard would give up €500–650 a week. By the load of the
+target day at the move (won orders due that day per 100 drivers): under 8, 1.7–3.2% late; 8 or more, 5.6–7.5% (about
+4 moves a week, mostly onto Friday). `ahead_full=8` (950f1ce, branch volume-ahead) leaves those cars on today's work.
+
+**The bulk order** (72 weeks of ltd3h8cr): every week, 30–40 cars from one yard. We quote all of them and win 13 a week
+(37%), 1.8% late, about €415 a week (€32 a car, a normal margin). From far-north yards the dial quotes 4–6× list and
+wins none. Winning the rest is worth at most about €700 a week.
+
+**Long lanes at long_markup=1.0** (holdout, g-lm100@3a2dce2): long orders go from 15 to 38 a week, from €128 to €75 an
+order, +€970 a week. 300–420 minutes: 5.6% late at €84; 420–600: 18.8% late at €48.
 
 ## What failed
 
