@@ -183,6 +183,42 @@ def test_a_rejoining_desk_sends_its_quotes_before_its_posts():
     assert [action["type"] for _, action in world.sent][:2] == ["quote", "post"]
 
 
+def test_a_rejoining_desk_replays_its_history_with_the_books_of_that_minute():
+    # A part that asks the intake again during the replay must see what the live desk saw: at R2's request, R1 is
+    # won and its gig is booked. An empty desk there makes a gate that reads the books admit what the live one declined.
+    from dispatch.live import play_live
+
+    gig = {"id": "g1", "status": "booked", "postedAt": 556, "audience": {"experienced": True, "manualLicence": False},
+           "stops": [{"orderId": "R1", "leg": 0, "kind": "pickup"}, {"orderId": "R1", "leg": 0, "kind": "delivery"}],
+           "schedule": [{"at": 556, "feeCents": 9000}]}
+    later = {**REQUEST, "id": "R2", "arrivedAt": 590, "respondBy": 605}
+
+    class Booked(FakeLiveWorld):
+        def snapshot(self):
+            return {**super().snapshot(), "gigs": [gig]}
+
+        def events(self, after=-1):
+            return super().events() + [{"seq": 2, "at": 570, "kind": "gig_booked", "gigId": "g1", "driverId": "d1"},
+                                       {"seq": 3, "at": 590, "kind": "price_request", "request": later}]
+
+        def stream(self, after=None, idle=None):
+            yield {"seq": 4, "at": 1440, "kind": "ledger", "line": {}}
+
+    seen = {}
+
+    def build(context):
+        parts = load("base")(context)
+
+        def observe(event, desk, replay):
+            if replay and event["kind"] == "price_request":
+                seen[event["request"]["id"]] = (sorted(desk.orders), [g in desk.booked for g in desk.gigs_of("R1")])
+        parts.quoter.observe = observe
+        return parts
+
+    play_live(Booked(), 8, two_towns(), build, clock=lambda: 1440)
+    assert seen == {"R1": ([], []), "R2": (["R1"], [True])}
+
+
 def test_reach_quotes_reachable_cars_above_list_and_declines_the_rest():
     context = ctx()  # one driver, living in Tampere; Helsinki to Tampere is 106 road minutes
     world = FakeWorld()

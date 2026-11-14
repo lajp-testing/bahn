@@ -57,14 +57,24 @@ class Desk:
 
     def rejoin(self, snapshot: DeskSnapshot, history: list[DeskEvent]) -> None:
         """Rebuilds the books from the world, so a desk that stopped keeps its orders. The parts see the
-        whole history first, so what they learned is back too. Then the desk answers what it missed: open
-        requests, orders without a gig, failed visits without a new gig, and the deadline warnings."""
+        whole history first, with the books as they were at each event, so what they learned is back too: a
+        part that asks the intake again sees the same orders, gigs and drivers as the live desk did. Then the
+        desk answers what it missed: open requests, orders without a gig, failed visits without a new gig, and
+        the deadline warnings."""
+        gigs = sorted(snapshot["gigs"], key=lambda gig: gig["postedAt"])
+        posted_so_far = 0
         for event in history:
             self.now = event["at"]  # a part that learns reads the minute from the desk
+            while posted_so_far < len(gigs) and gigs[posted_so_far]["postedAt"] <= self.now:
+                gig = gigs[posted_so_far]
+                self.carry({"type": "post", "stops": gig["stops"], "audience": gig["audience"], "schedule": gig["schedule"]}, gig["id"])
+                posted_so_far += 1
             if event["kind"] == "price_request":
                 self.requests[event["request"]["id"]] = event["request"]
             for part in self.parts.all():
                 part.observe(event, self, replay=True)
+            self.replay_books(event)
+        self.leg_gigs, self.posts = {}, {}  # rebuilt below from the gigs that are still open or held
         self.now = snapshot["now"]
         posted: dict[str, list[Gig]] = {}  # order id -> its gigs, oldest first
         self.booked = {gig["id"] for gig in snapshot["gigs"] if gig["status"] in ("booked", "working", "done")}
@@ -99,6 +109,36 @@ class Desk:
             self.quote(request)
         # Quotes first: a request expires within seconds in the final, and a batch holds at most 50 actions.
         self.outbox.sort(key=lambda action: action["type"] != "quote")
+
+    def replay_books(self, event: DeskEvent) -> None:
+        """What `handle` does to the orders, gigs and drivers for one event of the history, without acting."""
+        kind = event["kind"]
+        if kind == "order_won":
+            order = event["order"]
+            if order["id"] in self.requests and order["id"] not in self.orders:
+                self.orders[order["id"]] = {**order, "deliveredAt": list(order["deliveredAt"])}
+        elif kind == "order_changed":
+            order = event["order"]
+            if order["id"] in self.orders:
+                held = any(gig_id in self.booked for gig_id in self.gigs_of(order["id"]))
+                self.orders[order["id"]] = {**order, "deliveredAt": list(order["deliveredAt"])}
+                if not held:  # the live desk withdrew its gigs and posted new ones, which the snapshot's gigs carry
+                    self.leg_gigs.pop(order["id"], None)
+        elif kind == "order_cancelled":
+            for books in (self.orders, self.leg_gigs):
+                books.pop(event["orderId"], None)
+        elif kind == "gig_expired":
+            for legs in self.leg_gigs.values():
+                for leg in [leg for leg, gig_id in legs.items() if gig_id == event["gigId"]]:
+                    legs.pop(leg)
+        elif kind == "deadline_close" and event["orderId"] in self.orders:
+            self.urgent.add(event["orderId"])
+        elif kind == "gig_booked":
+            self.booked.add(event["gigId"])
+        elif kind in ("gig_dropped", "no_show"):
+            self.booked.discard(event["gigId"])
+        elif kind == "delivered":
+            self.delivered(event["orderId"], event["leg"], event["at"])
 
     def handle(self, event: DeskEvent) -> None:
         kind = event["kind"]
