@@ -406,15 +406,21 @@ class Desk:
 
     def viewed(self, gig_id: str) -> None:
         """A single car in its last `flat_last` minutes that `flat_views` drivers have looked at and passed on goes
-        `flat_views_steps` flat steps up at once, within the cap (t1s18)."""
-        self.views[gig_id] = self.views.get(gig_id, 0) + 1
+        `flat_views_steps` flat steps up at once, within the cap (t1s18). With `flat_views_km` > 0 only a car whose
+        first leg's lane is at least that many road km long counts; 0 counts every lane."""
         fees, action = self.parts.fees, self.posts.get(gig_id)
-        if self.views[gig_id] < fees.flat_views or gig_id in self.booked or action is None:
+        if gig_id in self.booked or action is None:
             return
         members = orders_in(action["stops"])
         if len(members) != 1 or members[0] not in self.orders or members[0] in self.urgent:
             return
         order = self.orders[members[0]]
+        leg = order["legs"][action["stops"][0]["leg"]]
+        if fees.flat_views_km and self.ctx.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) < fees.flat_views_km:
+            return
+        self.views[gig_id] = self.views.get(gig_id, 0) + 1
+        if self.views[gig_id] < fees.flat_views:
+            return
         if not 0 < order["lastPickupAt"] - self.now < fees.flat_last:
             return
         steps = self.schedules.get(gig_id) or action["schedule"]

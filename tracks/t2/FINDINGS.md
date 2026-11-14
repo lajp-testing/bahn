@@ -630,3 +630,22 @@ Conclusions:
 - `invest=0.1` wins 8/10 weeks and +€135 total (+0.08%), with on-time share actually higher than base (96.7% vs 96.1%; every week ≥ 95.4%). But the whole gain is smaller than one bad week (dev-08 −€2,403), so the sign of the total is within noise between worlds; it does not clear the bar of a measured effect worth a part.
 - The on-time side of `invest` (charging late-risk cars more, discounting early ones) did lift the on-time share at both weights, so the mechanism works — but at 0.25 the price cost outweighs it, and at 0.1 the margin gain is not robust.
 - All 20 sweep weeks stayed ranked (on-time ≥ 94.4% in every week). Script: `tracks/t2/g2_compare.py`.
+
+## g2 view raise on long lanes, 14 Nov
+
+Code change: a new fees parameter `flat_views_km` (default 0 = every lane, current behaviour unchanged), added next to `flat_views` in `dispatch/fees.py` (`MeasuredFees.__init__`) and to the `FEES` tuple in `dispatch/policies/main.py` as `fee_flat_views_km`. `Desk.viewed` (`dispatch/desk.py`) now counts a gig's views only when its car's first leg is a lane of at least `flat_views_km` road km (`desk.ctx.km` of pickup to delivery); short lanes no longer count and are never raised. Off check: `g2-viewskm-off` (defaults) reproduced mainline `b52-fee4-car110` dev-01 exactly, margin €11,284.69. Background: the 18:00 test final's idea 4 — 5 of 10 late cars were on 420–830 km lanes, three drew 96–436 views with no booking at 0.85–1.15x typical; the view raise applied to every lane had lowered our weakest weeks, so this screen gates it to long lanes.
+
+Screen `g2-views40-km300`: mainline plus `fee_flat_views=40 fee_flat_views_steps=2 fee_flat_views_km=300`, 10 dev weeks plus rob-04, rob-14, rob-17 at level 8, against `b52-fee4-car110` on the same seeds (script: `tracks/t2/g2_views_compare.py`).
+
+| label | change | total margin | diff vs base | weeks higher | orders (per week) | 3 lowest onTimeShare |
+|---|---|---|---|---|---|---|---|
+| b52-fee4-car110 | mainline | €208,189.20 | — | — | 4713 (362.5) | rob-17 94.3%, dev-10 94.7%, rob-14 94.9% |
+| g2-views40-km300 | views=40, steps=2, km>=300 | €205,462.49 | −€2,726.71 | 4/13 | 4706 (362.0) | rob-17 94.0%, dev-10 94.7%, dev-03 95.0% |
+
+Per-week margin diff vs base (EUR): rob-04 +895, dev-05 +252, dev-06 +90 stand out positive; dev-03 −1,198, dev-02 −759, dev-08 −860 stand out negative. dev-03's on-time share fell from 97.5% to 95.0%.
+
+Conclusions:
+
+- **The long-lane gate loses money; do not adopt.** Even restricted to lanes of 300 km or more, the view raise costs €2,726 over 13 weeks and wins only 4/13. The one clear win (rob-04, +€895, on-time 96.0%→98.1%) is outweighed by losses spread across the dev seeds, so the gate does not isolate the test final's late long lanes — the raised fee still fires on long lanes that would have booked anyway at the lower fee.
+- All 13 weeks stayed ranked (on-time ≥ 94.0% in every week), so the loss is margin, not ranking.
+- The parameter `fee_flat_views_km` stays in the code (off by default, behaviour unchanged) for a possible narrower screen, e.g. a higher view count or a km band around the observed 420–830 km late lanes.
