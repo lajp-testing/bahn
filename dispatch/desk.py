@@ -250,7 +250,16 @@ class Desk:
         """The fee schedule for `cars` of the order's cars, from now."""
         urgent = order["id"] in self.urgent
         if urgent and "calm" in self.parts.repairs and self.now > order["lastPickupAt"]:
-            urgent = False  # untested: past its last pickup minute the car is late anyway, and an urgent fee does not deliver it sooner
+            # past its last pickup minute the car is late anyway, and an urgent fee does not deliver it sooner (t3s10-calm: +EUR 5,347 / 30 weeks)
+            calm = self.parts.fees.schedule(order, cars, False, self)
+            if "guard" not in self.parts.repairs:
+                return calm
+            # untested: from 6 hours before the car leaves the 24-hour refund tier (about lastPickupAt + 24 h), the urgent ladder again
+            turn = order["lastPickupAt"] + 18 * 60
+            rush = [step for step in self.parts.fees.schedule(order, cars, True, self) if step["at"] >= turn]
+            kept = [step for step in calm if step["at"] < turn]
+            floor = kept[-1]["feeCents"] if kept else 0
+            return kept + [{"at": max(step["at"], turn), "feeCents": max(step["feeCents"], floor)} for step in rush] if kept else self.parts.fees.schedule(order, cars, True, self)
         return self.parts.fees.schedule(order, cars, urgent, self)
 
     def retry(self, order_id: str, leg: int, reason: str) -> None:
