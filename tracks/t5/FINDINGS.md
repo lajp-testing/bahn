@@ -57,3 +57,23 @@ Calculate realistic candidate pairs using the world map and site hours, stratify
 `t5-fees-1` and `t5-fees-2` sampled 30 fresh gigs, 15 per seed. Viewers were available for 26 gigs. At each of 0.5, 0.7 and 0.9 times typical fee, 67 offers were sent, 32 were definitely read and 0 accepted (26 gigs); four gigs had no viewers to offer to. The unchanged parent app booked 27 of the 30 sampled gigs later in the week; among those 27 first bookings, median delay from sampling was 52 minutes and median booked fee was 10,762 cents. Six of the 30 gigs booked within 15 minutes. No offer accepted, so there is no lowest accepted fee or paired fee saving to report. These are short 15-minute copy outcomes against subsequent parent app outcomes, not a randomized policy comparison; expirations conflate unread and no longer fitting, and simultaneous app bookings can preempt offers.
 
 No `t5` policy or dev-week comparison was built: the controlled screen found no driver via offers. Next, inspect whether the high expiration rate reflects app preemption, driver availability or offer timing, and measure a revised rule in copies before considering a policy.
+
+## Offers at realistic fees, 14 Nov
+
+**Question.** The earlier screens offered at 0.5 to 1.0 times typical, below every fee the same gigs later booked at (median 1.35; review point 6). Do offers at the app's own fee add margin or on-time share where the rules say they should: urgent gigs (deadline warning) and dropped gigs, sent to drivers a notification does not reach?
+
+**The rule** (`dispatch/offers.py`, off by default, `--set offers=urgent+drops`). When an order's deadline warning comes, or a driver drops or no-shows its gig, the gig goes as a direct offer to up to `offer_n=3` drivers, at the fee the app shows now plus `offer_up=0.1` times the gig's typical fee. Drivers, best first: our drivers whose last delivery for us is within `offer_near=30` km of the pickup (in the last `offer_fresh=180` minutes, or still to come); then the gig's viewers, last first. Never the driver who dropped it, an automatic-only licence for a manual car, a driver offered this car before, or one with three offers today. After the answers, one more round with the next drivers (`offer_rounds=2`). No offers from 22:50 to 07:00 (no driver reads them). The desk marks an `accepted` gig booked; the limits are rebuilt from the journal after a restart. Bundles are left alone (the urgent fees split them first).
+
+**Measurement.** Baseline `t2s9-base` (mainline as it is), 10 dev seeds and `rob-01`…`rob-20`, 30 weeks paired.
+
+**Results (stint cut to 30 minutes; a partial result).**
+
+- Baseline `t2s9-base`, 30 weeks (dev-01…10, rob-01…20): margin €366,267, 8,424 orders, 96.9% on time, 30/30 ranked. Lowest on-time weeks: dev-07 93.7%, rob-14 94.4%, rob-08 94.8%.
+- Switch off (`t2s9-off`, dev-01): €8,742.09, 97.6% on time, equal to the baseline to the cent. The mainline does not change.
+- Switch on (`t2s9-offers`, `offers=urgent+drops`, defaults, **dev-01 only**): €8,692.94 (−€49), 244 orders, 96.7% on time (baseline 97.6%), 1,568 requests (+62). **Offers: 133 sent, 4 refused, 5 accepted, 51 declined, 73 expired** (unread, or no longer fitting). At least 56 were read (accepted + declined); only 19 show a view in the offer's 10 minutes, so a view does not mark a read offer. Offer fee: median 1.60× typical, 1.07× the app's fee then. Accepted at 1.55, 1.60, 1.60, 1.60 and 2.35× typical.
+- **The first accepted offers we have.** At the app's fee plus one step, drivers do take offers (5 of about 56 read, 9%). At 0.5 to 1.0× typical, none of about 580 did. Review point 6 was right: the earlier null came from the fee.
+- One week cannot show an effect: −€49 and −0.9 points of on-time share (two or three orders) are well inside the ±€2,000 of noise over ten weeks. **Not adopted; not yet measured.**
+
+**Still open.** The 30-week paired run of `t2s9-offers` (about 15 minutes on two slots). Whether the 5 bookings came earlier than the app would have booked them, or were only bought at a higher fee. Whether `offer_up=0` (the app's own fee, so no premium) keeps the acceptances.
+
+**Next 30 minutes.** (1) `bin/vps python3 -m harness.run --policy main --seeds dev --seed rob-01 … --seed rob-20 --set offers=urgent+drops --label t2s9-offers`, then `python3 -m harness.compare t2s9-base t2s9-offers` and `python3 tracks/t5/offer_counts.py t2s9-offers`. (2) If the result is neutral or better, the same with `--set offer_up=0`. (3) Adopt only if the margin is higher over the 30 weeks and no week drops below 90%.

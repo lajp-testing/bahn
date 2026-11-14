@@ -169,6 +169,8 @@ class Desk:
         elif kind == "gig_booked":
             self.booked.add(event["gigId"])
             self.booked_fee[event["gigId"]] = event["feeCents"]
+        elif kind == "offer_answered" and event["answer"] == "accepted":  # a direct offer booked the driver (dispatch/offers.py)
+            self.booked.add(event["gigId"])
         elif kind in ("gig_dropped", "no_show"):  # after a no-show the gig is open again; a late driver still comes
             self.booked.discard(event["gigId"])
             if "drops" in self.parts.repairs and kind == "gig_dropped":
