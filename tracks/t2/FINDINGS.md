@@ -592,3 +592,22 @@ Conclusions:
 - Win rate does not fall with waiting: the fullest bucket worth quoting (0.5–0.75) is the best of the week (52.5%), and the 0.75–1 bucket's 29.5% sits in Wednesday/Friday mix, not in the charge.
 - The real decline pool is 85 of 1030 requests (8.3%): 66 failed the slack screen (mostly same-day-only requests, all week), 19 the queue limit. The ">2.5× list, 0 won" pool of the section above is these declines plus 27 genuine quotes; genuine >2× quotes number 66 with mean waiting 0.47 vs 0.33 for the rest — the fee model on long/private lanes prices those out, not the queue.
 - So the busy-window volume gap is not the queue charge or the intake limit; it is Wednesday's dealer level and the same-day slack screen.
+
+## g2 option-kind levels, 14 Nov
+
+Parameter sweep only, no code change: the mainline defaults (`same=0`, `kind_offset=0`) plus one kind shift in the quoter, 10 dev weeks at level 8, against the mainline label `b52-fee4-car110` on the same seeds. The test-final win rates (same_day 26% at 2.16× list, next_day 27% at 1.64×, within_3_days 8% at 1.58×) suggested the quoter over-prices within_3_days and under-prices same_day.
+
+| label | change | total margin | diff vs base | weeks higher | orders (per week) | margin per car | 3 lowest onTimeShare |
+|---|---|---|---|---|---|---|---|
+| b52-fee4-car110 | mainline | €163,494.47 | — | — | 3664 (366.4) | €44.62 | dev-10 94.7%, dev-04 95.3%, dev-07 95.3% |
+| g2-kind-m15 | kind_offset=-0.15 | €160,236.37 | −€3,258.10 | 5/10 | 3637 (363.7) | €44.06 | dev-07 94.9%, dev-10 94.9%, dev-09 95.4% |
+| g2-same-p15 | same=+0.15 | €162,035.18 | −€1,459.29 | 5/10 | 3579 (357.9) | €45.27 | dev-10 95.1%, dev-04 95.7%, dev-07 95.9% |
+
+Per-week margin diff vs base (EUR): g2-kind-m15 dev-08 −2,876 stands out; g2-same-p15 dev-08 −1,802, dev-10 −1,517.
+
+Conclusions:
+
+- **Both kind shifts lose margin; keep `same=0`, `kind_offset=0`.** Neither reaches 7/10 weeks higher, so the stronger values (−0.3 / +0.3) were not run.
+- Cutting the within_3_days price by 0.15 list units did not raise volume (−27 orders) and cut margin per car to €44.06: the dealer-side win rate on within_3_days is not fixed by a flat discount — the 8% win rate at 1.58× likely reflects the option's low value to the dealer, and the discount mostly gave money away on the ones we already won.
+- Raising the same_day price by 0.15 raised margin per car (€45.27) but cost 85 orders in 10 weeks and still lost €1,459 total: the same-day demand curve is steep enough that a flat surcharge loses more orders than the extra margin per car pays.
+- All 30 weeks stayed ranked (on-time ≥ 94.7% in every week). Script: `tracks/t2/g2_compare.py`.
