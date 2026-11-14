@@ -204,3 +204,11 @@ The true curve is **steeper in the middle** than the logistic 0.2 (S falls 0.84�
 | `t2s6-same03` | same=0.3 | 98,049 | 2,605 | 97.2% | 95.0% | 10/10 | 3/10 |
 
 same=0.1 loses 1,522 and 61 orders; same=0.3 loses 2,608 (3/10 weeks, though on time again better, worst 95.0%). same=0.2 gains +431 — under the noise bar with only 5/10 weeks agreeing, so not a finding by the evidence rules — but it wins fewer orders (−81) at a clearly higher EUR/order (38.1 vs 36.9) and on time improves everywhere (96.7%→97.2%, worst 91.5%→93.8%; dev-07 +1,322). The same-day premium is real but small at the operating point: the hill peaks near 0.2, and the volume the higher same-day prices give up eats most of what they earn.
+
+### Step 2 runs: the measured curve
+
+| label | change | margin EUR | orders | on time | worst | ranked | weeks better than base |
+|---|---|---:|---:|---:|---:|---|---:|
+| `t2s6-shape` | shape=table | 94,148 | 3,034 | 96.2% | 92.3% | 10/10 | 3/10 |
+
+The measured curve loses 6,509 on its own: steeper middle → the profit-maximising price sits closer to the level → we win 303 more orders at 31.0 EUR/order instead of 36.9. The table's shape is measured around each world-day's *true* mean; the live quoter's level carries its own error, which widens the effective curve — the same reason stint 5's offline spread fit of 0.4 was an artifact, now in the opposite direction. Next: the table with its z axis widened (`shape_scale`), which interpolates between the table and something logistic-like.
