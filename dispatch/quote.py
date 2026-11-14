@@ -55,6 +55,10 @@ class DialQuoter(Quoter):
     or a delivery place with many drivers living near. `brake` reads how scarce this week's drivers
     are from the orders themselves: the cost rises by `brake` typical fees for each unit that the share of won
     orders with a deadline warning or a late delivery lies above a usual week's (`STRAIN`), and falls below it.
+    `crowd` reads it a day earlier, from the deadlines: the drivers of a week deliver about `room` orders a day for
+    each 100 of them on time, and of the orders beyond that more than half are late (50 practice weeks: 3% late on a
+    day with under 0.10 orders due for each driver, 7% up to 0.15, 21% above). So each order already due on the
+    request's day beyond the room adds `crowd` typical fees to its cost.
 
     The quoter asks for the markup `m` that makes `(m x list - cost + ladder) x chance(m)` largest. The ladder
     is what one more on-time order is worth in the dealer's later prices (`ladder_value`). After each answer
@@ -90,7 +94,7 @@ class DialQuoter(Quoter):
                  cost_next: float = 1.13, cost_same: float = 1.01, ladder: float = 0.0, patience: int = 5 * HOUR,
                  floor: float = 1.1, ceiling: float = 2.4, war: float = 0.0, detail: float = 0.0, day_sd: float = 0.0,
                  same_up: float = 0.0, place_gain: float = 0.0, brake: float = 0.0, lanes: float = 0.0, only_same: float = 0.0,
-                 list_gain: float = 0.0, ladder_drive: int = 0, admit: Optional[Callable[[dict[str, Any], dict[str, int], "Desk"], dict[str, int]]] = None):
+                 list_gain: float = 0.0, ladder_drive: int = 0, crowd: float = 0.0, room: float = 13.0, admit: Optional[Callable[[dict[str, Any], dict[str, int], "Desk"], dict[str, int]]] = None):
         super().__init__(options="all")
         self.dial, self.scale, self.gain, self.dealer_gain = math.log(level), scale, gain, dealer_gain
         self.no_same_day, self.by_list, self.by_trust = no_same_day, by_list, by_trust
@@ -105,6 +109,9 @@ class DialQuoter(Quoter):
         self.dealer_dial: dict[str, float] = {}  # dealer id -> its own offset to the dial
         self.list_gain, self.list_dial = list_gain, 0.0  # what this week adds to `by_list`
         self.ladder_drive = ladder_drive
+        self.crowd, self.room = crowd, room
+        self.due: dict[int, int] = {}  # day -> the orders won whose deadline is on it
+        self.due_on: dict[str, int] = {}  # order id -> the day of its deadline
         self.asked: dict[str, int] = {}  # dealer id -> its requests so far
         self.listed: dict[str, int] = {}  # dealer id -> the list prices of its requests so far, in cents
         self.trust: dict[str, int] = {}  # dealer id -> on-time orders, halved by a late one, at most 25
@@ -160,6 +167,7 @@ class DialQuoter(Quoter):
         same_day = any(option["kind"] == "same_day" for option in request["options"])
         typical = request["referenceFeeCents"] * len(request["legs"])
         factor = (self.cost_same if same_day else self.cost_next) + self.brake * self.strain()
+        factor += self.crowd * self.crowded(basis(request)["deadline"] // DAY, desk)
         if self.detail:
             first = request["legs"][0]
             start, end = first["pickup"]["placeId"], first["delivery"]["placeId"]
@@ -170,6 +178,11 @@ class DialQuoter(Quoter):
                      math.log(max(desk.ctx.minutes(start, end), 1) / 120))
             factor += self.detail * sum(more * (value - mean) for (more, mean), value in zip(DETAIL, shown))
         return typical * factor
+
+    def crowded(self, day: int, desk: "Desk") -> float:
+        """The orders already won that are due on `day`, above the day's room: `room` orders for each 100 drivers
+        of the week. Only a working day of this week is crowded: an order due on Monday has the weekend."""
+        return max(0.0, self.due.get(day, 0) - self.room * len(desk.ctx.roster) / 100) if day < 5 else 0.0
 
     def strain(self) -> float:
         """The share of the week's orders with a deadline warning or a late delivery, above a usual week's. The
@@ -251,12 +264,16 @@ class DialQuoter(Quoter):
         elif kind == "order_won":
             dealer = self.dealer_of[event["order"]["id"]] = event["order"]["dealerId"]
             self.coming[dealer] = self.coming.get(dealer, 0) + 1
+            day = self.due_on[event["order"]["id"]] = event["order"].get("deadline", 0) // DAY
+            self.due[day] = self.due.get(day, 0) + 1
             self.won += 1
             self.learn(event["order"]["id"], True)
         elif kind == "order_lost":
             self.learn(event["requestId"], False)
         elif kind == "order_cancelled":
             self.arrived(event["orderId"])
+            if event["orderId"] in self.due_on:
+                self.due[self.due_on.pop(event["orderId"])] -= 1
         elif kind == "deadline_close":
             self.strained.add(event["orderId"])
         elif kind == "ledger" and event["line"].get("orderId") in self.dealer_of:

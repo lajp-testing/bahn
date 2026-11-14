@@ -733,3 +733,19 @@ def test_today_days_quotes_same_day_on_a_car_ready_today_early_in_the_week_with_
     alone = {**request, "options": request["options"][:1]}
     plain, dearer = quoted(reach_desk(quoter="dial", today_days=1), alone), quoted(reach_desk(quoter="dial", today_days=1, same_up=0.1), alone)
     assert dearer["same_day"] == round(plain["same_day"] * 1.1)  # due today: the premium, with no later option beside it
+
+
+def test_crowd_raises_the_cost_of_an_order_due_on_a_day_with_more_orders_than_the_drivers_have_room_for():
+    desk = reach_desk(quoter="dial", crowd=0.1, room=20)  # 25 drivers: room for 5 orders a day
+    quoter = desk.parts.quoter
+    usual, price = quoter.cost(NEXT_DAY, desk), quoted(desk, {**NEXT_DAY, "id": "Q0"})["next_day"]
+    for i in range(8):
+        quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"O{i}", "deadline": 2640}}, desk, False)
+    assert math.isclose(quoter.cost(NEXT_DAY, desk), usual + 0.1 * 3 * 10000)  # 8 due on Tuesday, 3 beyond the room
+    assert quoted(desk, {**NEXT_DAY, "id": "Q1"})["next_day"] > price
+    other_day = {**NEXT_DAY, "options": [{**NEXT_DAY["options"][0], "deadline": 2640 + 1440}]}
+    assert quoter.cost(other_day, desk) == usual
+    for i in range(3):
+        quoter.observe({"kind": "order_cancelled", "orderId": f"O{i}"}, desk, False)
+    assert quoter.cost(NEXT_DAY, desk) == usual
+    assert reach_desk(quoter="dial").parts.quoter.cost(NEXT_DAY, desk) == usual  # off by default
