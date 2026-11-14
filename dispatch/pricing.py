@@ -45,7 +45,7 @@ class ProfitQuoter(Part):
                  queue: float = 0.3, limit: int = 15, low: float = 0.9, high: float = 2.6, car: float = 0.0, late: float = 0.0,
                  trust: float = 0.0, invest: float = 0.0, share: float = 0.25, lag: float = 0.15, dealer: float = 0.0,
                  towns: float = 0.0, same: float = 0.0, kind_offset: float = 0.0, shape: str = "logistic", shape_scale: float = 1.0,
-                 lanes: float = 0.0, pair: float = 0.0):
+                 lanes: float = 0.0, pair: float = 0.0, outage: float = 0.0, outage_z: float = 3.5, outage_n: int = 8):
         self.level, self.spread, self.step, self.boost = start, spread, step, boost
         self.pair = pair  # the share of its expected fee that a car saves when it can join a gig that is open now
         self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
@@ -77,6 +77,14 @@ class ProfitQuoter(Part):
         self.shape, self.shape_scale = shape, shape_scale
         self.offsets: dict[str, dict[str, float]] = {}  # request -> option kind -> the level offset used when we quoted
         self.owners: dict[str, str] = {}         # request -> the dealer, needed for a loss
+        # `outage` > 0: on one working day the competitor is down around one town, and dealers there pay about 30% more.
+        # While the day's requests picked up within 80 km of a request have won far more often than their prices
+        # explain (`outage_z` standard deviations over at least `outage_n` decided requests), its level is this much higher.
+        self.outage, self.outage_z, self.outage_n = outage, outage_z, outage_n
+        self.heard_day, self.heard = -1, {}      # today, and pickup place -> [wins minus expected, variance, requests decided] today
+        self.near: dict[str, list[str]] = {}     # place -> the places within 80 km
+        self.trusts: dict[str, float] = {}       # request -> the dealer's factor without the outage, when we quoted
+        self.places: dict[str, str] = {}         # request -> its pickup place
 
     def offset(self, request: dict[str, Any]) -> float:
         """How much this request's level moves: its dealer's learned offset and its delivery town's lane part."""
@@ -105,6 +113,16 @@ class ProfitQuoter(Part):
             return survival(z / self.shape_scale)
         return 1 / (1 + math.exp(max(-40.0, min(40.0, z / self.spread))))
 
+    def region(self, request: dict[str, Any], desk: "Desk") -> float:
+        """How much higher the level is because the competitor looks down around the request's pickup today."""
+        if not self.outage or desk.now // DAY != self.heard_day or not OPEN <= desk.now % DAY < CLOSE:
+            return 1.0
+        place = request["legs"][0]["pickup"]["placeId"]
+        if place not in self.near:
+            self.near[place] = [other for other in desk.ctx.places if desk.ctx.straight_km(place, other) <= 80]
+        more, variance, decided = (sum(self.heard[p][i] for p in self.near[place] if p in self.heard) for i in range(3))
+        return 1 + self.outage if decided >= self.outage_n and more >= self.outage_z * math.sqrt(variance) else 1.0
+
     def factor(self, dealer: str) -> float:
         """How much higher than a new dealer's this dealer's level is."""
         return 1 + 0.01 * self.trust * self.counts.get(dealer, 0)
@@ -130,7 +148,7 @@ class ProfitQuoter(Part):
         if self.pair and desk.parts.bundles and desk.parts.bundles.fits(request, desk):
             fee *= 1 - self.pair  # a car that can share a gig with one we hold costs less to move
         dealer = request["dealerId"]
-        factor, gain = self.factor(dealer), 0.0
+        factor, gain = self.factor(dealer) * self.region(request, desk), 0.0
         if self.invest:
             count, future = self.counts.get(dealer, 0), self.future(dealer, desk.now)
             waiting = sum(1 for other in self.open.values() if other == dealer)
@@ -153,7 +171,9 @@ class ProfitQuoter(Part):
         if action["type"] == "quote" and result.get("ok") and request is not None:
             lists = {option["kind"]: option["listPriceCents"] for option in request["options"]}
             self.sent[request["id"]] = {kind: cents / lists[kind] for kind, cents in action["prices"].items() if kind in lists}
-            self.factors[request["id"]] = self.factor(request["dealerId"])
+            self.trusts[request["id"]] = self.factor(request["dealerId"])
+            self.factors[request["id"]] = self.trusts[request["id"]] * self.region(request, desk)
+            self.places[request["id"]] = request["legs"][0]["pickup"]["placeId"]
             self.offsets[request["id"]] = {kind: self.offset(request) + self.kind_off(kind) + self.lane_off(request, kind, desk)
                                            for kind in self.sent[request["id"]]}
             self.owners[request["id"]] = request["dealerId"]
@@ -173,6 +193,7 @@ class ProfitQuoter(Part):
         name = event["order"]["id"] if won else event["requestId"]
         sent, factor = self.sent.pop(name, None), self.factors.pop(name, 1.0)
         offsets, dealer = self.offsets.pop(name, {}), self.owners.pop(name, "")
+        trust, place = self.trusts.pop(name, factor), self.places.pop(name, "")
         if won:
             self.open[event["order"]["id"]] = event["order"]["dealerId"]
         if not sent:
@@ -190,6 +211,12 @@ class ProfitQuoter(Part):
         step = self.step * max(1.0, self.boost / math.sqrt(1 + self.seen_today / 3))
         self.seen_today += 1
         chance = self.chance(ratio / factor, offset)
+        if self.outage and place and OPEN <= event["at"] % DAY < CLOSE + 30:
+            if event["at"] // DAY != self.heard_day:
+                self.heard_day, self.heard = event["at"] // DAY, {}
+            usual = self.chance(ratio / trust, offset)  # what the price would win on a usual day
+            heard = self.heard.setdefault(place, [0.0, 0.0, 0])
+            heard[0], heard[1], heard[2] = heard[0] + (1.0 if won else 0.0) - usual, heard[1] + usual * (1 - usual), heard[2] + 1
         self.level = min(self.high, max(self.low, self.level + step * ((1.0 if won else 0.0) - chance)))
         if self.dealer:
             who = event["order"]["dealerId"] if won else dealer
