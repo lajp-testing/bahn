@@ -68,7 +68,7 @@ Speed: a quote must be answered within 15 world minutes, which is 4.5 real secon
 | 3 | Export to `dispatch/learned.py`; `fee_model=3`; offline tests; switch-off check | `main` unchanged to the cent; a smoke week runs | 1 h |
 | 4 | Hand back to this thread for the 30 + 10 week measurement | paired result against the mainline | 30 min of play |
 
-The code freeze is about 02:00 UTC on Sunday 15 November. If the model does not beat the mainline on the 40 weeks by about 22:00 UTC on Saturday, it stays out of the final.
+The final starts at 06:00 UTC on Sunday 15 November; whatever is best measured on the 40 weeks by then goes live.
 
 ## Risks
 
