@@ -33,6 +33,11 @@ NAMES = (
     "sched_open", "sched_cap",
 )
 
+# The map inputs of the CNN (fee model 4), one number for each place of the map, in the map's order: the drivers living
+# there, our booked gigs that end there, and our open gigs that start there. The trees (model 3) do not read them.
+MAP_CHANNELS, PLACES = ("drivers", "ending", "open"), 30
+MAP_NAMES = tuple(f"{channel}_{i}" for channel in MAP_CHANNELS for i in range(PLACES))
+
 
 def near(desk: "Desk", place: str) -> tuple[int, int]:
     """The drivers living within 30 km and within 80 km of a place (straight line), cached on the context."""
@@ -84,6 +89,24 @@ def state(request: dict[str, Any], desk: "Desk") -> list[float]:
     bundles = desk.parts.bundles
     fits = float(bool(bundles) and bundles.fits(request, desk))
     return [unbooked(desk), open_gigs, held, booked_near, fits, float(bool(bundles))]
+
+
+def map_features(request: dict[str, Any], desk: "Desk") -> list[float]:
+    """Where drivers are for us at quote time, in the order of `MAP_NAMES`."""
+    ctx = desk.ctx
+    index = {place: i for i, place in enumerate(ctx.places)}
+    drivers, ending, open_ = [0.0] * len(index), [0.0] * len(index), [0.0] * len(index)
+    for driver in ctx.roster:
+        drivers[index[driver["homePlaceId"]]] += 1
+    for gig in {gig for legs in desk.leg_gigs.values() for gig in legs.values()}:
+        if gig not in desk.posts:
+            continue
+        stops = desk.posts[gig]["stops"]
+        stop, side, counts = (stops[-1], "delivery", ending) if gig in desk.booked else (stops[0], "pickup", open_)
+        order = desk.orders.get(stop["orderId"])
+        if order is not None:
+            counts[index[order["legs"][stop["leg"]][side]["placeId"]]] += 1
+    return drivers + ending + open_
 
 
 def features(request: dict[str, Any], desk: "Desk", schedule: tuple[float, float] | None = None) -> list[float]:

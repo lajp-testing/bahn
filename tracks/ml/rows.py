@@ -13,7 +13,7 @@ reads the desk as it was then. The targets are those of tracks/t3/cost.py (fee m
     refund  those refunds and penalties, over the order's price
 
 Fee models 1 and 2 are evaluated on the same request at the same moment, for the baselines.
-Rows of each week are cached under data/ml/weeks/, so a rerun reads only new weeks. Standard library only.
+Rows of each week are cached under data/ml/weeks-map/, so a rerun reads only new weeks. Standard library only.
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ if "SPREAD_HOME" not in os.environ and not os.path.exists("/home/agent/.t3/proje
 from dispatch.bundles import orders_in  # noqa: E402
 from dispatch.context import Context  # noqa: E402
 from dispatch.desk import Desk  # noqa: E402
-from dispatch.features import NAMES, features  # noqa: E402
+from dispatch.features import MAP_NAMES, NAMES, features, map_features  # noqa: E402
 from dispatch.fees import MeasuredFees  # noqa: E402
 from dispatch.policies.main import build  # noqa: E402
 from harness import config  # noqa: E402
@@ -138,7 +138,7 @@ def week_rows(folder: str) -> list[list]:
             request = item["request"]
             desk.requests[request["id"]] = request
             if request["id"] in won:
-                seen[request["id"]] = features(request, desk, schedules.get(request["id"]))
+                seen[request["id"]] = features(request, desk, schedules.get(request["id"])) + map_features(request, desk)
                 ref = request["referenceFeeCents"]
                 baselines[request["id"]] = (model1.expected(request, desk) / ref, model1.late_risk(request, desk),
                                             model2.expected(request, desk) / ref, model2.late_risk(request, desk))
@@ -187,7 +187,7 @@ def unlink(desk: Desk, gig_id: str) -> None:
 
 
 def cached(folder: str) -> list[list]:
-    path = os.path.join(OUT, "weeks", os.path.basename(folder) + ".json.gz")
+    path = os.path.join(OUT, "weeks-map", os.path.basename(folder) + ".json.gz")
     if os.path.exists(path):
         return read_json(path)
     try:
@@ -230,7 +230,7 @@ def main() -> None:
     count = 0
     with gzip.open(path + ".tmp", "wt", encoding="utf-8", newline="") as file, Pool(args.jobs) as pool:
         writer = csv.writer(file)
-        writer.writerow(META + NAMES)
+        writer.writerow(META + NAMES + MAP_NAMES)
         for i, rows in enumerate(pool.imap_unordered(cached, folders, chunksize=4)):
             writer.writerows(rows)
             count += len(rows)

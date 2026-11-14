@@ -1,6 +1,7 @@
 """The fees: the fee schedule of a gig. Owned by track 3 (fees and drivers)."""
 from __future__ import annotations
 
+import importlib
 from typing import TYPE_CHECKING, Any
 
 from .parts import Part
@@ -64,14 +65,14 @@ class Fees(Part):
         the quoter asks for the expected fee and the late risk one after the other."""
         key = (request["id"], desk.now)
         if getattr(self, "_learned", (None,))[0] != key:
-            from .features import features
-            self._learned = (key, features(request, desk))
+            from .features import features, map_features
+            self._learned = (key, features(request, desk) + (map_features(request, desk) if self.model == 4 else []))
         return self._learned[1]
 
     def expected(self, request: dict[str, Any], desk: "Desk") -> int:
         """Expected total driver fees, as a share of the typical fee."""
-        if getattr(self, "model", 1) == 3:  # the learned model (tracks/ml, dispatch/learned.py)
-            from . import learned
+        if getattr(self, "model", 1) in (3, 4):  # the learned models (tracks/ml): 3 the trees (dispatch/learned.py), 4 the CNN (dispatch/learned_cnn.py)
+            learned = importlib.import_module(".learned" if self.model == 3 else ".learned_cnn", __package__)
             return max(1, round(request["referenceFeeCents"] * learned.fee(self.learned(request, desk))))
         if getattr(self, "model", 1) == 2:
             multiple = MODEL2_EXPECTED[0] + sum(c for c, active in zip(MODEL2_EXPECTED[1:], self._model2_features(request, desk)) if active)
@@ -82,8 +83,8 @@ class Fees(Part):
 
     def late_risk(self, request: dict[str, Any], desk: "Desk") -> float:
         """Empirical late share; clipped additive group model."""
-        if getattr(self, "model", 1) == 3:
-            from . import learned
+        if getattr(self, "model", 1) in (3, 4):
+            learned = importlib.import_module(".learned" if self.model == 3 else ".learned_cnn", __package__)
             return min(1.0, max(0.0, learned.late(self.learned(request, desk))))
         if getattr(self, "model", 1) == 2:
             risk = MODEL2_LATE[0] + sum(c for c, active in zip(MODEL2_LATE[1:], self._model2_features(request, desk)) if active)
