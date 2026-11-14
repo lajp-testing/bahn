@@ -518,3 +518,35 @@ Baseline `b46-car105-sameday480` on the same 10 dev seeds: €157,205 total, 372
 **What it shows.** Loosening the bundle gate to 240 min is the only clear win: +€241/week, 7 of 10 weeks ahead, on time unchanged (97.0%, no week below 95.4%). Pushing to 180 min throws most of it away (+€57/week, 4/10) — the tighter start window makes bundles that arrive too close to the deadline, and late singles rise to 4.2%. Holding a car 30 min for a partner does bundle more (36% vs 28%) but *loses* money: we win 3 fewer orders a week (a held car that never finds a partner books late and some requests are lost) and the singles left over are booked at 0.99x with 3.9% late; the same failure as before flat fees, now smaller.
 
 **Verdict.** Candidate for the mainline: `bundle_slack=240` (one parameter, no code change). `hold` stays off. The bundle share only moves 28% → 30%, so the big gap to the top team (more multi-car gigs) is not in the gate; it needs faster partner-finding (t5's territory) or pricing that steers dealers toward bundleable requests.
+
+## Test final 18:00: which requests we lost, 14 Nov
+
+The test final `f53b4661bfe50ae2e4c23` (level 8, ended): 1,030 price requests, 362 orders won (35.1%), 356 delivered, 97.2% on time, margin €17,442.75 = €49.0/order, margin share 40.9% (best), 5th place. The top 5 averaged ~450 orders at €40.9 margin/order: our gap is volume, not price. Data: `tracks/t2/final-1800/` (events, reveal, snapshot; fetched by `fetch_final.py`, analysed by `analyse_final.py`). Quote ratio = our quote ÷ that option's list price; request-level ratio is on the cheapest-list option.
+
+(a) by the cheapest option's list price, quintiles — win rate is worst at BOTH ends:
+
+| band | requests | won | win rate | avg quote/list | avg won margin |
+|---|---|---|---|---|---|
+| Q1 ≤ €36 | 219 | 46 | 21.0% | 1.70 | €18.53 |
+| Q2 ≤ €58 | 211 | 84 | 39.8% | 1.64 | €28.89 |
+| Q3 ≤ €79 | 194 | 86 | 44.3% | 1.65 | €43.43 |
+| Q4 ≤ €122 | 211 | 97 | 46.0% | 1.76 | €61.62 |
+| Q5 > €122 | 195 | 49 | 25.1% | 2.44 | €90.84 |
+
+(b) by road km (all legs): <100 km 259 req, 24.3% won (ratio 1.74); 100–300 km 444 req, 44.1% (1.63); 300–500 km 195 req, 41.0% (1.94); >500 km 132 req, 17.4% (2.53). Won margin/order rises €19.69 → €103.90 with distance.
+
+(c) per quoted option: same_day 337 quoted, 26.4% won, ratio 2.16; next_day 939, 27.3%, 1.64; within_3_days 204, 8.3%, 1.58. We left 327 of 664 offered same_day options unquoted (49%) — half our same-day chances are declined before pricing; next_day 16/955, within_3_days 0/204.
+
+(d) by weekday: Mon 31.5%, Tue 38.7%, Wed 22.6%, Thu 48.3%, Fri 35.8% won. Wednesday is the weak day (ratio 1.60 yet only 22.6% won — the dealer's value, not our price, moves).
+
+(e) private address: no 893 req, 38.4% won (1.72); yes 137 req, 13.9% won (2.56). Private addresses are priced 0.8× higher and quarter our win rate.
+
+Win rate by our best quote/list ratio: ≤1.1 66.7% (n=3); 1.1–1.3 47.8% (159); 1.3–1.5 44.3% (366); 1.5–1.7 29.3% (205); 1.7–2.0 41.1% (146); 2.0–2.5 5.1% (39); >2.5 0.0% (112). We won at avg 1.48, lost at avg 2.02. Declines: 0 requests unquoted entirely, but 151 requests (14.7%) quoted >2× list (2 won) and 100 at >3× (0 won) — priced-out, not lost on a knife edge.
+
+Conclusions:
+
+- The volume gap is real and sits in the short/cheap tail AND the long tail: <100 km and Q1 both at ~21–24% win, >500 km at 17%. The middle (100–300 km, €58–122 list) is where we win (44–46%).
+- We are priced out, not outbid narrowly: above 2× list we win almost nothing (2 of 151), and the 1.7–2.0 island (41%) shows some requests' dealer value is simply high. Our quotes average 1.7× list; when we win we are at 1.48×. Cheap short runs quoted at 1.7× list (€36 list → ~€61 quote) lose to the competitor, who at the top teams' €104 revenue/order plays near list price.
+- Same-day is half-declined outright (327/664 unquoted) and quoted at 2.16× when priced — the biggest single pool of lost orders.
+- Private addresses (137 requests, 13.9% won at 2.56×) are a small but clear loss pool.
+- Money follows the middle anyway: won margin/order rises from €18.53 (Q1) to €90.84 (Q5). Cutting the quote toward ~1.2–1.3× list on short/cheap and same-day requests trades €/order for volume exactly where the top teams' extra 100 orders live; the €/car loss per band is €5–10 against ~2× the win rate at 1.1–1.3× (47.8% vs 29.3% at 1.5–1.7).
