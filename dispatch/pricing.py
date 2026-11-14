@@ -71,6 +71,7 @@ class ProfitQuoter(Part):
         # `lanes` > 0: the level also moves by the lane model's leftover for this option
         # (dispatch/lanes.py), scaled by this: the part of the spread the request's own features predict.
         self.lanes = lanes
+        self.shape, self.shape_scale = shape, shape_scale
         self.offsets: dict[str, dict[str, float]] = {}  # request -> option kind -> the level offset used when we quoted
         self.owners: dict[str, str] = {}         # request -> the dealer, needed for a loss
 
