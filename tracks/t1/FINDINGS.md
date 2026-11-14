@@ -167,3 +167,9 @@ The late-share governor adds €416.24 on dev and lifts rob-18, but leaves rob-1
 | `t1s5-warn3-limit10` | 91,491.72 | 36,941.40 | 89.47% | 93.59, 89.47, 95.15, 95.91, 98.68% |
 
 Rejected: dev margin falls €10,735.61, and rob-17 does not rank. `t1s5-late3` tests the late-share trigger at 3%; pending.
+
+| Label | Dev margin | Five margin | Worst of 15 | rob-18, rob-17, rob-14, rob-11, rob-10 |
+|---|---:|---:|---:|---|
+| `t1s5-late3` | 101,970.80 | 40,901.20 | 92.43% | 93.05, 92.43, 93.22, 96.20, 96.53% |
+
+The 3% late-share rule has the highest minimum of the completed candidates but misses 94%; dev margin is €256.53 below baseline. Its late count uses the order deadline and timestamps, not ledger refunds, so private booked-hour deadlines may be missed. The 20-week check `t1s5-late3-rob` was started after this result, later than planned; the earlier `t1s5-best-rob` checked the then-leading warning rule.
