@@ -231,3 +231,65 @@ On the old mainline towns=1.5 gained +1,568 (stint 5); on the same-day test bed 
 - Reject: the measured curve at its natural scale (`shape=table`, −6,509 — the table is measured around the true day mean, but the live level's own error widens the effective curve), `same` at 0.1 and 0.3, every combination with `towns=1.5`.
 - Code kept, all default-off: `same`, `kind_offset` (re-added through one `kind_off` path), `shape`, `shape_scale` in `ProfitQuoter`; `PROFIT` passes them through. 22 offline tests pass.
 - 10 of 16 runs used.
+
+## Stint 7: the lane model — how much of the within-day spread the request itself explains
+
+`tracks/t2/predict.py` (numpy, offline): 6,139 first-option requests from the six scans (one option per request; `switch_high=0` rows skipped), target y = switching ratio minus its world-and-day mean (y stdev 0.2124). Driver-proximity features (drivers living within 30 km of pickup/delivery) are **skipped**: the scan worlds' rosters were not saved and no saved week shares a scan seed. Everything else known at arrival is in.
+
+### 1. Single features, leave-one-world-out R2 (fit on five scans, predict the sixth, pooled)
+
+| feature | LOWO R2 | | feature | LOWO R2 |
+|---|---:|---|---|---:|
+| delivery town | +0.127 | | has_note | -0.000 |
+| fee ratio (typical fee / list) | +0.008 | | n_legs | -0.001 |
+| dealer (D01-D06/other) | +0.007 | | minutes | -0.001 |
+| log typical fee | +0.004 | | batch | -0.001 |
+| number of options | +0.003 | | private delivery | -0.001 |
+| option kind | +0.001 | | arrival hour | -0.001 |
+| log list price | +0.000 | | note language | -0.002 |
+| lane km | +0.000 | | pickup town | -0.023 |
+| lead hours | -0.000 | | | |
+
+### 2. Ridge (standardised, unpenalised intercept), leave-one-world-out
+
+| model | penalty | LOWO R2 | in-sample R2 |
+|---|---:|---:|---:|
+| full (66 columns) | 1 | +0.130 | +0.228 |
+| full (66 columns) | 10 | +0.130 | +0.227 |
+| full (66 columns) | 100 | **+0.131** | +0.226 |
+| small (8 features, 34 columns) | 100 | **+0.132** | +0.197 |
+
+The small model (the 8 best singles: delivery town, fee ratio, dealer, log typical fee, number of options, kind, log list price, km) matches the full model out of sample. **The delivery town is nearly the whole predictable part** (0.127 of the 0.132); everything the request says beyond its delivery town adds about 0.005. Out of sample the request's features explain about 13% of the within-day variance (y stdev 0.21, prediction stdev 0.09); the other 87% is noise we cannot see. This is above the 0.05 bar, so the model goes into the quoter.
+
+### 3. Small model coefficients (plain units, penalty 100, refit on all six scans)
+
+| feature | coefficient | | feature | coefficient |
+|---|---:|---|---|---:|
+| intercept | +0.326 | | delivery:hyvinkaa | -0.228 |
+| fee ratio | +0.038 / unit | | delivery:vantaa | -0.206 |
+| log typical fee | -0.002 / log-cent | delivery:espoo | -0.163 |
+| log list price | -0.027 / log-cent | delivery:helsinki | -0.143 |
+| number of options | -0.013 / option | delivery:porvoo | -0.084 |
+| lane km | -0.00001 / km | delivery:ylivieska | +0.107 |
+| dealer:D01 | +0.027 | delivery:rovaniemi | +0.063 |
+| dealer:D02 | +0.026 | delivery:kuopio | +0.054 |
+| dealer:other | -0.036 | kind:within_3_days | +0.140 |
+| | | kind:same_day/next_day | ~0 |
+
+Prediction stdev 0.0917, mean 0 over the scans. The delivery-town coefficients are the towns table again (corr with the stint-4 `DELIVERY` table is high; magnitudes differ because this ridge shrinks jointly); the dealer column repeats stint 5's D01/D02 finding; the `within_3_days` +0.140 rests on 131 rows and is the least trustworthy number in the model. `dispatch/lanes.py` (`leftover`) reproduces the fit exactly (verified on all 6,139 rows: stdev 0.0917, in-sample R2 0.197).
+
+### 3a. The dealer puzzle, scans side (no trust)
+
+Mean leftover y by dealer, and the mean residual after a small model fitted **without** dealer columns:
+
+| dealer | n | mean y | residual after no-dealer model |
+|---|---:|---:|---:|
+| D01 | 1,931 | +0.028 | +0.027 (se 0.005) |
+| D02 | 740 | +0.021 | +0.028 (se 0.007) |
+| D03 | 481 | +0.006 | +0.010 (se 0.008) |
+| D04 | 373 | -0.006 | +0.002 (se 0.010) |
+| D05 | 253 | -0.022 | -0.028 (se 0.012) |
+| D06 | 210 | +0.015 | +0.011 (se 0.013) |
+| other | 2,151 | -0.032 | -0.034 (se 0.004) |
+
+**Yes: in the scans D01's leftover is different** — +0.027 above the model's non-dealer part (5-6 se), and D02 is the same; the small dealers sit below. So the dealer level offset is real in the scans, the model carries it (D01 +0.027, D02 +0.026), and the stint-5 failure of *learned* dealer offsets is not because the offset does not exist. The scans cannot say why learning it live fails; the played weeks (3b) can.
