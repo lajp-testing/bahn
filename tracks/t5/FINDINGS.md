@@ -95,3 +95,22 @@ No `t5` policy or dev-week comparison was built: the controlled screen found no 
 **Recommendation.** Keep offers off. Over 30 weeks neither fee adds margin or on-time share. Most offers go unread. The drivers who accept would mostly have taken the gig from the app.
 
 **Next 30 minutes, if the track keeps offers at all:** try drops only (`offers=drops`, `offer_up=0`): the urgent offers make up most of the volume and go mostly unread. Otherwise drop the line and spend the slots elsewhere.
+
+## g5 chain offers to our drivers finishing nearby, 14 Nov
+
+**Question.** The handbook: "For a driver who already has one of your gigs, a second gig costs only the extra time and tickets", and the app does not notify a driver where our gigs have taken them. Does a direct offer at the moment of posting, to our own drivers who will finish near the pickup, add margin?
+
+**The rule** (`dispatch/offers.py`, off by default, `--set offers=new`). When we post a gig for a single car of a not-yet-urgent order, it goes as one round of offers to up to `offer_n=3` of our drivers whose last or next delivery for us is within `offer_near=30` km of the pickup and early enough to reach it inside the pickup's window by road (nobody when the window or the road is unknown), closest first, at the fee the app shows now times `offer_new_fee` (default 1.0). The gig stays in the app at the same time, so nothing is lost on paper when nobody accepts. The per-day (3 per driver), open (3 per gig) and already-asked bookkeeping is the existing one; the `urgent` and `drops` triggers are unchanged and clear the chain flag.
+
+**Measurement.** Baseline `b46-car105-sameday480`, 10 dev weeks. Switch off (`g5-off`, dev-01): €11,361.54, equal to the baseline to the cent; the mainline does not change.
+
+|label|margin €|diff €|weeks higher|orders/wk|€/car|ranked|lowest on-time weeks|
+|---|---|---|---|---|---|---|---|
+|b46 baseline|157,205||—|372.1|41.25|10/10|dev-05 95.7, dev-10 95.9, dev-01 96.3|
+|g5-new10 (`new`, fee 1.0×)|155,740|**−1,466**|6/10|369.9|41.07|10/10|dev-04 95.4 (97.1), dev-05 96.0, dev-07 96.3|
+|g5-new09 (`new`, fee 0.9×)|155,570|**−1,636**|3/10|370.7|40.97|10/10|dev-07 93.9 (96.4), dev-10 95.9, dev-05 96.0|
+
+- **Offers, g5-new10:** 3,253 sent (about 325 a week), **21 accepted (0.6% of sent)**, 1,493 declined, 1,699 expired, only 104 read (a view inside the 10 minutes). Accepted fee over the gig's typical fee: mean 0.98, most at 0.85 to 0.89. **g5-new09:** 3,206 sent, **12 accepted (0.4%)**, accepted fee/typical mean 0.87.
+- **Reading.** The trigger finds the drivers (325 offers a week against about 370 orders), but they almost never take them: the gig is fresh in the app at the same fee, so the offer buys no exclusivity worth a read, and 52% expire unread. The 2 acceptances a week do not pay for the churn: total margin falls €1,466 at 1.0× and €1,636 at 0.9×, and the 0.9 fee halves acceptances (12 vs 21) while teaching viewers a lower booked fee (drivers learn your fees). dev-07 at 0.9× slid 2.5 points towards the 90% line (93.9%). Cutting the fee did not help, as with the t2s10 urgent offers.
+
+**Recommendation.** Keep offers off. A chain offer at post time reaches the right drivers but at the wrong moment: the gig is fresh and its fee has not risen, so the offer reads as noise. If the line continues, the remaining idea is to offer only when the app's fee has already risen (an aged gig) to a driver the notification missed — which is the `urgent`/`drops` case, already measured as a loss.
