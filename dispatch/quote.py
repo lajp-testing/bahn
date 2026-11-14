@@ -79,7 +79,7 @@ class DialQuoter(Quoter):
     `list_gain` learns how much more this week's dealers accept for a dearer car than `by_list` says: the slope by
     list price differs between worlds (0.01 to 0.25 around 0.12 in the practice weeks).
 
-    With `same_up`, a `same_day` option beside a later one costs that share more: a dealer who values the speed
+    With `same_up`, a `same_day` option beside a later one, or one that is due today, costs that share more: a dealer who values the speed
     pays for it, and another takes the later option, which leaves the gig longer to find its driver.
 
     `only_same` is the limit of a request whose only option is `same_day`, for a car that is ready on a later day:
@@ -216,7 +216,8 @@ class DialQuoter(Quoter):
             self.asked[dealer] = self.asked.get(dealer, 0) + 1
             self.listed[dealer] = self.listed.get(dealer, 0) + basis(request)["listPriceCents"]
             markup = self.best_markup(request, desk)
-            dearer = 1 + self.same_up if len(request["options"]) > 1 else 1.0
+            today = any(o["kind"] == "same_day" and o["deadline"] // DAY == desk.now // DAY for o in request["options"])
+            dearer = 1 + self.same_up if len(request["options"]) > 1 or today else 1.0
             prices = {option["kind"]: round(option["listPriceCents"] * markup * (dearer if option["kind"] == "same_day" else 1.0))
                       for option in request["options"]}
             sent = self.admit(request, prices, desk) if self.admit else prices

@@ -718,3 +718,18 @@ def test_the_ladder_prices_a_cheap_car_of_a_busy_dealer_lower_and_only_on_a_shor
     assert markup(ladder=0.01) < markup()
     assert markup(ladder=0.01, ladder_drive=drive) == markup(ladder=0.01)
     assert markup(ladder=0.01, ladder_drive=drive - 1) == markup()
+
+
+def test_today_days_quotes_same_day_on_a_car_ready_today_early_in_the_week_with_hours_to_spare():
+    request = {**REQUEST, "note": None}  # asked at 10:00 on Monday, due at 20:00, a drive of 106 minutes
+    assert set(quoted(reach_desk(), request)) == {"next_day"}
+    assert set(quoted(reach_desk(today_days=1), request)) == {"same_day", "next_day"}
+    assert set(quoted(reach_desk(today_days=1, today_hours=8.5), request)) == {"next_day"}  # 8.2 hours beyond the drive
+    assert set(quoted(reach_desk(today_days=1, today_drive=100), request)) == {"next_day"}
+    tuesday = reach_desk(today_days=1)
+    tuesday.now = 1440 + 600
+    later = {**request, "options": [{**option, "deadline": option["deadline"] + 1440} for option in request["options"]]}
+    assert set(quoted(tuesday, later)) == {"next_day"}
+    alone = {**request, "options": request["options"][:1]}
+    plain, dearer = quoted(reach_desk(quoter="dial", today_days=1), alone), quoted(reach_desk(quoter="dial", today_days=1, same_up=0.1), alone)
+    assert dearer["same_day"] == round(plain["same_day"] * 1.1)  # due today: the premium, with no later option beside it
