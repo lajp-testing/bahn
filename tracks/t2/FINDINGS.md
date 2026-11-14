@@ -483,3 +483,22 @@ Second round, same base, all weeks ranked:
 **Verdict.** The nearby-driver gate on same_day (`same_day_drivers=80`) costs us money: it drops a same_day quote on 40% of the requests that offer it, and a request with a same_day quote wins about twice as often. Removing the gate and asking for 8 h of slack instead of 6 h (`same_day_drivers=0 same_day_slack=480`) beats `b37-fee3` on every dev week: +€10,397 (+7.1%), +21 orders a week, €/car up (€37.80 → €38.42), on time unchanged (96.7%, lowest week 95.3%). The slack keeps the on-time share where the plain gate removal lost it (dev-10 90.6% → 95.3%). Lower prices (`car`) still do not pay, even with more same_day quotes. The rule in one sentence: quote same_day whenever the car can be delivered with 8 hours to spare, whoever lives nearby.
 
 **Recommendation.** Candidate for the mainline: `same_day_drivers=0 same_day_slack=480` (track 1's intake parameters, no code change). Confirm on 30 more weeks (orchestrator holdout) before switching; it is one dev screen, 10/10 weeks ahead. Next: `same_day_slack` 420/540 to find the edge, and stack with t3's `limit=40 morning_limit=50`.
+
+## A dynamic tilt from driver supply, 14 Nov (afternoon, t2sc)
+
+Question: instead of one fixed `car` for every car, let the margin tilt follow the situation. Built behind a switch in `ProfitQuoter` (`dispatch/pricing.py`, `scarce`, `scarce_km`; off by default; both added to `PROFIT` in `dispatch/policies/main.py`).
+
+**The rule.** Scarcity near a pickup = (our cars without a booked driver picked up within `scarce_km`=80 km, plus this one) / (drivers living within 80 km + 1). The fee the quoter counts is `car × (1 + scarce × clip(scarcity / the week's mean scarcity so far − 1))` times the learned model's expected fee. Reads the week (centred on its own running mean), two parameters.
+
+**Off check.** `t2sc-off` (`scarce=0`) dev-01 €9,956.48, 352 orders, 94.0% = `b37-fee3` to the cent.
+
+Screens, 10 dev weeks, all ranked (`b37-fee3` €147,171, 389 orders/week, €37.80/car; `b43-car105` €153,772, 358 orders/week, €42.96/car, 97.5%):
+
+| label | Δ vs b37-fee3 | Δ vs b43-car105 | weeks ahead of b43 | orders/week | €/car | on time | three lowest weeks |
+|---|---|---|---|---|---|---|---|
+| `t2sc-105-k05` (car=1.05, scarce=0.5, clip ±1) | −€17,047 (0/10 ahead) | −€23,648 | 0/10 (first 5 checked) | 422 | €30.83 | 96.9% | dev-01 95.0%, dev-05 95.3%, dev-10 95.5% |
+| `t2sc-105-up03` (car=1.05, scarce=0.3, clip [0, 1]) | +€848 (4/10 ahead) | −€5,752 | 2/10 | 345 | €42.90 | 97.4% | dev-01 96.0%, dev-09 96.1%, dev-07 96.2% |
+
+**Why it fails.** The symmetric version quoted most cars cheaper: the scarcity ratio is right-skewed (most pickups have no waiting car of ours nearby), so most cars sit below the running mean and got up to half the tilt taken off: +64 orders/week at €12 less per car, the same loss as `car=0.85`. The upward-only version keeps €/car (€42.90 vs €42.96) but wins 13 fewer orders a week than the fixed tilt: the extra charge lands where we are already short of drivers, and the learned cost model already counts that (its inputs include `unbooked`, `booked_near`, `pickup_30/80`), so the term charges for scarcity twice.
+
+**Verdict.** Not recommended. A driver-supply tilt on top of the learned cost model does not beat the fixed `car=1.05`; the model already prices supply. Code stays in, off by default (`scarce=0`, reproduces `b37-fee3` to the cent). If a dynamic tilt is wanted, the untested next candidate is the time of week (`end_car` already exists for Friday-due cars).

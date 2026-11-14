@@ -47,7 +47,7 @@ class ProfitQuoter(Part):
                  towns: float = 0.0, same: float = 0.0, kind_offset: float = 0.0, shape: str = "logistic", shape_scale: float = 1.0,
                  lanes: float = 0.0, pair: float = 0.0, outage: float = 0.0, outage_z: float = 3.5, outage_n: int = 8,
                  target: float = 0.0, margin: float = 1.15, barrier: float = 0.0, allowance: float = 0.06, crowd: float = 0.5, floor_orders: int = 100,
-                 end_car: float = 0.0):
+                 end_car: float = 0.0, scarce: float = 0.0, scarce_km: float = 80.0):
         self.level, self.spread, self.step, self.boost = start, spread, step, boost
         self.pair = pair  # the share of its expected fee that a car saves when it can join a gig that is open now
         self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
@@ -97,6 +97,12 @@ class ProfitQuoter(Part):
         self.barrier, self.allowance, self.crowd, self.floor_orders = barrier, allowance, crowd, floor_orders
         self.end_car = end_car  # the fee multiplier for an option due on Friday; 0 for the same as `car`
         self.risks: dict[str, float] = {}  # order -> its late risk when won (a cache; recomputed after a restart)
+        # `scarce` > 0: the fee tilt `car` moves with driver supply near the pickup. Scarcity is our cars without a driver
+        # whose pickup is within `scarce_km`, per driver living there; the tilt is car x (1 + scarce x (scarcity / the
+        # week's mean scarcity so far - 1)), the deviation clipped to [0, 1]: never below `car`, dearer where drivers are scarce.
+        # (A symmetric clip [-1, 1] lost: the ratio is skewed, so most cars fell below the mean and were quoted cheaper.)
+        self.scarce, self.scarce_km = scarce, scarce_km
+        self.scarce_sum, self.scarce_n = 0.0, 0
 
     def offset(self, request: dict[str, Any]) -> float:
         """How much this request's level moves: its dealer's learned offset and its delivery town's lane part."""
@@ -173,6 +179,21 @@ class ProfitQuoter(Part):
         share = late / max(len(desk.orders), self.floor_orders)
         return 100 * (self.barrier * (share / self.allowance) ** 4 + self.crowd * unbooked(desk))
 
+    def scarcity(self, request: dict[str, Any], desk: "Desk") -> float:
+        """Our cars without a booked driver picked up within `scarce_km` of this pickup, plus this one, per driver living there."""
+        ctx, pickup = desk.ctx, request["legs"][0]["pickup"]["placeId"]
+        cache = ctx.__dict__.setdefault("_scarce_drivers", {})
+        if pickup not in cache:
+            cache[pickup] = sum(ctx.straight_km(pickup, driver["homePlaceId"]) <= self.scarce_km for driver in ctx.roster)
+        cars = 1
+        for order in desk.orders.values():
+            if any(at is None for at in order["deliveredAt"]):
+                gigs = desk.gigs_of(order["id"])
+                if (not gigs or any(gig not in desk.booked for gig in gigs)) and \
+                        ctx.straight_km(order["legs"][0]["pickup"]["placeId"], pickup) <= self.scarce_km:
+                    cars += 1
+        return cars / (cache[pickup] + 1)
+
     def prices(self, request: dict[str, Any], desk: "Desk") -> dict[str, int]:
         charge = self.queue * self.waiting(desk) ** 2
         room = 0.0
@@ -182,7 +203,12 @@ class ProfitQuoter(Part):
         if getattr(intake, "safe_limit", 0) and intake.safe(request, desk):  # a safe car's queue is the larger one
             charge = self.queue * min(1.0, self.waiting(desk) * self.limit / intake.safe_limit) ** 2
         fees = desk.parts.fees
-        fee = self.car * fees.expected(request, desk) if self.car and hasattr(fees, "expected") else self.cost * request["referenceFeeCents"]
+        car = self.car
+        if self.scarce and car:
+            scarcity = self.scarcity(request, desk)
+            self.scarce_sum, self.scarce_n = self.scarce_sum + scarcity, self.scarce_n + 1
+            car *= 1 + self.scarce * max(0.0, min(1.0, scarcity * self.scarce_n / self.scarce_sum - 1))
+        fee = car * fees.expected(request, desk) if self.car and hasattr(fees, "expected") else self.cost * request["referenceFeeCents"]
         risk = self.late * fees.late_risk(request, desk) if self.late and hasattr(fees, "late_risk") else 0.0
         if self.pair and desk.parts.bundles and desk.parts.bundles.fits(request, desk):
             fee *= 1 - self.pair  # a car that can share a gig with one we hold costs less to move
