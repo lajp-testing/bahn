@@ -28,6 +28,8 @@ from typing import TYPE_CHECKING, Any
 
 from .lanes import leftover
 from .parts import Part
+from .shape import survival
+from .towns import DELIVERY
 
 if TYPE_CHECKING:
     from .desk import Desk
