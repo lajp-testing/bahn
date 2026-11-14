@@ -36,6 +36,7 @@ class Desk:
         self.posts: dict[str, PostAction] = {}  # gig id -> the post that made it
         self.urgent: set[str] = set()  # the orders whose deadline warning has come
         self.clock: dict[str, list[Any]] = {}  # order id -> the fee schedule of its car alone, which a bundle and a split keep to
+        self.booked_fee: dict[str, int] = {}  # gig id -> the fee its last driver booked it at
         self.late_posted: set[str] = set()  # orders posted again without windows after their last pickup minute
         self.urgent_gigs: set[str] = set()  # gigs that already carry an urgent fee schedule
         self.split_at: dict[str, int] = {}  # bundle gig id -> the minute at which, still without a driver, it goes back to one gig per car
@@ -167,8 +168,11 @@ class Desk:
             self.raise_fees(event["orderId"])
         elif kind == "gig_booked":
             self.booked.add(event["gigId"])
+            self.booked_fee[event["gigId"]] = event["feeCents"]
         elif kind in ("gig_dropped", "no_show"):  # after a no-show the gig is open again; a late driver still comes
             self.booked.discard(event["gigId"])
+            if "drops" in self.parts.repairs and kind == "gig_dropped":
+                self.after_drop(event["gigId"])
         elif kind == "delivered":
             self.delivered(event["orderId"], event["leg"], event["at"])
 
@@ -297,6 +301,18 @@ class Desk:
         fresh = order["id"] in self.urgent or order["id"] not in self.clock
         schedule = self.fees_for(order, 1) if fresh else resume(self.clock[order["id"]], self.now)
         self.outbox.append({"type": "post", "stops": self.cut(stops), "audience": audience, "schedule": schedule})
+
+    def after_drop(self, gig_id: str) -> None:
+        """A dropped gig comes back with its old schedule, whose steps have all started: its top fee. It goes back to
+        the fee it was booked at instead, and climbs again from there on a fresh ladder."""
+        action = self.posts.get(gig_id)
+        members = orders_in(action["stops"]) if action else []
+        if len(members) != 1 or members[0] not in self.orders or members[0] in self.urgent:
+            return
+        order, fee = self.orders[members[0]], self.booked_fee.get(gig_id, 0)
+        fresh = self.fees_for(order, pickups(action))
+        schedule = [{"at": self.now, "feeCents": fee}] + [step for step in fresh if step["feeCents"] > fee and step["at"] > self.now]
+        self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": schedule[:48]})
 
     def cut(self, stops: list[Any]) -> list[Any]:
         """The stops without the windows that have ended. With the "windows" repair a window that ends this minute
