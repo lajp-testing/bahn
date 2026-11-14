@@ -92,6 +92,23 @@ Out of sample on the `t3s5-base` dev weeks (2,709 orders): fee MAE 0.229 of typi
 
 Wired in `dispatch/fees.py` as `model=2` (`MeasuredFees(model=2)`, `--set fee_model=2` on main); model 1 keeps the old coefficients. Option-dependent features (kind, slack) are excluded on purpose: `prices` asks for the fee once per request, before it prices the options.
 
+### Step 3: playing model 2 (10 dev weeks each, same seeds)
+
+| Label | Margin | Orders | On time | Worst week | Weeks better than base |
+|---|---:|---:|---:|---:|---:|
+| `t3s5-base` (model 1) | €105,898 | 2,709 | 96.6% | 93.4% | — |
+| `t3s5-model2` (car 1.1, late 1.0) | €106,177.50 | 2,577 | 97.6% | 95.9% | 5/10 |
+| `t3s5-model2-car10` | €103,246.59 | 2,851 | 96.1% | 91.9% | — |
+| `t3s5-model2-car12` | €101,960.56 | 2,282 | 97.8% | 94.7% | — |
+| `t3s5-model2-late2` | €98,564.03 | 2,438 | 98.2% | 94.8% | — |
+| `t3s5-model2-late05` | €102,524.17 | 2,608 | 96.5% | 91.2% | — |
+
+Model 2's margin gain over base is +€280 with 5 of 10 weeks better: noise by the margin rule, but the worst week rises from 93.4% to 95.9% and total on-time from 96.6% to 97.6%, with every week still ranked. It qualifies (higher total, better worst week) and is kept as the step 3 best. Both scales have an interior optimum at the defaults: `car` 1.0 loses margin and breaks the floor (dev-07 91.9%), 1.2 loses margin; `late` 2 loses €7,613, 0.5 breaks the floor (dev-07 91.2%). No end of a range won, so no further value was played.
+
+The order mix moved towards the cheap, safe groups (`tracks/t3/shift.py`): orders whose pickup window opens at once or within 3 h fell from 45.6% to 34.6% of the won orders and their late share fell from 5.5% to 4.1%; the 12–24 h group rose from 40.0% to 49.0% (late 1.7% unchanged); 24 h+ rose from 11.7% to 13.8% (late 0.6% → 0.3%). The quoter prices the dear, risky ready-soon requests up, as the refit intended.
+
+Note: the interrupted first attempt left dev-05–10 of `t3s5-model2` twice in the index (same margins, deterministic world); `harness.run` and `harness.compare` take one row per seed, but `harness.orders` counts both copies — `shift.py` dedupes.
+
 ## Fourth stint schedules (10 matched dev weeks each)
 
 All use slack=1440, private=true, queue_price=true, win_price=true. Rescue50 changes urgent fees alone; other variants change normal timing alone. Every row ranked 10/10.
