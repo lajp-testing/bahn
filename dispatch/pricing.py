@@ -45,7 +45,8 @@ class ProfitQuoter(Part):
                  queue: float = 0.3, limit: int = 15, low: float = 0.9, high: float = 2.6, car: float = 0.0, late: float = 0.0,
                  trust: float = 0.0, invest: float = 0.0, share: float = 0.25, lag: float = 0.15, dealer: float = 0.0,
                  towns: float = 0.0, same: float = 0.0, kind_offset: float = 0.0, shape: str = "logistic", shape_scale: float = 1.0,
-                 lanes: float = 0.0, pair: float = 0.0, outage: float = 0.0, outage_z: float = 3.5, outage_n: int = 8):
+                 lanes: float = 0.0, pair: float = 0.0, outage: float = 0.0, outage_z: float = 3.5, outage_n: int = 8,
+                 target: float = 0.0, margin: float = 1.15):
         self.level, self.spread, self.step, self.boost = start, spread, step, boost
         self.pair = pair  # the share of its expected fee that a car saves when it can join a gig that is open now
         self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
@@ -85,6 +86,9 @@ class ProfitQuoter(Part):
         self.near: dict[str, list[str]] = {}     # place -> the places within 80 km
         self.trusts: dict[str, float] = {}       # request -> the dealer's factor without the outage, when we quoted
         self.places: dict[str, str] = {}         # request -> its pickup place
+        # `target` > 0 (volume first): quote each option at the price whose learned chance to win is `target`, never below
+        # `margin` times its expected cost, because the margin-per-quote price wins too few orders when the cost estimate is high.
+        self.target, self.margin = target, margin
 
     def offset(self, request: dict[str, Any]) -> float:
         """How much this request's level moves: its dealer's learned offset and its delivery town's lane part."""
@@ -170,6 +174,12 @@ class ProfitQuoter(Part):
             # A late order gives back part of its price: the expected loss grows with the price itself.
             floor = max(cost, 0.5 * fee / option["listPriceCents"])
             off = offset + self.kind_off(option["kind"]) + self.lane_off(request, option["kind"], desk)
+            if self.target:
+                grid = [0.5 + 0.01 * i for i in range(260)]
+                hit = [ratio for ratio in grid if self.chance(ratio / factor, off) >= self.target]
+                best = max(hit[-1] if hit else grid[0], self.margin * cost / max(0.05, 1 - risk), floor + 0.02)
+                prices[option["kind"]] = round(option["listPriceCents"] * best)
+                continue
             best = max((floor + 0.02 + 0.01 * i for i in range(260)), key=lambda ratio: (ratio * (1 - risk) - cost) * self.chance(ratio / factor, off))
             prices[option["kind"]] = round(option["listPriceCents"] * best)
         return prices

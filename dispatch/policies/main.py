@@ -23,7 +23,7 @@ from ..pricing import ProfitQuoter
 from . import t1
 
 
-PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "car", "late", "trust", "invest", "share", "lag", "dealer", "towns", "same", "kind_offset", "shape", "shape_scale", "lanes", "pair", "outage", "outage_z", "outage_n")
+PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "car", "late", "trust", "invest", "share", "lag", "dealer", "towns", "same", "kind_offset", "shape", "shape_scale", "lanes", "pair", "outage", "outage_z", "outage_n", "target", "margin")
 FEES = ("fee_model", "fee_buffer", "fee_rise", "fee_cap", "fee_max_raises", "fee_hold_until", "fee_deadline_margin", "fee_quiet_from", "fee_quiet_to", "fee_far_open", "fee_soon_open", "fee_early", "fee_backload", "fee_rescue")  # passed to the fees without the prefix
 
 
@@ -42,7 +42,9 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
     # An unbooked order whose last pickup is more than `queue_hours` away holds only `queue_far` of a place: it is not yet a risk.
     parts.intake.queue_hours, parts.intake.queue_far = queue_hours, queue_far
     parts.intake.day_limit = day_limit  # the most undelivered orders due on one day; 0 for no such limit
-    if price == "profit":
+    if price == "target":  # volume first: the price at a target chance to win, over cost x margin (dispatch/pricing.py)
+        profit.setdefault("target", 0.45)
+    if price in ("profit", "target"):
         parts.quoter = ProfitQuoter(limit=parts.intake.limit, **profit)
         parts.quoter.queue_hours, parts.quoter.queue_far = queue_hours, queue_far
     if notes == "read":

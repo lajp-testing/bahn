@@ -392,3 +392,29 @@ The quoter already prices by where drivers live. The single-car fee hardly diffe
 **Reading.** Rides home exist and the cheaper quote wins them (+15 orders), but the offer at the opening fee is mostly ignored: half the offers are never read (expired), and almost all readers decline at 0.64 to 0.75 typical. So most rides go to the app like any car, at a cost the quote assumed was 20% lower. On this week that cost about €457 and 1.6 points on time.
 
 **Next, if there is time to measure.** (1) 30 weeks as it is, to see whether the one-week loss holds. (2) An offer at about 0.85 to 0.9 typical, the price a bundled car pays, instead of the opening step. (3) A smaller `home_cut` (0.1) while the acceptance is this low.
+
+## A volume-first quoter, 14 Nov
+
+**Rule (t2s13).** `--set price=target --set target=T [--set margin=M]`: quote each option at the highest price whose learned chance to win (the same level, trust factor, dealer/kind/lane offsets and curve as `ProfitQuoter`) is still at least `T`, but never below `M` (default 1.15) times its expected cost (fee, late risk, queue charge, over `1 - risk`). The level keeps learning from wins and losses exactly as before. A mode of `ProfitQuoter` (`target`, `margin`), off by default (`target=0`).
+
+**Switch-off check.** `t2s13-off` dev-01: €8,764.79, 246 orders, 97.6%: equal to `t1s11-base` to the cent.
+
+**Screen, 10 dev weeks (a screen, not a finding).** Win rate and median quote/list over real quotes (min ratio over a request's options, declines excluded) from the reveals.
+
+| Label | Margin | Orders | On time (mean / min) | Real quotes won | Median quote / list | Median won / list | Three lowest weeks |
+|---|---|---|---|---|---|---|---|
+| `t1s11-base` | €126,921.82 | 2,879 | 96.8% / 93.7% | 31.9% | 1.57 | 1.50 | dev-01 8,765 · dev-05 9,559 · dev-06 10,457 |
+| `t2s13-target40` | €122,988.96 | 2,694 | 96.8% / 90.7% | 29.7% | 1.60 | 1.54 | dev-01 8,587 · dev-05 8,942 · dev-06 10,085 |
+| `t2s13-target55` | €122,211.86 | 3,269 | 96.4% / 92.5% | 36.6% | 1.53 | 1.45 | dev-01 8,628 · dev-05 9,321 · dev-09 10,256 |
+| `t2s13-target70m105` (`margin=1.05`) | €108,189.49 | 3,968 | 95.1% / 91.1% | 46.8% | 1.41 | 1.33 | dev-07 7,855 · dev-05 7,937 · dev-01 8,505 |
+
+All 40 weeks ranked.
+
+**Reading.**
+1. **Volume can be bought, and it costs margin.** At target 0.70 we win 397 orders a week (base 288) and stay ranked (lowest 91.1%), but margin falls 15%: €27 an order against €44. At 0.55 we get +14% orders for −3.7% margin. Nothing in the screen beats the base on margin.
+2. **The learned chance is optimistic by 15 to 25 points.** Win rates come out at 30%, 37% and 47% for targets of 40%, 55% and 70%. The level is learned from our own quotes, and the cost floor keeps many quotes above the target price, so the realised rate stays below the target. Asking for 0.40 is about what the base already does.
+3. **Volume alone does not reach the top teams' margin.** Their €39 to €45 an order at 430 to 470 orders needs a car that costs less to deliver (bundles, cars per driver-day), not only a lower price. Our cost per car stays the same when we win more, so the extra orders are thin: the 0.70 screen adds 1,089 orders and loses €18,700.
+
+**Recommendation.** Not for the final as it stands. If the team wants more volume (for example for the jury story, or because the final's competitor sits lower than dev), `target=0.55` is the cheap step: +390 orders over 10 weeks for −€4,700 and no on-time risk seen. The real lever is cost per car: target pricing pays only when combined with a cheaper delivery (`bundle_*`, pair pricing).
+
+**Next 30 minutes, if any.** (a) 30 weeks of `--set price=target --set target=0.55` against `t1s11-base` on the same seeds, to see whether −4% margin holds. (b) A screen of `target=0.55` with `pair=0.2` (price the partner) to see whether bundles can carry the extra volume at a lower cost.
