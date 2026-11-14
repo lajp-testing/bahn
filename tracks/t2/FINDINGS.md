@@ -193,3 +193,14 @@ z = switching ratio minus the world-and-day mean of the same kind (same_day rows
 | logistic 0.3 | 0.791 | 0.731 | 0.661 | 0.583 | 0.500 | 0.417 | 0.339 | 0.269 | 0.209 |
 
 The true curve is **steeper in the middle** than the logistic 0.2 (S falls 0.84→0.16 over ±0.2 vs 0.73→0.27; the middle slope matches a logistic with spread ≈0.13) and **thinner in both tails** (2% of mass beyond ±0.4 vs 12%). It is not flatter, so the stint-5 spread=0.4 failure does not predict a failure for the table; a steeper curve moves the profit-maximising price *down*, towards more volume. next_day rows give nearly the same curve. The table is `dispatch/shape.py` (`SURVIVAL`), used by `shape="table"` with linear interpolation.
+
+### Step 1 runs: the `same` sweep on the test bed
+
+| label | change | margin EUR | orders | on time | worst | ranked | weeks better than base |
+|---|---|---:|---:|---:|---:|---|---:|
+| `t2s6-base` | none | 100,657 | 2,731 | 96.7% | 91.5% | 10/10 | — |
+| `t2s6-same01` | same=0.1 | 99,135 | 2,670 | 96.5% | 93.2% | 10/10 | |
+| `t2s6-same02` | same=0.2 | 101,088 | 2,650 | 97.2% | 93.8% | 10/10 | 5/10 |
+| `t2s6-same03` | same=0.3 | 98,049 | 2,605 | 97.2% | 95.0% | 10/10 | 3/10 |
+
+same=0.1 loses 1,522 and 61 orders; same=0.3 loses 2,608 (3/10 weeks, though on time again better, worst 95.0%). same=0.2 gains +431 — under the noise bar with only 5/10 weeks agreeing, so not a finding by the evidence rules — but it wins fewer orders (−81) at a clearly higher EUR/order (38.1 vs 36.9) and on time improves everywhere (96.7%→97.2%, worst 91.5%→93.8%; dev-07 +1,322). The same-day premium is real but small at the operating point: the hill peaks near 0.2, and the volume the higher same-day prices give up eats most of what they earn.
