@@ -20,6 +20,78 @@ Fork scans on 39 single-car wins in three `t3-study-*` weeks give a two-hour mea
 
 `t3-main-buffer-v1` reproduces the earlier density buffer on main: €42,764.86, 96.6% on time, worst 93.6%, 10/10; mean fee 1.238, drops/booking 0.100. Against it low20 gains €11,661.40 with worst week 93.1%. `t3-main-deadline240-v1` starts at the estimate, rises 0.1 per 15 minutes, compresses that interval to reach 1.5 at least 240 minutes before last pickup, and uses the starter urgent schedule: €50,427.29, 95.7% on time, worst 92.4%, 10/10, mean fee 1.129, drops/booking 0.114. The deadline rule and schedule are tested together; this does not isolate the deadline rule.
 
+## Fifth stint: the cost model refit (fee model 2)
+
+The old `expected`/`late_risk` (label low20) knew only four facts: drivers near the ends, a 500 km lane, a private address. It missed what the mainline's own weeks show most: when the pickup window opens and when the request arrives. `tracks/t3/cost.py` reads the label's saved weeks and prints what each won, non-cancelled order cost, as a share of the typical fee (y1: `driver_fee`+`waiting`+`failed_visit`+`release_fee` ledger lines) and whether it was late (y2: `late_refund` or `undelivered_penalty`).
+
+### Step 1: what orders cost (`t3s5-fit`, 10 fresh mainline weeks, 2,717 orders; mean y1 1.077, mean y2 0.031)
+
+| Lead to window × arrival | n | mean y1 | late y2 |
+|---|---:|---:|---:|
+| window open, before 12 | 417 | 1.106 | 0.050 |
+| window open, 12–15 | 273 | 1.230 | 0.048 |
+| window open, after 15 | 358 | 1.224 | 0.050 |
+| ≤3 h, before 12 | 83 | 1.176 | 0.060 |
+| ≤3 h, 12–15 | 54 | 1.182 | 0.000 |
+| ≤3 h, after 15 | 87 | 1.150 | 0.034 |
+| 3–12 h, before 12 | 27 | 1.087 | 0.000 |
+| 3–12 h, 12–15 | 28 | 1.154 | 0.036 |
+| 3–12 h, after 15 | 37 | 1.085 | 0.027 |
+| 12–24 h, before 12 | 331 | 0.993 | 0.006 |
+| 12–24 h, 12–15 | 329 | 0.989 | 0.009 |
+| 12–24 h, after 15 | 391 | 0.951 | 0.031 |
+| 24 h+, before 12 | 155 | 0.979 | 0.013 |
+| 24 h+, 12–15 | 92 | 1.038 | 0.011 |
+| 24 h+, after 15 | 55 | 0.982 | 0.036 |
+
+| Group | n | mean y1 | late y2 |
+|---|---:|---:|---:|
+| option `next_day` | 1716 | 1.093 | 0.032 |
+| option `same_day` | 879 | 1.048 | 0.031 |
+| option `within_3_days` | 122 | 1.061 | 0.016 |
+| private address | 101 | 1.332 | 0.257 |
+| no private address | 2616 | 1.067 | 0.022 |
+| lane < 50 km | 491 | 1.123 | 0.029 |
+| lane 50–150 km | 629 | 1.049 | 0.029 |
+| lane 150–300 km | 947 | 1.050 | 0.022 |
+| lane 300–500 km | 514 | 1.083 | 0.033 |
+| lane ≥ 500 km | 136 | 1.200 | 0.103 |
+| < 10 drivers near pickup | 447 | 1.091 | 0.040 |
+| < 30 near pickup | 297 | 1.122 | 0.030 |
+| < 80 near pickup | 455 | 1.081 | 0.035 |
+| 80+ near pickup | 1518 | 1.062 | 0.027 |
+| < 10 drivers near delivery | 675 | 1.112 | 0.049 |
+| < 30 near delivery | 577 | 1.096 | 0.031 |
+| < 80 near delivery | 718 | 1.069 | 0.028 |
+| 80+ near delivery | 747 | 1.038 | 0.017 |
+| slack < 6 h | 10 | 2.259 | 0.700 |
+| slack 6–12 h | 783 | 1.040 | 0.027 |
+| slack 12–24 h | 164 | 1.037 | 0.049 |
+| slack 24 h+ | 1760 | 1.090 | 0.027 |
+
+The cheap, safe orders are those whose pickup window opens 12–24 h after arrival (y1 ≈ 0.98, late ≈ 1%); the dear, risky ones are ready at once or within 3 h (y1 ≈ 1.15–1.23, late ≈ 5%) and private addresses (y1 1.33, late 26%). Slack under 6 h is disastrous but rare (10 orders, y1 2.26, 70% late) — and slack depends on the option, so it cannot enter the per-request fee model.
+
+### Step 2: the refit (model 2)
+
+Fitted by least squares on the `t3s5-fit` weeks; every feature has at least 60 orders (least: lead 3–12 h, 83). The reference order: window opens 12–24 h away, arrives before noon, no private address, lane under 500 km, 30+ drivers near each end.
+
+| Feature | expected2 (× typical) | late_risk2 |
+|---|---:|---:|
+| base | 0.9090 | −0.0075 |
+| window opens ≤ 3 h after arrival (or already open) | +0.2041 | +0.0314 |
+| window opens 3–12 h after arrival | +0.1343 | +0.0013 |
+| window opens ≥ 24 h after arrival | +0.0323 | +0.0041 |
+| arrives after 15:00 | +0.0368 | +0.0137 |
+| arrives 12:00–15:00 | +0.0593 | −0.0045 |
+| private address | +0.2642 | +0.2373 |
+| lane ≥ 500 km | +0.1413 | +0.0823 |
+| < 30 drivers near pickup | +0.0232 | +0.0048 |
+| < 10 drivers near delivery | +0.0447 | +0.0218 |
+
+Out of sample on the `t3s5-base` dev weeks (2,709 orders): fee MAE 0.229 of typical (old model 0.249); totals of y1 actual 2965, old 2816, new 2916. Predicted-risk bands, actual late share in each (old → new): under 2%: 2.3% (2011) → 1.1% (1324); 2–5%: 2.4% (463) → 3.6% (1034); 5–10%: 9.1% (77) → 4.3% (163); over 10%: 17.7% (158) → 18.1% (188). The new bands separate much better. Reproduce with `nix develop --command python tracks/t3/cost.py t3s5-fit t3s5-base`.
+
+Wired in `dispatch/fees.py` as `model=2` (`MeasuredFees(model=2)`, `--set fee_model=2` on main); model 1 keeps the old coefficients. Option-dependent features (kind, slack) are excluded on purpose: `prices` asks for the fee once per request, before it prices the options.
+
 ## Fourth stint schedules (10 matched dev weeks each)
 
 All use slack=1440, private=true, queue_price=true, win_price=true. Rescue50 changes urgent fees alone; other variants change normal timing alone. Every row ranked 10/10.
