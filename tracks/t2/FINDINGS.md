@@ -199,7 +199,7 @@ The true curve is **steeper in the middle** than the logistic 0.2 (S falls 0.84�
 | label | change | margin EUR | orders | on time | worst | ranked | weeks better than base |
 |---|---|---:|---:|---:|---:|---|---:|
 | `t2s6-base` | none | 100,657 | 2,731 | 96.7% | 91.5% | 10/10 | — |
-| `t2s6-same01` | same=0.1 | 99,135 | 2,670 | 96.5% | 93.2% | 10/10 | |
+| `t2s6-same01` | same=0.1 | 99,135 | 2,670 | 96.5% | 93.2% | 10/10 | 3/10 |
 | `t2s6-same02` | same=0.2 | 101,088 | 2,650 | 97.2% | 93.8% | 10/10 | 5/10 |
 | `t2s6-same03` | same=0.3 | 98,049 | 2,605 | 97.2% | 95.0% | 10/10 | 3/10 |
 
@@ -210,5 +210,24 @@ same=0.1 loses 1,522 and 61 orders; same=0.3 loses 2,608 (3/10 weeks, though on 
 | label | change | margin EUR | orders | on time | worst | ranked | weeks better than base |
 |---|---|---:|---:|---:|---:|---|---:|
 | `t2s6-shape` | shape=table | 94,148 | 3,034 | 96.2% | 92.3% | 10/10 | 3/10 |
+| `t2s6-shape-same` | shape=table, same=0.2 | 93,355 | 2,942 | 96.4% | 93.4% | 10/10 | 1/10 |
+| `t2s6-shape15` | shape=table, shape_scale=1.5 | 101,854 | 2,768 | 96.7% | 93.8% | 10/10 | 6/10 |
 
-The measured curve loses 6,509 on its own: steeper middle → the profit-maximising price sits closer to the level → we win 303 more orders at 31.0 EUR/order instead of 36.9. The table's shape is measured around each world-day's *true* mean; the live quoter's level carries its own error, which widens the effective curve — the same reason stint 5's offline spread fit of 0.4 was an artifact, now in the opposite direction. Next: the table with its z axis widened (`shape_scale`), which interpolates between the table and something logistic-like.
+Widening the table's z axis by 1.5 (middle slope back to about the logistic 0.2, tails still thinner) recovers the loss and lands at +1,198 over the base, 6/10 weeks better, worst week 93.8% vs the base's 91.5% (dev-07 +1,278, dev-10 +1,188, dev-08 −2,069 the drag). The gain is under the noise bar without 7/10 agreement, so the table at scale 1.5 is a lead, not a finding. `same` on top of the steep table loses more (93,355, −793 vs the table alone) — the steeper curve already prices same-day options closer to their level. On the widened table, `same=0.2` cancels the gain instead of adding to it: `t2s6-shape15-same02` 100,569 (−88 vs base, 97.2% on time, worst 94.2%).
+
+### Step 3 runs: the town table on the test bed
+
+| label | change | margin EUR | orders | on time | worst | ranked | weeks better than base |
+|---|---|---:|---:|---:|---:|---|---:|
+| `t2s6-towns15` | towns=1.5 | 99,417 | 2,739 | 96.9% | 92.9% | 10/10 | 5/10 |
+| `t2s6-towns15-same` | towns=1.5, same=0.2 | 100,556 | 2,672 | 97.3% | 94.3% | 10/10 | 5/10 |
+| `t2s6-shape15-same02` | shape=table, shape_scale=1.5, same=0.2 | 100,569 | 2,707 | 97.2% | 94.2% | 10/10 | |
+
+On the old mainline towns=1.5 gained +1,568 (stint 5); on the same-day test bed it loses 1,240 (5/10 weeks) and `same` on top does not recover it either (−101 vs base, 5/10). The same-day volume moves the operating point again: the town offsets' cheap-town wins now collide with the same-day options the intake admits. `towns` stays at the mainline's default on this test bed.
+
+### Stint 6 bottom line
+
+- Nothing passes the evidence rules on the same-day test bed. The two leads, both under the EUR 1,500 bar: `shape=table shape_scale=1.5` (+1,198, 6/10 weeks, worst week 93.8% vs the base's 91.5%) and `same=0.2` (+431, 5/10, on time 97.2%, worst 93.8%). They do not compose (100,569, −88). `towns=1.5`, the stint 5 keep, loses 1,240 on this test bed and should be re-tuned or dropped if the mainline adopts same-day admission.
+- Reject: the measured curve at its natural scale (`shape=table`, −6,509 — the table is measured around the true day mean, but the live level's own error widens the effective curve), `same` at 0.1 and 0.3, every combination with `towns=1.5`.
+- Code kept, all default-off: `same`, `kind_offset` (re-added through one `kind_off` path), `shape`, `shape_scale` in `ProfitQuoter`; `PROFIT` passes them through. 22 offline tests pass.
+- 10 of 16 runs used.
