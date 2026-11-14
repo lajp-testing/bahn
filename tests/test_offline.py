@@ -693,3 +693,14 @@ def test_the_brake_raises_the_cost_in_a_week_of_warnings_and_lowers_it_in_a_calm
     quoter.observe({"kind": "ledger", "line": {"kind": "late_refund", "orderId": "O0", "cents": -100}}, desk, False)  # warned and late: one order
     assert len(quoter.strained) == 20 and quoter.cost(NEXT_DAY, desk) > usual
     assert reach_desk(quoter="dial").parts.quoter.strain() == 0
+
+
+def test_list_gain_learns_that_this_weeks_dealers_pay_more_for_a_dear_car():
+    desk = reach_desk(quoter="dial", list_gain=0.02)
+    quoter = desk.parts.quoter
+    cheap = {**NEXT_DAY, "id": "C", "options": [{**NEXT_DAY["options"][0], "listPriceCents": 3000}]}
+    gap = quoter.effect(NEXT_DAY) - quoter.effect(cheap)
+    for i in range(10):
+        quoted(desk, {**NEXT_DAY, "id": f"W{i}"})  # list €150: dearer than the usual €60
+        quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"W{i}"}}, desk, False)
+    assert quoter.list_dial > 0 and quoter.effect(NEXT_DAY) - quoter.effect(cheap) > gap
