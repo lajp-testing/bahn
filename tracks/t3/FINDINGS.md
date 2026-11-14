@@ -232,3 +232,20 @@ Stint cut to 30 minutes, so this is offline analysis only; no week was played. S
 **Reading.** Once a car is past its last pickup minute, an earlier booking rarely moves its refund tier: most late cars sit in the 2 to 24 hour tier, and the delivery lands the next working morning either way. An urgent fee then buys nothing. This holds for the mainline too, which reposts the expired gig on the urgent ladder (`repost` → `fees_for` with `urgent`). So the lever is the fee of a car already late, not how soon it is posted again.
 
 **Built, not measured.** Repair `calm` (`--set repairs=windows+orphans+calm`, off by default): in `Desk.fees_for` an urgent order past its `lastPickupAt` gets the normal measured ladder instead of the urgent one. Next, about 15 minutes of play: (1) `--seed dev-01 --set repairs=windows+orphans` with the new code, which must equal `b26-fix-wo` dev-01 (€8,742.09) to the cent; (2) `t3s9-calm` = windows+orphans+calm and `t3s9-late-calm` = windows+orphans+late+calm on the 30 seeds, paired with `b26-fix-wo`. Risk to watch: a late car on the slow ladder may drift from the 24-hour tier to the 50% tier; if so, add a guard that returns to the urgent ladder when deadline + 24 h − the drive comes near.
+
+## `calm` measured, 14 Nov (stint 10)
+
+Check: `t3s10-check` (main, repairs=windows+orphans, dev-01) = €8,742.09, equal to `b26-fix-wo` dev-01 to the cent, so the switch is inert when off.
+
+**`t3s10-calm`** (`--set repairs=windows+orphans+calm`), 30 seeds dev-01..10 + rob-01..20, paired with `b26-fix-wo`:
+
+| Label | Margin, 30 weeks | On time | Three lowest weeks |
+|---|---|---|---|
+| b26-fix-wo | €366,266.96 | 96.90% | dev-07 93.7%, rob-14 94.4%, rob-08 94.8% |
+| t3s10-calm | €371,614.02 | 96.97% | dev-07 93.7%, rob-08 94.8%, rob-17 94.9% |
+
++€5,347 (+1.5%), higher in 20 of 30 weeks, every week ranked. Script: `tracks/t3/tiers.py b26-fix-wo t3s10-calm` (refund tiers of all orders, new).
+
+- Fees −€6,618, refunds +€1,166: the normal ladder past `lastPickupAt` saves more fee than it costs in refunds.
+- **The risk did happen:** 24 cars went from 25% to 50% back, and only 1 went the other way. Totals: 25% tier 170 → 138, 50% tier 50 → 66, 100% tier 3 → 7, undelivered 3 → 5. Other moves (on time ↔ late, 17+13 one way, 10+8+11 the other) are the usual path divergence.
+- So the guard is worth doing: go back to the urgent ladder when a car is about to leave the 24-hour tier. Since `lastPickupAt` ≈ deadline − the drive, "deadline + 24 h − the drive" ≈ `lastPickupAt` + 24 h. If 24 cars × ~25% of a ~€300 price ≈ €1,800 comes back while the fee savings mostly stay, the guard is worth roughly +€1,000 to €1,500 over 30 weeks. Not measured.
