@@ -1,0 +1,51 @@
+b26-fix-wo: 40 weeks
+
+1. Drivers a week (median over weeks)
+  roster 842  viewed one of our gigs 642  did one 130  gigs 234  cars 286
+  gigs per driver-day: 1: 76%  2: 21%  3: 3%  4+: 0%
+  gigs per driver-week: 1: 64%  2: 19%  3: 6%  4: 3%  5: 2%  6+: 5%
+  driver-days worked for us 179/week; days of the week each driver works for us: 1.41
+  cars per gig: 1: 81%  2: 15%  3+: 4%
+
+2. Same driver, next gig of ours (all consecutive pairs)
+  pairs 101.8/week, same day 46.0/week
+  same-day: next pickup km from last delivery median 110 (same town 13%, <=30 km 25%); idle min median 110, p25 55, p75 158
+  car-at-wheel minutes per driver-day: median 176, p75 312, p90 416
+
+3. Fee paid / typical fee (gigs that delivered), median and count
+  cars     1                      0.95  n=7351
+  cars     2                      0.79  n=1387
+  cars     3                      0.74  n=392
+  driver   home<=30km delivery    0.90  n=522
+  driver   home<=30km pickup      0.95  n=1693
+  driver   home=delivery          0.90  n=1845
+  driver   home=pickup            0.95  n=1764
+  driver   neither                1.00  n=3306
+  lane km  200+                   0.95  n=3986
+  lane km  60-200                 0.90  n=3322
+  lane km  <60                    0.95  n=1822
+  all: fee/typical 1.01, fee per car EUR 63
+
+4. Requests by drivers living at pickup / delivery (roster), single-car only
+  (P+/D+ = town holds >=3% of the roster)   req/wk  quoted  won  win%  won price/list
+  P+D+      223     205    81   39%  1.38
+  P+D-      277     251    93   37%  1.48
+  P-D+      235     206    40   20%  1.52
+  P-D-      280     246    61   25%  1.55
+  single-car gig fee/typical: P+D+ 0.95  P+D- 0.95  P-D+ 0.95  P-D- 1.00
+
+6. Requests whose pickup is within 30 km of a delivery of ours, open 30-180 min after it,
+   to within 30 km of that driver home (a ride home for our driver)
+  backhaul  won   63  lost  145  declined   17  win% of quoted 30%  lost at price/list 1.52
+  other     won  211  lost  489  declined   89  win% of quoted 30%  lost at price/list 1.61
+
+7. Quoted requests with a partner among our gigs still open (unbooked) at the quote
+   (next pickup within 30 km of the other car's delivery, windows overlap, either order)
+  partner     won  236  lost  500  win% 32%  lost at price/list 1.60
+  no partner  won   38  lost  134  win% 22%  lost at price/list 1.54
+
+5. Capacity ceiling
+  driver-days 179/week, wheel minutes 38283/week = 214 per driver-day
+  median wheel minutes per car 106
+  if each driver-day carried 4 h at the wheel: 405 cars/week (now 286)
+  if each driver-day carried 6 h at the wheel: 607 cars/week (now 286)

@@ -329,3 +329,50 @@ At the same effective ratio the win share rises with the count band — if each 
 - The dealer puzzle: D01's offset exists in the scans, but the played weeks show the trust step is 1% (raising it loses monotonically); the stint-5 learned per-dealer offsets failed for the reasons given there (learning noise paid on every quote, and the competitor's per-dealer answer), not because the offset is absent.
 - Driver-proximity features could not be tested: the scan worlds' rosters were not saved. If a future scan saves its roster, `near pickup` and `near delivery` are the first features to add.
 - 7 of 12 runs used.
+
+## Where our delivery capacity goes, 14 Nov
+
+**Question.** On the public board for "Saturday 12:00" the top 10 teams win about 430 to 470 orders a week at €39 to €45 each, 96 to 98% on time. We win about 317 at €45.60. Where does our delivery capacity go, and what could carry 40% more cars on time?
+
+**Method.** Offline only, no worlds. `python3 tracks/t2/capacity.py b26-fix-wo` reads the 40 saved `b26-fix-wo` weeks (dev and rob seeds, one week per seed) and writes the tables to `tracks/t2/capacity.txt`. A gig's driver is the driver who started it. Its fee is the sum of its `driver_fee` ledger lines. Its typical fee is the sum of its orders' `referenceFeeCents`. "Wheel minutes" are the map's road minutes from pickup to delivery for each car.
+
+**Numbers (medians or means a week over 40 weeks).**
+
+| | |
+|---|---|
+| Drivers on the roster / who viewed a gig of ours / who did one | 842 / 642 / **130** |
+| Driver-days worked for us | 179 a week, so 1.4 days for each driver |
+| Gigs per driver-day | **1: 76%**, 2: 21%, 3+: 3% |
+| Cars per gig | 1: 81%, 2: 15%, 3+: 4% |
+| Cars per driver-day | 286 / 179 = **1.6** |
+| Wheel minutes per driver-day | median 176, p75 312, p90 416. A driver may drive 12 hours |
+| Same-day second gig of ours, same driver | 46 a week. The next pickup is a median **110 km** from the last delivery (13% in the same town, 25% within 30 km), after a median 110 minutes' wait |
+| Fee / typical, by cars in the gig | 1 car **0.95**, 2 cars **0.79**, 3 cars **0.74** |
+| Fee / typical, by where the driver lives | home = pickup 0.95, home = delivery 0.90, neither 1.00. Lane length makes almost no difference (0.90 to 0.95) |
+| Fee per car, all gigs | €63 (fee/typical 1.01 when summed) |
+
+**Requests (single car), by drivers living at the pickup (P+) and the delivery (D+), where "+" means the town holds at least 3% of the roster:**
+
+| | requests/wk | quoted | won | win % | won price/list |
+|---|---|---|---|---|---|
+| P+D+ | 223 | 205 | 81 | 39% | 1.38 |
+| P+D- | 277 | 251 | 93 | 37% | 1.48 |
+| P-D+ | 235 | 206 | 40 | 20% | 1.52 |
+| P-D- | 280 | 246 | 61 | 25% | 1.55 |
+
+The quoter already prices by where drivers live. The single-car fee hardly differs between these groups (0.95 to 1.00 typical), so the price spread is the margin it keeps, not a fee it saves.
+
+**Rides home.** Some requests pick up within 30 km of where one of our drivers delivers, 30 to 180 minutes after the delivery, and go to within 30 km of that driver's home. There are about 225 such requests a week. We win 63, lose **145** (median quote 1.52 times list) and decline 17. Their win rate (30%) is the same as for any other request: the quoter does not see them.
+
+**Partners.** At the moment we quote, 736 of the 908 quoted requests a week have a partner. A partner is one of our single-car gigs that is posted but not yet booked, where one driver could take both cars in a row (within 30 km, windows overlapping). This test is loose and ignores real driving times. Still, partners are not scarce: 81% of our cars still go alone.
+
+**Ceiling.** The drivers who worked for us gave 179 driver-days a week, at 214 wheel minutes each on average. A car takes a median 106 wheel minutes. At 4 hours at the wheel per driver-day, the same driver-days carry about **405 cars a week**; at 6 hours, about 607. Today they carry 286. The top teams' 430 to 470 a week is about 2.5 cars per driver-day with our drivers, or the same 1.6 with about 50% more driver-days.
+
+**Reading.** Delivery capacity goes into lone single-car trips. Three of four driver-days carry one gig, at under 3 hours at the wheel. The second gigs that happen are accidental: 110 km of empty driving and 2 hours of waiting between them. The app does not notify a driver where our gigs have taken them, so a chain happens only if we build it into one gig. A gig with 2 cars pays 0.79 times typical per car, and one with 3 cars pays 0.74, against 0.95 for one car alone. A car in a bundle costs about €10 to €13 less in fees, and it spends no extra driver-day. That fits the board: at €39 to €45 per order, the top teams quote lower and pay less per car, and they do it with the same scarce drivers.
+
+**Not shown.** Whether the top teams use more driver-days or more cars per driver-day. Our data cannot separate the two. Whether the partners in the loose test survive real windows, opening hours and the 12-hour limit; `bundles.join` is the real test.
+
+**Next: two mechanisms to measure.**
+
+1. **Price the partner (a quote that knows the bundle).** When `bundles.join` would accept a request into an open gig, quote it at its bundled cost: fee about 0.8 times typical instead of 0.95, and it uses no new driver-day. A cheaper car to deliver should get a lower price, and the partners exist (81% of quoted requests have one) while 81% of our cars go alone. *Measurement:* the share of won cars in gigs with 2 or more cars (19% now), cars per driver-day (1.6), won orders a week and total margin over the 10 dev weeks, with no week below 90% on time.
+2. **Rides home at a lower price.** A request that starts near where one of our drivers will finish, and ends near that driver's home, is the cheapest car in the world for that driver. We lose 145 a week of these at a median 1.52 times list. Quote them lower, and post them as a bundle with the driver's current gig while it is unbooked, or as a direct offer to that driver before they finish. *Measurement:* how many such requests we win (63 a week now), the fee/typical paid on them against 0.95, and the margin and on-time share over the 10 dev weeks.
