@@ -16,6 +16,7 @@ from ..bundles import Bundles
 from ..context import Context
 from ..fees import MeasuredFees
 from ..notes import ReadNotes
+from ..offers import Offers
 from ..parts import Parts
 from ..pricing import ProfitQuoter
 from . import t1
@@ -25,11 +26,13 @@ PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "c
 FEES = ("fee_model", "fee_buffer", "fee_rise", "fee_cap", "fee_max_raises", "fee_hold_until", "fee_deadline_margin", "fee_quiet_from", "fee_quiet_to", "fee_far_open", "fee_soon_open", "fee_early")  # passed to the fees without the prefix
 
 
+OFFERS = ("offer_n", "offer_up", "offer_near", "offer_fresh", "offer_rounds")  # passed to the offers without the prefix
 BUNDLES = ("bundle_dead", "bundle_slack", "bundle_split", "bundle_discount", "bundle_drive", "bundle_private", "bundle_patience", "bundle_room")  # passed to the bundles without the prefix
 
 
-def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans", pending: float = 1.0, **params: Any) -> Parts:
+def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans", pending: float = 1.0, offers: str = "", **params: Any) -> Parts:
     together = {"patience": 120} | {key[7:]: params.pop(key) for key in BUNDLES if key in params}
+    offer = {key[6:]: params.pop(key) for key in OFFERS if key in params}
     fee = {key[4:]: params.pop(key) for key in FEES if key in params}
     profit = {"car": car, "late": late, "trust": trust} | {key: params.pop(key) for key in PROFIT if key in params}
     parts = t1.build(ctx, markup=markup, slack=slack, limit=limit, morning_limit=morning_limit, same_day_slack=same_day_slack, same_day_drivers=same_day_drivers, **params)
@@ -44,4 +47,6 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
     parts.repairs = frozenset(repairs.replace("+", ",").split(",")) - {""}  # e.g. --set repairs=windows+orphans+late+keep_urgent
     if bundle > 1:  # the most cars in one gig; below 2 every order goes alone
         parts.bundles = Bundles(cars=bundle, **together)
+    if offers:  # e.g. --set offers=urgent+drops: direct offers for those gigs (dispatch/offers.py)
+        parts.offers = Offers(on=offers, **offer)
     return parts
