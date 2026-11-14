@@ -15,7 +15,8 @@ was a surprise. The steps are larger for the first decisions of a day, because t
 The cost is what the car costs us to move: the fee we expect to pay for this car (the fees part
 estimates it from where drivers live, the lane's length and a private address), what its risk of
 being late costs, and a charge that rises as the queue of orders without a driver fills. A full
-queue makes every car dearer for us, so prices rise before the intake has to decline.
+queue makes every car dearer for us, so prices rise before the intake has to decline. When other open
+requests wait at the same yard for a nearby delivery, the car is priced as one of a bundle (`yard`).
 
 At level 8 a dealer accepts prices 1% higher from us for each order we delivered to it on time, up
 to 25 orders; a late order halves its count. The quoter keeps the same count from its own ledger
@@ -47,7 +48,7 @@ class ProfitQuoter(Part):
                  towns: float = 0.0, same: float = 0.0, kind_offset: float = 0.0, shape: str = "logistic", shape_scale: float = 1.0,
                  lanes: float = 0.0, pair: float = 0.0, outage: float = 0.0, outage_z: float = 3.5, outage_n: int = 8,
                  target: float = 0.0, margin: float = 1.15, barrier: float = 0.0, allowance: float = 0.06, crowd: float = 0.5, floor_orders: int = 100,
-                 end_car: float = 0.0, scarce: float = 0.0, scarce_km: float = 80.0, car_short: float = 0.0, short_km: float = 100.0, car_long: float = 0.0, long_km: float = 300.0):
+                 end_car: float = 0.0, scarce: float = 0.0, scarce_km: float = 80.0, car_short: float = 0.0, short_km: float = 100.0, car_long: float = 0.0, long_km: float = 300.0, yard: float = 0.0, yard_km: float = 10.0):
         self.level, self.spread, self.step, self.boost = start, spread, step, boost
         self.pair = pair  # the share of its expected fee that a car saves when it can join a gig that is open now
         self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
@@ -105,6 +106,10 @@ class ProfitQuoter(Part):
         # (A symmetric clip [-1, 1] lost: the ratio is skewed, so most cars fell below the mean and were quoted cheaper.)
         self.scarce, self.scarce_km = scarce, scarce_km
         self.scarce_sum, self.scarce_n = 0.0, 0
+        # `yard` > 0: another open request waits at this pickup's yard (within `yard_km` km) for a delivery within
+        # 100 km of this one's: won together, such cars travel in one gig at about 0.75 x typical each, so each costs less.
+        self.yard, self.yard_km = yard, yard_km
+        self.decided: set[str] = set()  # the requests a dealer has decided; the desk keeps every request it has seen
 
     def offset(self, request: dict[str, Any]) -> float:
         """How much this request's level moves: its dealer's learned offset and its delivery town's lane part."""
@@ -228,6 +233,14 @@ class ProfitQuoter(Part):
         home = getattr(desk.parts, "home", None)
         if home and home.driver(request, desk):
             fee *= 1 - home.cut  # a ride home for one of our drivers costs them little: price it as a bundled car
+        if self.yard:
+            leg = request["legs"][0]
+            pickup, delivery = leg["pickup"]["placeId"], leg["delivery"]["placeId"]
+            if any(other_id != request["id"] and other_id not in desk.orders and other_id not in self.decided
+                   and desk.ctx.km(other["legs"][0]["pickup"]["placeId"], pickup) <= self.yard_km
+                   and desk.ctx.km(other["legs"][0]["delivery"]["placeId"], delivery) <= 100
+                   for other_id, other in desk.requests.items()):
+                fee *= 1 - self.yard  # other open cars wait at the same yard: a bulk send travels in one gig
         dealer = request["dealerId"]
         factor, gain = self.factor(dealer) * self.region(request, desk), 0.0
         if self.invest:
@@ -277,10 +290,12 @@ class ProfitQuoter(Part):
             self.count(event["line"])
         elif kind == "order_cancelled":
             self.open.pop(event.get("orderId", ""), None)
+            self.decided.add(event.get("orderId", ""))
         if kind not in ("order_won", "order_lost"):
             return
         won = kind == "order_won"
         name = event["order"]["id"] if won else event["requestId"]
+        self.decided.add(name)
         sent, factor = self.sent.pop(name, None), self.factors.pop(name, 1.0)
         offsets, dealer = self.offsets.pop(name, {}), self.owners.pop(name, "")
         trust, place = self.trusts.pop(name, factor), self.places.pop(name, "")

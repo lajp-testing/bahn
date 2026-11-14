@@ -439,3 +439,20 @@ All 39 weeks ranked (nothing near the 90% line). Baseline total on the 13 seeds:
 **Reading.** Tighter intake does not buy the rob-18 floor; it gives it away. Both settings lose money overall and both push rob-18 *below* the baseline (94.7% → 94.5% and 92.9%, the latter with 18 late cars and −€906). The reason is in the week itself: of baseline rob-18's 14 late cars, 12 were won while the waiting queue was under 20 — the intake limits were never binding for them — and 8 of 14 were due Thursday, won Tuesday/Wednesday. Causes: 8 dropped by their booked driver (mostly overnight no-shows) and 6 never booked before the deadline warning (gigs drew dozens of views, drivers passed, first booking came only after the warning). Refusing more work upstream does not fix a driver-supply problem; it just shrinks the good weeks (dev-08 −€1,358/−€1,738 in the two runs).
 
 **Verdict.** Keep the mainline intake (safe_limit=80, limit=35/morning 45). The rob-18 floor has to be protected on the posting/fee side (fewer drops, faster first bookings), not by taking less work.
+
+## g1 yard pricing for bulk sends, 14 Nov
+
+From the test-final analysis (section 1): Wednesday 12–14, one dealer group sent 30 cars from one yard in Vantaa and we won 4. Cars from one yard can travel in one gig at about 0.75 × typical each, so a bulk send is cheap if we win it together — but the quoter priced each car alone. Change (in track 2's part, `dispatch/pricing.py`, named here per the rules): a `yard` switch, off by default. In `ProfitQuoter.prices`, when another open request (in `desk.requests`, not won, not lost — the quoter keeps the decided ids) has its first-leg pickup within `yard_km` road km (default 10) and its delivery within 100 km of this one's, the car's cost `fee` is multiplied by (1 − `yard`). Two parameters added to the PROFIT tuple in `dispatch/policies/main.py`; the desk itself is untouched. Script: `python3 -m tracks.t1.yard_count <label>` counts the hits from a saved week's events.
+
+| label | seeds | total margin | Δ vs b68 | weeks higher | orders/week | margin/car | 3 lowest on-time weeks |
+|---|---:|---:|---:|---:|---:|---:|---|
+| `b68-floor075-short095-carshort085` (baseline) | 10 dev | €170,507.98 | – | – | 391.7 | €43.53 | dev-02 94.1%, dev-10 95.2%, dev-05 96.2% |
+| `g1-yard15` (yard=0.15) | 10 dev | €170,128.81 | **−€379.17** | 0/10 (4 lower, 6 equal) | 392.0 | €43.40 | dev-02 94.1%, dev-10 95.2%, dev-05 96.2% |
+
+All 20 weeks ranked; no week moved (lowest 94.1% in both). Off check: `g1-yard-off` dev-01 = €12,348.31, the mainline to the cent.
+
+**How often it applied** (`tracks.t1/yard_count.py` over the saved weeks): 13 of 10,353 requests (0.13%), all of them quoted; 0–4 a week, and 4 of the 10 weeks saw no hit at all. Verified against the run: dev-01's two hits (R00798/R00799) are exactly the two requests whose quotes differ from the off run, about 4–5% cheaper; both were lost either way, so that week is identical to the cent.
+
+**Reading.** The dev weeks almost never put two open requests at one yard with nearby deliveries at quote time — the Vantaa burst of the test final does not appear in them, and single requests are decided too fast to overlap. Where the discount did fire it won a few cars more cheaply (dev-06 +2 orders, dev-09 +1) but slightly below the margin the same weeks made without it: −€349 on dev-06 is the whole loss. The mechanism works as built but has nothing to bite on, and what it bites on it gives away.
+
+**Verdict.** Not adopted: `yard` stays at its default 0.0 on the mainline. The switch is two lines and free to hold; if a burst-heavy world shows up (the final's Wednesday pattern), the lever to revisit is the pairing rule itself — same `batchId` or a wider delivery radius instead of 100 km — because the dev evidence says the pickup-yard half fires far too rarely to matter.
