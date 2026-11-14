@@ -21,7 +21,7 @@ from . import t1
 
 
 PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "car", "late", "trust", "invest", "share", "lag", "dealer", "towns", "same", "kind_offset", "shape", "shape_scale")
-FEES = ("fee_buffer", "fee_rise", "fee_cap", "fee_max_raises", "fee_hold_until", "fee_deadline_margin", "fee_quiet_from", "fee_quiet_to")  # passed to the fees without the prefix
+FEES = ("fee_model", "fee_buffer", "fee_rise", "fee_cap", "fee_max_raises", "fee_hold_until", "fee_deadline_margin", "fee_quiet_from", "fee_quiet_to")  # passed to the fees without the prefix
 
 
 def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 25, morning_limit: int = 35, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, **params: Any) -> Parts:

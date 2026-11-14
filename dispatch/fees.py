@@ -9,6 +9,13 @@ if TYPE_CHECKING:
     from .desk import Desk
 
 HOUR = 60
+# Model 2, fitted on the mainline's own weeks (tracks/t3/cost.py): an additive yes/no model on what
+# the desk knows when the request arrives. The reference order has its pickup window opening 12 to 24
+# hours away, arrives before noon, has no private address, a lane under 500 km and 30 or more drivers
+# living near each end.
+MODEL2 = ("lead<=3", "lead3-12", "lead>=24", "hour>=15", "hour12-15", "private", "km>=500", "pickup<30", "delivery<10")
+MODEL2_EXPECTED = (0.9090, 0.2041, 0.1343, 0.0323, 0.0368, 0.0593, 0.2642, 0.1413, 0.0232, 0.0447)
+MODEL2_LATE = (-0.0075, 0.0314, 0.0013, 0.0041, 0.0137, -0.0045, 0.2373, 0.0823, 0.0048, 0.0218)
 
 
 class Fees(Part):
@@ -40,14 +47,32 @@ class Fees(Part):
         private = any(leg[side].get("privateAddress") for leg in request["legs"] for side in ("pickup", "delivery"))
         return near(pickup) < 30, near(delivery) < 10, desk.ctx.km(pickup, delivery) >= 500, private
 
+    def _model2_features(self, request: dict[str, Any], desk: "Desk") -> tuple[bool, ...]:
+        """The nine yes/no facts of model 2, all known when the request arrives (no option facts:
+        the quoter asks for the fee once per request, before it looks at the options)."""
+        leg = request["legs"][0]
+        pickup, delivery = leg["pickup"]["placeId"], leg["delivery"]["placeId"]
+        near = lambda place: sum(desk.ctx.straight_km(place, d["homePlaceId"]) <= 30 for d in desk.ctx.roster)
+        lead = max(0, leg["pickup"]["window"]["from"] - request["arrivedAt"]) / HOUR
+        hour = request["arrivedAt"] % (24 * HOUR) / HOUR
+        private = any(l[side].get("privateAddress") for l in request["legs"] for side in ("pickup", "delivery"))
+        return (lead <= 3, 3 < lead <= 12, lead >= 24, hour >= 15, 12 <= hour < 15, private,
+                desk.ctx.km(pickup, delivery) >= 500, near(pickup) < 30, near(delivery) < 10)
+
     def expected(self, request: dict[str, Any], desk: "Desk") -> int:
-        """Expected total driver fees, calibrated to saved low20 orders."""
+        """Expected total driver fees, as a share of the typical fee."""
+        if getattr(self, "model", 1) == 2:
+            multiple = MODEL2_EXPECTED[0] + sum(c for c, active in zip(MODEL2_EXPECTED[1:], self._model2_features(request, desk)) if active)
+            return max(1, round(request["referenceFeeCents"] * multiple))
         features = self._cost_features(request, desk)
         multiple = 0.966 + sum(c for c, active in zip((0.076, 0.090, 0.213, 0.331), features) if active)
         return max(1, round(request["referenceFeeCents"] * multiple))
 
     def late_risk(self, request: dict[str, Any], desk: "Desk") -> float:
-        """Empirical late share under low20; clipped additive group model."""
+        """Empirical late share; clipped additive group model."""
+        if getattr(self, "model", 1) == 2:
+            risk = MODEL2_LATE[0] + sum(c for c, active in zip(MODEL2_LATE[1:], self._model2_features(request, desk)) if active)
+            return min(1.0, max(0.0, risk))
         features = self._cost_features(request, desk)
         return min(1.0, max(0.0, -0.0017 + sum(c for c, active in zip((0.0269, -0.0130, 0.0855, 0.1676), features) if active)))
 
@@ -64,8 +89,9 @@ class MeasuredFees(Fees):
 
     def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
                  cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, hold_until: int = 0, rescue_fraction: float = 0,
-                 quiet_from: int = 0, quiet_to: int = 7 * HOUR, **kwargs: Any):
+                 quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, **kwargs: Any):
         super().__init__(**kwargs)
+        self.model = model  # 2: the refitted expected fee and late risk (MODEL2 above)
         # `quiet_from` > 0: the fee does not rise from this minute of the day until `quiet_to` the next morning.
         # Few drivers look at the app at night, so a raise then pays the morning's first driver more for nothing.
         self.quiet_from, self.quiet_to = int(quiet_from), int(quiet_to)
