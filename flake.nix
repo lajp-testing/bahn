@@ -15,7 +15,7 @@
         # numpy and pandas are for the analysis of reveals; pytest and ruff for the code.
         default = pkgs.mkShell {
           packages = [
-            (pkgs.python3.withPackages (ps: [ ps.numpy ps.pandas ps.pytest ]))
+            (pkgs.python3.withPackages (ps: [ ps.numpy ps.pandas ps.pytest ps.scikit-learn ]))
             pkgs.ruff
             pkgs.jq
             pkgs.curl
