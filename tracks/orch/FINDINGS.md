@@ -183,3 +183,16 @@ Tried tonight and not adopted (30 weeks against b52 unless noted): car 1.0 (+€
 | **all** | **40** | **+€14,444** | **25** | 389 | 44.38 | hold-10 93.8 |
 
 The holdout is flat, but the weak weeks rise everywhere (rob-18 92.1 → 94.9; lowest dev/rob week 93.7 → 95.7). Adopted as the default; `main` reproduces b84 dev-01 to the cent (`b86-main-check`, €11,809.15).
+
+**Correction (21:40): model 5's online gain is mostly in-sample.** It was trained on weeks of the dev and rob worlds, so playing those worlds favours it. On the 30 weeks of worlds it never trained on (holdout + rob-21..40) against b68: **−€1,875, ahead in 14 of 30** (money-neutral), but the weakest weeks rise: lowest 93.5 / 93.8 / 94.3 against 91.8 / 92.5 / 93.1; mean on time 96.4% against 96.2%. Kept for the safer floor in a one-week final, not for margin. (The earlier steps hold on unseen worlds: model 4 holdout +€4,025 and rob-21..30 +€1,608; the fee floors holdout +€10,243 and rob-21..30 +€5,993.) From now on a learned model is judged on unseen worlds only.
+
+## 21:45 higher limits (45 / 55 before noon, safe-car limit 100)
+
+| comparison | weeks | margin change | ahead | lowest weeks other than rob-18 |
+|---|---|---|---|---|
+| on b68: dev + rob | 30 | +€4,278 | 20 | rob-14 94.1 |
+| on b68: fresh rob-21..40 | 20 | +€2,437 | 13 | rob-38 92.3 |
+| on model 5 (`b87-fee5-limit45`): dev + rob | 30 | +€2,462 | 16 | rob-15 94.7 |
+| on model 5: holdout | 10 | +€4,033 | 6 | hold-10 93.2 |
+
+Small but positive on every set, including unseen worlds. Adopted (`limit=45`, `morning_limit=55`, `safe_limit=100`); `main` reproduces b87 dev-01 to the cent (`b88-main-check`, €12,250.75).
