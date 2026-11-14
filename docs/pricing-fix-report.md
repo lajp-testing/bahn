@@ -70,7 +70,8 @@ These are the 10 dev weeks, level 8, policy `main`, played one world at a time o
 | `pr-main` | mainline defaults (`fee_model=2`, `car=1.1`) | €126,921.82 | 2,879 | 96.8% | 93.7% (dev-07) | 10/10 |
 | `pr-m3-car10` | `fee_model=3 car=1.0` | €132,486.37 | 3,635 | 96.9% | 94.0% (dev-01) | 10/10 |
 | `t3s15-safe-flat15` | safe limit + flat fee, `car=0.95`, model 2 (track 3's run, `tracks/t3/FINDINGS.md`) | €142,146 | about 3,710 | 95.4% | 92.7% (dev-07) | 10/10 |
-| **`pr-flat15-m3-car95v2`** | **the four settings above** | **€151,183.30** | **3,982** | **96.6%** | **93.6% (dev-10)** | **10/10** |
+| `pr-flat15-m3-car95v2` | the four settings above | €151,183.30 | 3,982 | 96.6% | 93.6% (dev-10) | 10/10 |
+| **`pr-flat15-m3-car10`** | **the same, with `car=1.0`** | **€154,688.36** | **3,833** | **96.8%** | **94.8% (dev-10)** | **10/10** |
 
 `pr-main` dev-01 equals `t1s11-base` to the cent (€8,764.79), so it is the plain mainline.
 
@@ -110,6 +111,33 @@ Totals over the 10 weeks, from the saved ledgers and reveals:
    - The safe-car limit supplies the extra volume of short, non-private cars.
 3. **The two help each other.** Separately they are worth +€5,565 (model 3) and +€15,224 (t3s15), about €20,800 in sum. Together they gain +€24,261, because the flat fee is set from the model's expected fee, so a better model makes each flat fee better.
 
+### `car=1.0` against `car=0.95` (same other settings)
+
+| Week | car=0.95 | car=1.0 | Difference |
+|---|---|---|---|
+| dev-01 | €10,437.08 | €10,261.79 | −€175.29 |
+| dev-02 | €14,651.53 | €14,624.91 | −€26.62 |
+| dev-03 | €17,811.62 | €17,643.30 | −€168.32 |
+| dev-04 | €15,895.84 | €17,604.60 | +€1,708.76 |
+| dev-05 | €10,929.47 | €10,838.65 | −€90.82 |
+| dev-06 | €13,810.73 | €14,383.59 | +€572.86 |
+| dev-07 | €15,937.88 | €16,819.06 | +€881.18 |
+| dev-08 | €20,263.11 | €21,586.23 | +€1,323.12 |
+| dev-09 | €15,626.53 | €14,940.51 | −€686.02 |
+| dev-10 | €15,819.51 | €15,985.72 | +€166.21 |
+| **Total** | **€151,183.30** | **€154,688.36** | **+€3,505.06, higher in 5 of 10** |
+
+- **Fewer, better-paid orders.** `car=1.0` wins 149 fewer orders (3,833 against 3,982) at €40.4 an order against €38.0. The extra 5% discount at 0.95 bought orders that did not pay.
+- **Safer.** The worst week rises from 93.6% to 94.8% on time; the three lowest are now dev-10 94.8%, dev-01 94.9% and dev-09 95.1%.
+- **The margin gain is a lead.** dev-04 and dev-08 give +€3,032 of the +€3,505; the other eight weeks net out to +€473.
+- **Choose `car=1.0` anyway.** The model's fee bias on held-out worlds is +0.003, so pricing at exactly its estimate needs no correction factor: "the quoter prices at the expected cost" has a one-sentence reason, and 0.95 was only a tuned number. Do not sweep `car` further on the dev seeds; the differences are too small to tell apart from fitting these 10 weeks.
+
+**The recommended setting is now:**
+
+```
+safe_limit=80 safe_km=300 safe_near=0 fee_flat=1 fee_flat_up=-0.15 fee_model=3 car=1.0
+```
+
 ## 4. Caveats
 - **Chosen on the dev seeds.** These 10 seeds were used to pick between settings. The holdout seeds (`hold-01..10`, orchestrator only) have not been played with this setting.
 - **One label per setting.** Every label is one week per seed, but the world is deterministic, so a replay gives the same result.
@@ -120,9 +148,9 @@ Totals over the 10 weeks, from the saved ledgers and reveals:
 - **A possibly leftover world.** At about 15:00 UTC one world was stalled at minute 0: `w594b987dc0f5c839ecd9`. It may be left over from the crashed runs, and its owner is unknown. Check on the practice machine before `harness.janitor --clean` (orchestrator only).
 
 ## 5. Next steps
-1. **Holdout check** (orchestrator, `SPREAD_TRACK=orch`, one world at a time): play `main` with the four settings on `--seeds holdout`, and the mainline on the same seeds. Adopt if the total is higher and all 10 are ranked with the worst week at 92% or higher.
-2. **If it holds,** make the four settings the defaults in `dispatch/policies/main.py`. Then confirm the switch-off check still matches `t1s11-base` dev-01 (€8,764.79) with them set back.
-3. **Not played yet:** `car=1.0` with the same settings, labelled `pr-flat15-m3-car10`. One more run of 10 weeks.
+1. **Holdout check** (orchestrator, `SPREAD_TRACK=orch`, one world at a time): play `main` with the recommended setting (`car=1.0`) on `--seeds holdout`, and the mainline on the same seeds. Adopt if the total is higher and all 10 are ranked with the worst week at 92% or higher.
+2. **If it holds,** make the recommended setting the default in `dispatch/policies/main.py`. Then confirm the switch-off check still matches `t1s11-base` dev-01 (€8,764.79) with the new settings set back.
+3. **Done:** `car=1.0` was played as `pr-flat15-m3-car10` (see above); it is the recommended value.
 4. **Commit** `dispatch/features.py`, `tracks/t2/final_replay.py` and this report, with the label and its numbers in the message. The user hasn't asked for a commit yet; ask before committing.
 5. **The 20:00 test final** is the outside check: compare orders, margin per order and on time with the 14:00 one.
 
