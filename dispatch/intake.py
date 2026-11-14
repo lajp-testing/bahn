@@ -83,10 +83,12 @@ class LimitedIntake(Intake):
         limit = self.morning_limit if self.morning_limit and desk.now % 1440 < 12 * 60 else self.limit
         if shortage and self.shortage_limit:
             limit = min(limit, self.shortage_limit)
-        if not later or unbooked + len(self.pending) >= limit:
+        # A quote awaiting its dealer holds `pending_weight` of a place: about a third of them win.
+        waiting = unbooked + getattr(self, "pending_weight", 1.0) * len(self.pending)
+        if not later or waiting >= limit:
             return decline(request)
         if self.queue_price:
-            load = (unbooked + len(self.pending)) / self.limit
+            load = waiting / self.limit
             factor = 0.9 + 0.2 * load
             if self.win_price:
                 factor *= max(0.9, min(1.1, 1 + (self.win_rate - 0.4) * 0.25))

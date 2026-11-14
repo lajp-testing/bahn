@@ -50,6 +50,8 @@ class Parts:
     fees: Any
     notes: Any
     bundles: Any = None  # dispatch/bundles.py: which cars share a gig; None posts every order alone
+    # The desk's own repairs, each a switch (docs/reviews/2026-11-14-whole-repo-review.md): "windows", "orphans", "late", "keep_urgent".
+    repairs: frozenset = frozenset()
 
     def all(self) -> list[Part]:
         return [self.quoter, self.intake, self.fees, self.notes] + ([self.bundles] if self.bundles else [])

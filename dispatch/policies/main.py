@@ -28,18 +28,20 @@ FEES = ("fee_model", "fee_buffer", "fee_rise", "fee_cap", "fee_max_raises", "fee
 BUNDLES = ("bundle_dead", "bundle_slack", "bundle_split", "bundle_discount", "bundle_drive", "bundle_private", "bundle_patience", "bundle_room")  # passed to the bundles without the prefix
 
 
-def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, **params: Any) -> Parts:
+def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "", pending: float = 1.0, **params: Any) -> Parts:
     together = {"patience": 120} | {key[7:]: params.pop(key) for key in BUNDLES if key in params}
     fee = {key[4:]: params.pop(key) for key in FEES if key in params}
     profit = {"car": car, "late": late, "trust": trust} | {key: params.pop(key) for key in PROFIT if key in params}
     parts = t1.build(ctx, markup=markup, slack=slack, limit=limit, morning_limit=morning_limit, same_day_slack=same_day_slack, same_day_drivers=same_day_drivers, **params)
     parts.intake.private = private
+    parts.intake.pending_weight = pending  # how much of a place in the queue a quote awaiting its dealer holds
     if price == "profit":
         parts.quoter = ProfitQuoter(limit=parts.intake.limit, **profit)
     if notes == "read":
         parts.notes = ReadNotes()
     if fees == "measured":
         parts.fees = MeasuredFees(interval=rise, **({"quiet_from": 21 * 60, "model": 2} | fee))
+    parts.repairs = frozenset(repairs.replace("+", ",").split(",")) - {""}  # e.g. --set repairs=windows+orphans+late+keep_urgent
     if bundle > 1:  # the most cars in one gig; below 2 every order goes alone
         parts.bundles = Bundles(cars=bundle, **together)
     return parts

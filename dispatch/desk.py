@@ -36,6 +36,8 @@ class Desk:
         self.posts: dict[str, PostAction] = {}  # gig id -> the post that made it
         self.urgent: set[str] = set()  # the orders whose deadline warning has come
         self.clock: dict[str, list[Any]] = {}  # order id -> the fee schedule of its car alone, which a bundle and a split keep to
+        self.late_posted: set[str] = set()  # orders posted again without windows after their last pickup minute
+        self.urgent_gigs: set[str] = set()  # gigs that already carry an urgent fee schedule
         self.split_at: dict[str, int] = {}  # bundle gig id -> the minute at which, still without a driver, it goes back to one gig per car
         self.refused: list[tuple[int, Action, str]] = []  # (minute, action, reason) for each action the world refused
         self.wake_on: list[DeskEventKind] = list(dict.fromkeys(WAKE_ON + [kind for part in parts.all() for kind in part.wake_on]))
@@ -66,6 +68,21 @@ class Desk:
                     gigs = self.gigs_of(order["id"])
                     if gigs and any(gig_id not in self.booked for gig_id in gigs):
                         self.raise_fees(order["id"])
+        repairs = self.parts.repairs
+        if "late" in repairs:  # past its last pickup minute an open gig can find no driver: post it again, without windows
+            for order in list(self.orders.values()):
+                gigs = self.gigs_of(order["id"])
+                if (order["id"] not in self.late_posted and self.now > order["lastPickupAt"] and gigs
+                        and not any(gig_id in self.booked for gig_id in gigs) and any(at is None for at in order["deliveredAt"])):
+                    self.late_posted.add(order["id"])
+                    if self.withdraw(order["id"]):
+                        self.post_bare(order)
+        if "orphans" in repairs:  # an undelivered car with no gig, after a refused post: post it again, without windows
+            waiting = {stop["orderId"] for action in self.outbox if action["type"] == "post" for stop in action["stops"]}
+            for order in list(self.orders.values()):
+                legs = [leg for leg in undelivered(order) if leg not in self.leg_gigs.get(order["id"], {})]
+                if legs and order["id"] not in waiting and order["status"] != "cancelled":
+                    self.post_bare(order, legs)
 
     # --- events ---
 
@@ -174,12 +191,16 @@ class Desk:
         if order["id"] in self.requests and order["id"] not in self.orders:  # rejoin can know it already
             self.orders[order["id"]] = order
             self.post(order, undelivered(order))
+            if "late" in self.parts.repairs:
+                self.wake(order["lastPickupAt"] + 1)
             if getattr(self.parts.fees, "early", 0):
                 self.wake(self.parts.fees.urgent_from(order))
 
     def change(self, order: Order) -> None:
         if order["id"] in self.orders:
             self.orders[order["id"]] = order
+            if "late" in self.parts.repairs:
+                self.wake(order["lastPickupAt"] + 1)
             if self.withdraw(order["id"]):
                 self.post(order, undelivered(order))
 
@@ -199,7 +220,7 @@ class Desk:
         if order is None:
             return
         stops, audience = self.parts.notes.again(action, order, self)
-        self.outbox.append({"type": "post", "stops": without_windows(stops, self.now), "audience": audience, "schedule": self.fees_for(order, pickups(action))})
+        self.outbox.append({"type": "post", "stops": self.cut(stops), "audience": audience, "schedule": self.fees_for(order, pickups(action))})
 
     def raise_fees(self, order_id: str) -> None:
         """From the order's deadline warning on, its gigs that no driver holds go at the urgent fees."""
@@ -211,10 +232,13 @@ class Desk:
         for gig_id in self.gigs_of(order_id):
             if gig_id in self.booked:
                 continue
+            if "keep_urgent" in self.parts.repairs and gig_id in self.urgent_gigs:
+                continue  # a second warning does not start the urgent ladder again from its bottom
             if len(orders_in(self.posts[gig_id]["stops"])) > 1:  # the urgent car needs its own fee, so the bundle ends
                 self.split(gig_id)
             else:
                 self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": self.fees_for(order, pickups(self.posts[gig_id]))})
+                self.urgent_gigs.add(gig_id)
 
     def fees_for(self, order: Order, cars: int) -> list[Any]:
         """The fee schedule for `cars` of the order's cars, from now."""
@@ -230,7 +254,7 @@ class Desk:
 
     def post(self, order: Order, legs: list[int], retry: Retry = Retry()) -> None:
         stops, audience = self.parts.notes.plan(order, legs, self.requests[order["id"]], retry, self)
-        stops, schedule = without_windows(stops, self.now), self.fees_for(order, len(legs))
+        stops, schedule = self.cut(stops), self.fees_for(order, len(legs))
         if len(order["legs"]) == 1:
             self.clock[order["id"]] = schedule
             bundles = self.parts.bundles
@@ -272,7 +296,20 @@ class Desk:
             stops = [{k: v for k, v in stop.items() if k != "window"} for stop in stops]
         fresh = order["id"] in self.urgent or order["id"] not in self.clock
         schedule = self.fees_for(order, 1) if fresh else resume(self.clock[order["id"]], self.now)
-        self.outbox.append({"type": "post", "stops": without_windows(stops, self.now), "audience": audience, "schedule": schedule})
+        self.outbox.append({"type": "post", "stops": self.cut(stops), "audience": audience, "schedule": schedule})
+
+    def cut(self, stops: list[Any]) -> list[Any]:
+        """The stops without the windows that have ended. With the "windows" repair a window that ends this minute
+        has ended too: the world refuses a gig whose window ends now, and the car would never be posted again."""
+        return without_windows(stops, self.now + ("windows" in self.parts.repairs))
+
+    def post_bare(self, order: Order, legs: Optional[list[int]] = None) -> None:
+        """Posts the order's undelivered cars, one gig each, without stop windows of their own: the world then lets
+        the stops run to the end of the week once no driver can be on time."""
+        for leg in legs if legs is not None else undelivered(order):
+            stops, audience = self.parts.notes.plan(order, [leg], self.requests[order["id"]], Retry(), self)
+            stops = [{k: v for k, v in stop.items() if k != "window"} for stop in stops]
+            self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": self.fees_for(order, 1)})
 
     def gigs_of(self, order_id: str) -> list[str]:
         """The gigs that carry the order's undelivered legs: one, or one for each leg of a split trade-in."""
@@ -283,6 +320,8 @@ class Desk:
         for stop in action["stops"]:
             self.leg_gigs.setdefault(stop["orderId"], {})[stop["leg"]] = gig_id
         self.posts[gig_id] = action
+        if any(order_id in self.urgent for order_id in orders_in(action["stops"])):
+            self.urgent_gigs.add(gig_id)
         if len(orders_in(action["stops"])) > 1 and self.parts.bundles:
             self.split_at[gig_id] = self.parts.bundles.split_at(action["stops"], self)
             self.wake(self.split_at[gig_id])
