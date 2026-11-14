@@ -340,3 +340,29 @@ What we saw:
 - Neither flat version fixes flood's on-time. The flood cars' trouble is the drivers they can get, not the timing of fee raises.
 
 Next: sweep `fee_flat_up` at -0.15 and -0.2, and try a lower bundle fee when cars are flat, on wide; then flood with -0.1; then the mainline's normal volume with -0.1.
+
+## Flat fees on the safe-car volume, 14 Nov
+
+**The setting.** The safe-car limit (`safe_limit=80 safe_km=300 safe_near=0 car=0.95`, t1's `t1s13-safe80q-car95`) plus the flat fee (`fee_flat=1`), sweeping the opening `fee_flat_up`. Policy `main`, 10 dev weeks, no code change.
+
+**Screens** (10 dev weeks; on time is over all orders; fee/typical from `tracks/t5/report.py` for 1-, 2- and 3-car gigs. The baselines' fee/typical covers all 30 of their saved weeks, not just dev):
+
+| label | flat up | orders/wk | €/car | total € | on time | 3 lowest weeks | ranked | fee/typ 1 car | 2-car | 3-car | late, 1-car gigs |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| t1s11-base (mainline) | – | 288 | 44.09 | 126,922 | 96.8% | dev-07 93.7, dev-10 95.3, dev-08 96.0 | 10/10 | 1.03 | 0.81 | 0.78 | 3.7% |
+| t1s13-safe80q-car95 | – | 364 | 35.29 | 128,473 | 95.5% | dev-08 93.3, dev-10 93.6, dev-07 93.9 | 10/10 | 1.06 | 0.81 | 0.79 | 5.9% |
+| t3s14-flat2-wide-down | -0.1 | 375 | 36.60 | 137,402 | 95.4% | dev-07 89.2, dev-10 93.9, dev-08 94.9 | 9/10 | 1.04 | 0.87 | 0.87 | 5.9% |
+| t3s15-safe-flat10 | -0.1 | 370 | 36.16 | 133,912 | 95.7% | dev-10 91.8, dev-07 93.9, dev-08 95.3 | 10/10 | 1.03 | 0.87 | 0.86 | 5.3% |
+| **t3s15-safe-flat15** | **-0.15** | 371 | **38.33** | **142,146** | 95.4% | dev-07 92.7, dev-10 93.3, dev-01 94.3 | 10/10 | 1.01 | 0.84 | 0.84 | 5.8% |
+| t3s15-safe-flat175 | -0.175 | 367 | 38.78 | 142,438 | 95.3% | dev-07 92.2, dev-10 93.6, dev-03 94.2 | 10/10 | 1.00 | 0.82 | 0.82 | 6.1% |
+| t3s15-safe-flat20 | -0.2 | 366 | 38.65 | 141,466 | 95.4% | dev-10 93.0, dev-08 93.3, dev-07 93.7 | 10/10 | 0.99 | 0.82 | 0.81 | 5.8% |
+
+What we saw:
+- The combination works. At `fee_flat_up=-0.15`, margin is €142,146, up €13.7k on `t1s13-safe80q-car95` (ahead on 8 of 10 weeks) and €4.7k on `t3s14-flat2-wide-down` (7 of 10). All 10 weeks are ranked. Orders stay at the safe volume (371 a week against 364). The safe-car limit fixes wide's unranked dev-07 (89.2% → 92.7%), and the flat fee adds about €3 a car.
+- The opening has a flat top from -0.15 to -0.2: -0.15 €142.1k, -0.175 €142.4k, -0.2 €141.5k. The weeks swing in both directions: -0.175 against -0.15 is ahead on 7 of 10 weeks but only €0.3k in total, and -0.2 against -0.15 is ahead on 5 of 10, with week differences up to €1.1k. -0.1 is clearly worse (€133.9k), and its dev-10 at 91.8% is the lowest week of the sweep.
+- A lower opening buys fees, not on-time time: the 1-car fee falls from 1.03 to 0.99 times typical and bundles from 0.87 to 0.82. On-time share stays at 95.3–95.7%, and the worst week is 92.2–93.0% at every setting from -0.15 down. Orders slip a little below -0.15 (371 → 367 → 366), because fewer cars book.
+- The lowest weeks are always dev-07 and dev-10 (92–94%). That leaves about 2 points of margin over the 90% line, less than the mainline's 3.7.
+
+Pick: `fee_flat_up=-0.15`. It is the volume-first end of the flat top (most orders, with margin within €0.3k of the best), and its lowest week, dev-07 at 92.7%, is above the 92.2% of -0.175. Full setting: `--set safe_limit=80 --set safe_km=300 --set safe_near=0 --set car=0.95 --set fee_flat=1 --set fee_flat_up=-0.15`.
+
+Next: check `t3s15-safe-flat15` on t3's own seeds (or the orchestrator's holdout) to see whether the +€13.7k holds off the dev seeds. Then raise the volume on the combination (`safe_limit=90/100`, or `limit=40`): the flat fee books fast, so the queue may hold more. Watch dev-07 and dev-10, which have about 2 points of margin over 90%.
