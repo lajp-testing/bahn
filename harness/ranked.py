@@ -30,7 +30,8 @@ from .play import run_week
 
 # The frozen candidate: the dial quoter (cost 1.3 typical fees, 1.1 with same_day), fees open at 0.85 x typical, same_day quoted when the car is ready a day later,
 # the fee climb paused from 19:00 to 06:00, when drivers view but hardly book, the note reader (dispatch/reader.py),
-# and long lanes (up to 600 road min, no same_day) through the volume gate at 1.15 x, with only within_3_days where both ends are thin.
+# and long lanes (up to 600 road min, no same_day) through the volume gate at 1.15 x, with only within_3_days where both ends are thin;
+# the gate also takes noted requests the note reader is sure of (172836f, no flag).
 POLICY, PARAMS, LEVEL = "reach", {"open": 0.85, "future_same_day": True, "quoter": "dial", "cost_next": 1.3, "cost_same": 1.1,
                            "night": True, "sleep": 19, "wake": 6, "notes": "read",
                            "long_lanes": True, "long_markup": 1.15, "thin_both": True, "thin_drivers": 20, "long_same_day": False}, 8
