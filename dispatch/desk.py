@@ -40,6 +40,7 @@ class Desk:
         self.refused: list[tuple[int, Action, str]] = []  # (minute, action, reason) for each action the world refused
         self.wake_on: list[DeskEventKind] = list(dict.fromkeys(WAKE_ON + [kind for part in parts.all() for kind in part.wake_on]))
         self._timers: set[int] = set()
+        self.journal = None
 
     # --- timers: a part asks to be woken at a minute, and gets `tick` then ---
 
@@ -62,17 +63,38 @@ class Desk:
 
     # --- events ---
 
-    def rejoin(self, snapshot: DeskSnapshot, history: list[DeskEvent]) -> None:
+    def rejoin(self, snapshot: DeskSnapshot, history: list[DeskEvent], journal: Optional[list[dict[str, Any]]] = None) -> None:
         """Rebuilds the books from the world, so a desk that stopped keeps its orders. The parts see the
         whole history first, so what they learned is back too. Then the desk answers what it missed: open
         requests, orders without a gig, failed visits without a new gig, and the deadline warnings."""
-        for event in history:
-            self.now = event["at"]  # a part that learns reads the minute from the desk
-            if event["kind"] == "price_request":
-                self.requests[event["request"]["id"]] = event["request"]
-            for part in self.parts.all():
-                part.observe(event, self, replay=True)
+        timeline = [(event["at"], 0, i, event) for i, event in enumerate(history)]
+        timeline += [(line["at"], 1, i, line) for i, line in enumerate(journal or [])]
+        for minute, kind, _, item in sorted(timeline, key=lambda row: row[:3]):
+            self.now = minute
+            if kind == 0:
+                if item["kind"] == "price_request":
+                    self.requests[item["request"]["id"]] = item["request"]
+                for part in self.parts.all():
+                    part.observe(item, self, replay=True)
+            else:
+                action, result = item["action"], item["result"]
+                if action["type"] == "quote":
+                    intake = self.parts.intake
+                    request = self.requests.get(action["requestId"])
+                    if request is not None and hasattr(intake, "pending"):
+                        from .quote import decline
+                        intake.pending = {k: v for k, v in intake.pending.items() if v > minute}
+                        if action["prices"] != decline(request):
+                            intake.pending[request["id"]] = request["respondBy"]
+                if action["type"] == "post" and result.get("ok") and pickups(action) == 1:
+                    members = orders_in(action["stops"])
+                    if len(members) == 1:
+                        self.clock[members[0]] = action["schedule"]
+                for part in self.parts.all():
+                    part.result(action, result, self)
         self.now = snapshot["now"]
+        if journal is not None and hasattr(self.parts.intake, "pending"):
+            self.parts.intake.pending = {k: v for k, v in self.parts.intake.pending.items() if v > self.now}
         self.orders = {o["id"]: o for o in snapshot["orders"] if o["id"] in self.requests and o["status"] != "cancelled"}
         posted: dict[str, list[Gig]] = {}  # order id -> its gigs, oldest first
         self.booked = {gig["id"] for gig in snapshot["gigs"] if gig["status"] in ("booked", "working", "done")}
@@ -279,7 +301,10 @@ class Desk:
         """Sends the outbox now. In practice, the outbox goes with the next advance instead."""
         actions, self.outbox = self.outbox, []
         if actions:
-            self.read_results(actions, self.world.act(actions))
+            results = self.world.act(actions)
+            if self.journal is not None:
+                self.journal(actions, results, self.now)
+            self.read_results(actions, results)
 
     def read_results(self, actions: list[Action], results: list[ActionResult]) -> None:
         """Remembers the gig of each post that the world accepted, and each action that it refused."""
