@@ -366,3 +366,29 @@ What we saw:
 Pick: `fee_flat_up=-0.15`. It is the volume-first end of the flat top (most orders, with margin within €0.3k of the best), and its lowest week, dev-07 at 92.7%, is above the 92.2% of -0.175. Full setting: `--set safe_limit=80 --set safe_km=300 --set safe_near=0 --set car=0.95 --set fee_flat=1 --set fee_flat_up=-0.15`.
 
 Next: check `t3s15-safe-flat15` on t3's own seeds (or the orchestrator's holdout) to see whether the +€13.7k holds off the dev seeds. Then raise the volume on the combination (`safe_limit=90/100`, or `limit=40`): the flat fee books fast, so the queue may hold more. Watch dev-07 and dev-10, which have about 2 points of margin over 90%.
+
+## More volume on the combination, 14 Nov
+
+**The question.** With flat fees, single cars book in minutes, so can the queue hold more? Every run below adds one change to `t3s15-safe-flat15` (`safe_limit=80 safe_km=300 safe_near=0 car=0.95 fee_flat=1 fee_flat_up=-0.15`). Policy `main`, 10 dev weeks, no code change.
+
+| label | change | orders/wk | €/car | total € | on time | 3 lowest weeks | ranked | weeks ahead of flat15 |
+|---|---|---|---|---|---|---|---|---|
+| t3s15-safe-flat15 | – | 371 | 38.33 | 142,146 | 95.4% | dev-07 92.7, dev-10 93.3, dev-01 94.3 | 10/10 | – |
+| **t3s16-limit40** | limit 40, morning 50 | 375 | **38.73** | **145,338** | **95.7%** | dev-10 92.9, dev-07 93.1, dev-01 94.3 | 10/10 | 7/10 (+€3,193) |
+| t3s16-safe100 | safe_limit 100 | 371 | 38.22 | 141,938 | 95.4% | dev-07 93.4, dev-10 93.9, dev-03 94.0 | 10/10 | 5/10 (−€208) |
+| t3s16-limit45 | limit 45, morning 55 | 376 | 38.53 | 145,011 | 95.5% | dev-07 **91.6**, dev-10 92.9, dev-01 94.7 | 10/10 | 7/10 (+€2,866) |
+| t3s16-limit40-km400 | limit40 + safe_km 400 | – | – | 9 weeks: −€1,416 vs limit40 | 95.5% | dev-07 **91.2**, dev-10 93.2 | 9/9 | 2 of 9 vs limit40 |
+
+(`limit40-km400` stopped at its 20-minute timeout, before dev-08 was played. It is behind `limit40` on the 9 weeks it played, so it was not rerun.)
+
+What we saw:
+- **Room is not the brake.** `safe_limit=100` adds no orders (371 a week) and no margin: the safe room past 80 hardly ever fills. The queue charge and the price decide volume here, not the cap on safe cars.
+- **`limit=40` adds money, not volume.** +€3.2k (ahead on 7 of 10 weeks) for only +4.5 orders a week. The gain is per car (€38.33 → €38.73), probably because the quoter's queue charge reads fullness against `limit`: a higher limit gives a lower charge, so the near-full queue wins better cars. On time rises a little (95.4 → 95.7%), and dev-07 goes to 93.1%. dev-10 slips to 92.9% (−0.4).
+- **Past 40 the floor gives.** `limit=45` makes about the same money (€145.0k) but dev-07 falls to 91.6%. `safe_km=400` on `limit40` lets in 300-400 km cars, costs margin on 7 of 9 weeks and takes dev-07 to 91.2%. Long lanes break first again, as in t1's "The ceiling".
+- We are still at about 375 a week, not the leaders' 430 to 470. Neither the intake caps nor the safe range moves that. The next lever is price (the queue charge, or car below 0.95 for safe cars only), not room.
+
+Pick: **`t3s16-limit40`**: `--set safe_limit=80 --set safe_km=300 --set safe_near=0 --set car=0.95 --set fee_flat=1 --set fee_flat_up=-0.15 --set limit=40 --set morning_limit=50`. €145,338, 375 a week, 95.7%, 10/10 ranked, lowest dev-10 92.9%, dev-07 93.1%, dev-01 94.3%. A lead (+2.2%, 7 of 10 weeks), not a finding until rob or holdout weeks confirm it.
+
+Next: (1) the orchestrator checks `t3s16-limit40` on rob and holdout weeks against `t3s15-safe-flat15`. (2) Screen a lower queue charge, or car 0.85 to 0.9 for safe cars only, on `limit40`, the lever that actually moves volume. Watch dev-07 and dev-10, still about 3 points over 90%.
+
+Note on running: two `bin/vps` started in the same second collide in the remote copy (rsync rename error), and the second run never starts. Start them a few seconds apart.
