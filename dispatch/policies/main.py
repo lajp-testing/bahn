@@ -27,7 +27,7 @@ PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "c
 FEES = ("fee_model", "fee_buffer", "fee_rise", "fee_cap", "fee_max_raises", "fee_hold_until", "fee_deadline_margin", "fee_quiet_from", "fee_quiet_to", "fee_far_open", "fee_soon_open", "fee_early", "fee_backload", "fee_rescue", "fee_flat", "fee_flat_up", "fee_flat_step", "fee_flat_wait", "fee_flat_last", "fee_flat_drop", "fee_flat_views", "fee_flat_views_steps", "fee_ladder_features")  # passed to the fees without the prefix
 
 
-OFFERS = ("offer_n", "offer_up", "offer_near", "offer_fresh", "offer_rounds")  # passed to the offers without the prefix
+OFFERS = ("offer_n", "offer_up", "offer_near", "offer_fresh", "offer_rounds", "offer_new_fee")  # passed to the offers without the prefix
 BUNDLES = ("bundle_dead", "bundle_slack", "bundle_split", "bundle_discount", "bundle_drive", "bundle_private", "bundle_patience", "bundle_room", "bundle_plan", "bundle_reach", "bundle_hold_slack")  # passed to the bundles without the prefix
 
 

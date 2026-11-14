@@ -1,9 +1,15 @@
-"""The offers: direct offers for a gig that the app has not filled in time. Track 5 (more cars per driver).
+"""The offers: direct offers for a gig that the app has not filled in time, and for our drivers who finish near a new gig. Track 5 (more cars per driver).
 
 When an order's deadline warning comes (`urgent`), or a driver drops its gig (`drops`), the gig goes as a
 direct offer to the few drivers most likely to take it, at the fee the app shows now plus `up` times the
 gig's typical fee. An offer reaches drivers that a notification does not (one of our drivers who finishes
 near the pickup), and a driver who reads it has no raise to wait for (RULES.md, Direct offers).
+
+When we post a gig for a single car (`new`), it also goes as an offer to our drivers who finish near its
+pickup, at the fee the app shows now times `new_fee`: a second gig costs such a driver only the extra time
+and tickets, and the app does not notify them where our gigs have taken them. The gig stays in the app, so
+nothing is lost when nobody takes it. Such a driver gets the offer only when they reach the pickup inside
+its window from where we leave them; when the window or the road is unknown, nobody does.
 
 The drivers, best first: our drivers whose last delivery is within `near` km of the pickup, in the last
 `fresh` minutes or still to come; then the drivers who viewed this gig, last viewer first. Never the driver
@@ -25,9 +31,10 @@ OPEN = 10  # an offer is open for 10 minutes; its answer comes by then
 
 
 class Offers(Part):
-    def __init__(self, on: str = "urgent", n: int = 3, up: float = 0.1, near: float = 30.0, fresh: int = 180, rounds: int = 2):
+    def __init__(self, on: str = "urgent", n: int = 3, up: float = 0.1, near: float = 30.0, fresh: int = 180, rounds: int = 2, new_fee: float = 1.0):
         self.on = frozenset(on.replace("+", ",").split(",")) - {""}
         self.n, self.up, self.near, self.fresh, self.rounds = int(n), float(up), float(near), int(fresh), int(rounds)
+        self.new_fee = float(new_fee)
         self.schedule: dict[str, list[dict[str, int]]] = {}  # gig id -> its fee schedule now
         self.viewers: dict[str, list[str]] = {}  # gig id -> drivers who viewed it, in order
         self.dropped_by: dict[str, set[str]] = {}  # gig id -> drivers who dropped it or did not show
@@ -37,6 +44,7 @@ class Offers(Part):
         self.open: dict[str, dict[str, int]] = {}  # gig id -> driver -> minute the offer was sent
         self.asked: dict[str, set[str]] = {}  # order id -> drivers already offered its car
         self.wanted: dict[str, int] = {}  # order id -> rounds left
+        self.chain: set[str] = set()  # order ids wanted by the `new` trigger, which offer at the app's fee times `new_fee`
         self.sent: dict[str, int] = {}  # (driver, gig) key -> fee, for the counts
         self.counts = {"sent": 0, "accepted": 0, "declined": 0, "expired": 0}
         self.accepted_fees: list[tuple[int, int]] = []  # (fee, typical fee of the gig's cars)
@@ -76,6 +84,10 @@ class Offers(Part):
             return
         if action["type"] == "post":
             self.schedule[result["id"]] = action["schedule"]
+            if "new" in self.on and sum(1 for stop in action["stops"] if stop["kind"] == "pickup") == 1:
+                for order_id in orders_in(action["stops"]):
+                    if order_id in desk.orders and order_id not in desk.urgent and order_id not in self.wanted:
+                        self.want(order_id, desk, rounds=1, chain=True)  # one round: the gig is in the app at the same time
         elif action["type"] == "reprice":
             self.schedule[action["gigId"]] = action["schedule"]
         elif action["type"] == "offer":  # also from the journal after a restart, so the limits hold
@@ -100,9 +112,16 @@ class Offers(Part):
 
     # --- the decision ---
 
-    def want(self, order_id: str, desk: "Desk") -> None:
-        self.wanted[order_id] = self.rounds
+    def want(self, order_id: str, desk: "Desk", rounds: int | None = None, chain: bool = False) -> None:
+        self.wanted[order_id] = self.rounds if rounds is None else rounds
+        self.chain.discard(order_id)
+        if chain:
+            self.chain.add(order_id)
         desk.wake(desk.now + 1)  # the urgent repost or reprice goes first; the offer follows at the next stop
+
+    def unwant(self, order_id: str) -> None:
+        self.wanted.pop(order_id, None)
+        self.chain.discard(order_id)
 
     def tick(self, desk: "Desk") -> None:
         if not self.wanted:
@@ -115,12 +134,12 @@ class Offers(Part):
         for order_id in list(self.wanted):
             order = desk.orders.get(order_id)
             if order is None or desk.now >= order["lastPickupAt"]:
-                self.wanted.pop(order_id)
+                self.unwant(order_id)
                 continue
             mine = desk.gigs_of(order_id)
             gigs = [g for g in mine if g not in desk.booked]
             if mine and not gigs:  # a driver holds it now
-                self.wanted.pop(order_id)
+                self.unwant(order_id)
                 continue
             if not mine:  # its new gig is not in the app yet
                 desk.wake(desk.now + 5)
@@ -135,20 +154,21 @@ class Offers(Part):
                     desk.wake(max(self.open[gig].values()) + OPEN + 1)
                     continue
                 if self.wanted.get(order_id, 0) <= 0:
-                    self.wanted.pop(order_id, None)
+                    self.unwant(order_id)
                     continue
-                drivers = self.candidates(gig, order, desk)
+                chain = order_id in self.chain
+                drivers = self.candidates(gig, order, desk, chain)
                 if not drivers:
-                    self.wanted.pop(order_id, None)
+                    self.unwant(order_id)
                     continue
-                fee = self.fee(gig, desk)
+                fee = self.fee(gig, desk, chain)
                 for driver in drivers:
                     desk.outbox.append({"type": "offer", "gigId": gig, "driverId": driver, "feeCents": fee})
                     self.open.setdefault(gig, {})[driver] = desk.now  # until the world's answer replaces it
                 self.wanted[order_id] -= 1
                 desk.wake(desk.now + OPEN + 1)
 
-    def candidates(self, gig: str, order: dict[str, Any], desk: "Desk") -> list[str]:
+    def candidates(self, gig: str, order: dict[str, Any], desk: "Desk", chain: bool = False) -> list[str]:
         post = desk.posts[gig]
         stop = post["stops"][0]
         pickup = order["legs"][stop["leg"]]["pickup"]["placeId"]
@@ -162,18 +182,27 @@ class Offers(Part):
             return (profile is not None and driver not in skip and self.per_day.get((driver, day), 0) < 3
                     and (not manual or profile.get("licence") == "manual"))
 
-        near = sorted((desk.ctx.straight_km(place, pickup) if place != pickup else 0.0, driver)
-                      for driver, (place, at) in self.at.items()
-                      if at >= desk.now - self.fresh and at <= order["lastPickupAt"]
-                      and (place == pickup or desk.ctx.straight_km(place, pickup) <= self.near))
-        chosen = [driver for _, driver in near if fits(driver)]
-        chosen += [driver for driver in reversed(self.viewers.get(gig, [])) if fits(driver)]
+        window = (stop.get("window") or order["legs"][stop["leg"]]["pickup"].get("window") or {}).get("to")
+        near = []
+        for driver, (place, at) in self.at.items():
+            km = 0.0 if place == pickup else desk.ctx.straight_km(place, pickup)
+            drive = 0 if place == pickup else desk.ctx.road_minutes.get((place, pickup))
+            if chain and (window is None or drive is None):
+                continue  # a chain offer must fit the pickup's window from where we leave the driver; unsure offers nobody
+            latest = min(order["lastPickupAt"], window - drive) if chain else order["lastPickupAt"]
+            if at >= desk.now - self.fresh and at <= latest and km <= self.near:
+                near.append((km, driver))
+        chosen = [driver for _, driver in sorted(near) if fits(driver)]
+        if not chain:  # a chain offer goes only to our drivers nearby; the gig is in the app for everyone else
+            chosen += [driver for driver in reversed(self.viewers.get(gig, [])) if fits(driver)]
         return list(dict.fromkeys(chosen))[: self.n]
 
-    def fee(self, gig: str, desk: "Desk") -> int:
-        """The fee the app shows now, plus `up` times the typical fee of the gig's cars."""
+    def fee(self, gig: str, desk: "Desk", chain: bool = False) -> int:
+        """The fee the app shows now, plus `up` times the typical fee of the gig's cars; a chain offer: the app's fee times `new_fee`."""
         steps = self.schedule.get(gig) or desk.posts[gig]["schedule"]
         now = [step["feeCents"] for step in steps if step["at"] <= desk.now] or [steps[0]["feeCents"]]
+        if chain:
+            return int(now[-1] * self.new_fee + 0.5)
         return int(now[-1] + self.up * self.typical(gig, desk) + 0.5)
 
     def typical(self, gig: str, desk: "Desk") -> int:
