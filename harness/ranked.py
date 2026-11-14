@@ -32,11 +32,12 @@ from .play import run_week
 # the fee climb paused from 19:00 to 06:00, when drivers view but hardly book, the note reader (dispatch/reader.py),
 # and long lanes (up to 600 road min, no same_day) through the volume gate at 1.15 x, with only within_3_days where both ends are thin;
 # the gate also takes noted requests the note reader is sure of (172836f, no flag); and lanes=1, the place table in the
-# dial's limit with dealer trust as log(1 + trust/100) (t2-quoter 4f287d9).
+# dial's limit with dealer trust as log(1 + trust/100) (t2-quoter 4f287d9); and crowd=0.1, room=10: each order already due on
+# a deadline day beyond 10 per 100 drivers adds 0.1 typical fees to the cost of a quote for that day (t2-quoter 95326e6).
 POLICY, PARAMS, LEVEL = "reach", {"open": 0.85, "future_same_day": True, "quoter": "dial", "cost_next": 1.3, "cost_same": 1.1,
                            "night": True, "sleep": 19, "wake": 6, "notes": "read",
                            "long_lanes": True, "long_markup": 1.15, "thin_both": True, "thin_drivers": 20, "long_same_day": False,
-                           "lanes": 1}, 8
+                           "lanes": 1, "crowd": 0.1, "room": 10}, 8
 TRACK = "orch"
 # Helsinki times when practice falls to 20 requests a second (test finals) or the final is set.
 QUIET_NOT = [((5, 13, 45), (5, 14, 20)), ((5, 19, 45), (5, 20, 20)), ((6, 7, 30), (6, 8, 40))]  # (weekday, hour, minute)
