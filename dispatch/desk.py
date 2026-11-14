@@ -37,6 +37,7 @@ class Desk:
         self.urgent: set[str] = set()  # the orders whose deadline warning has come
         self.clock: dict[str, list[Any]] = {}  # order id -> the fee schedule of its car alone, which a bundle and a split keep to
         self.booked_fee: dict[str, int] = {}  # gig id -> the fee its last driver booked it at
+        self.drop_fees: dict[str, list[Any]] = {}  # gig id -> the schedule a last-day drop gave it (fee_flat_drop 2 and 3)
         self.late_posted: set[str] = set()  # orders posted again without windows after their last pickup minute
         self.urgent_gigs: set[str] = set()  # gigs that already carry an urgent fee schedule
         self.schedules: dict[str, list[Any]] = {}  # gig id -> its fee schedule in the app now (its post, or its last reprice)
@@ -253,7 +254,13 @@ class Desk:
             if len(orders_in(self.posts[gig_id]["stops"])) > 1:  # the urgent car needs its own fee, so the bundle ends
                 self.split(gig_id)
             else:
-                self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": self.fees_for(order, pickups(self.posts[gig_id]))})
+                schedule = self.fees_for(order, pickups(self.posts[gig_id]))
+                if gig_id in self.drop_fees:  # the warning never lowers what a last-day drop already pays
+                    started = [step["feeCents"] for step in self.drop_fees.pop(gig_id) if step["at"] <= self.now]
+                    floor = max(started, default=0)
+                    schedule = [{"at": step["at"], "feeCents": max(floor, step["feeCents"])} for step in schedule]
+                    schedule = [step for k, step in enumerate(schedule) if k == 0 or step["feeCents"] > schedule[k - 1]["feeCents"]]
+                self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": schedule})
                 self.urgent_gigs.add(gig_id)
 
     def rescue(self) -> None:
@@ -374,9 +381,23 @@ class Desk:
         order = self.orders[members[0]]
         if order["lastPickupAt"] - self.now >= self.parts.fees.flat_last:
             return
-        top = self.fees_for(order, pickups(action))[-1]["feeCents"]
-        if top > self.booked_fee.get(gig_id, 0):
-            self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": [{"at": self.now, "feeCents": top}]})
+        fees, booked = self.parts.fees, self.booked_fee.get(gig_id, 0)
+        if fees.flat_drop == 1:
+            top = self.fees_for(order, pickups(action))[-1]["feeCents"]
+            if top > booked:
+                self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": [{"at": self.now, "feeCents": top}]})
+            return
+        ladder = fees.schedule(order, pickups(action), True, self)  # the urgent ladder the deadline warning would start
+        if fees.flat_drop == 2:  # A: that ladder at once
+            schedule = ladder
+        else:  # B: one fee on the urgent ladder's range, the higher the less time is left (24 h: its bottom, 0 h: its top)
+            left = max(0.0, min(1.0, (order["lastPickupAt"] - self.now) / fees.flat_last))
+            low, high = ladder[0]["feeCents"], ladder[-1]["feeCents"]
+            schedule = [{"at": self.now, "feeCents": int(high - (high - low) * left + 0.5)}]
+        schedule = [step for step in schedule if step["feeCents"] > booked] or [{"at": self.now, "feeCents": booked}]
+        schedule[0] = {"at": self.now, "feeCents": schedule[0]["feeCents"]}
+        self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": schedule})
+        self.drop_fees[gig_id] = schedule
 
     def cut(self, stops: list[Any]) -> list[Any]:
         """The stops without the windows that have ended. With the "windows" repair a window that ends this minute
