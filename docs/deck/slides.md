@@ -239,8 +239,8 @@ Robust
 **40 unseen weeks** (rob-21..60): all ranked, mean 96.1% on time (sd 1.6 points), lowest 92.4%, €17,308 and 399 orders a week.
 +++
 ::: tiles stack small
-- **Restart** the live runner journals every action and answer, then rebuilds orders and gigs from the world and the journal. Two outages at final speed: €11,288 and 95.2% on time against €11,802 and 96.5%.
-- **Slow network** slowest decision batch 121 ms; slowest action round trip 564 ms.
+- **Restart** the live runner journals every action and answer, then rebuilds orders and gigs from the world and the journal. Rehearsal of the final setting, killed mid-week and restarted: €27,655, 460 orders, 93.7% on time, against €28,447, 467, 94.6% for the same world played without a restart.
+- **Slow network** slowest decision batch 91 ms in that rehearsal (121 ms worst seen); slowest action round trip 564 ms; a quote has 15 world minutes, 4.5 real seconds in the final.
 - **Live** the test final was played end to end by this runner: nothing undelivered.
 - **Surprises** the test final had a price-war day and a 30-car bulk send from one yard: 5th of 75, 97.2% on time.
 :::
