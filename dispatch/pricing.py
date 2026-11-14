@@ -152,6 +152,9 @@ class ProfitQuoter(Part):
 
     def prices(self, request: dict[str, Any], desk: "Desk") -> dict[str, int]:
         charge = self.queue * self.waiting(desk) ** 2
+        intake = desk.parts.intake
+        if getattr(intake, "safe_limit", 0) and intake.safe(request, desk):  # a safe car's queue is the larger one
+            charge = self.queue * min(1.0, self.waiting(desk) * self.limit / intake.safe_limit) ** 2
         fees = desk.parts.fees
         fee = self.car * fees.expected(request, desk) if self.car and hasattr(fees, "expected") else self.cost * request["referenceFeeCents"]
         risk = self.late * fees.late_risk(request, desk) if self.late and hasattr(fees, "late_risk") else 0.0
