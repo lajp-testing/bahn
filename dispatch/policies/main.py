@@ -30,7 +30,7 @@ OFFERS = ("offer_n", "offer_up", "offer_near", "offer_fresh", "offer_rounds")  #
 BUNDLES = ("bundle_dead", "bundle_slack", "bundle_split", "bundle_discount", "bundle_drive", "bundle_private", "bundle_patience", "bundle_room")  # passed to the bundles without the prefix
 
 
-def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans", pending: float = 1.0, offers: str = "", **params: Any) -> Parts:
+def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans", pending: float = 1.0, offers: str = "", day_limit: int = 0, **params: Any) -> Parts:
     together = {"patience": 120} | {key[7:]: params.pop(key) for key in BUNDLES if key in params}
     offer = {key[6:]: params.pop(key) for key in OFFERS if key in params}
     fee = {key[4:]: params.pop(key) for key in FEES if key in params}
@@ -38,6 +38,7 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
     parts = t1.build(ctx, markup=markup, slack=slack, limit=limit, morning_limit=morning_limit, same_day_slack=same_day_slack, same_day_drivers=same_day_drivers, **params)
     parts.intake.private = private
     parts.intake.pending_weight = pending  # how much of a place in the queue a quote awaiting its dealer holds
+    parts.intake.day_limit = day_limit  # the most undelivered orders due on one day; 0 for no such limit
     if price == "profit":
         parts.quoter = ProfitQuoter(limit=parts.intake.limit, **profit)
     if notes == "read":

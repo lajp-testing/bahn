@@ -40,11 +40,13 @@ class LimitedIntake(Intake):
         self.quoted: set[str] = set()
         self.win_rate = 0.4
         self.pending: dict[str, int] = {}
+        self.pending_days: dict[str, set[int]] = {}
 
     def admit(self, request: dict[str, Any], prices: dict[str, int], desk: "Desk") -> dict[str, int]:
         from .quote import decline
 
         self.pending = {key: end for key, end in self.pending.items() if end > desk.now}
+        self.pending_days = {key: days for key, days in self.pending_days.items() if key in self.pending}
         unbooked = sum(
             1 for order in desk.orders.values()
             if any(at is None for at in order["deliveredAt"])
@@ -80,6 +82,8 @@ class LimitedIntake(Intake):
                 return decline(request)
         if not self.private and any(leg[side]["privateAddress"] for leg in request["legs"] for side in ("pickup", "delivery")):
             return decline(request)
+        if getattr(self, "day_limit", 0):
+            later = self.room_on_day(request, later, desk)
         limit = self.morning_limit if self.morning_limit and desk.now % 1440 < 12 * 60 else self.limit
         if shortage and self.shortage_limit:
             limit = min(limit, self.shortage_limit)
@@ -94,7 +98,31 @@ class LimitedIntake(Intake):
                 factor *= max(0.9, min(1.1, 1 + (self.win_rate - 0.4) * 0.25))
             later = {kind: round(price * factor) for kind, price in later.items()}
         self.pending[request["id"]] = request["respondBy"]
+        self.pending_days[request["id"]] = {self.due_day(o["deadline"]) for o in request["options"] if o["kind"] in later}
         return later
+
+    @staticmethod
+    def due_day(deadline: int) -> int:
+        return min(deadline // 1440, 7)  # Monday 0 ... Sunday 6; 7 is after the week
+
+    def room_on_day(self, request: dict[str, Any], prices: dict[str, int], desk: "Desk") -> dict[str, int]:
+        """Drops the options whose due day already holds `day_limit` orders: the drivers of one day can move only so many cars.
+
+        An undelivered order counts on its due day; a quote awaiting its dealer counts as one order shared among its due days.
+        """
+        due: dict[int, float] = {}
+        for order in desk.orders.values():
+            if any(at is None for at in order["deliveredAt"]):
+                day = self.due_day(order["deadline"])
+                due[day] = due.get(day, 0) + 1
+        for rid, days in self.pending_days.items():
+            if rid in self.pending and days:
+                for day in days:
+                    due[day] = due.get(day, 0) + 1 / len(days)
+        deadlines = {o["kind"]: o["deadline"] for o in request["options"]}
+        limit = self.day_limit
+        return {kind: price for kind, price in prices.items()
+                if due.get(self.due_day(deadlines[kind]), 0) < limit}
 
     def result(self, action: dict[str, Any], result: dict[str, Any], desk: "Desk") -> None:
         if self.win_price and action["type"] == "quote" and result.get("ok") and action["requestId"] in self.pending:
