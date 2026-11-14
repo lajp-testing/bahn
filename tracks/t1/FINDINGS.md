@@ -103,7 +103,7 @@ Holdout of `vol-dn-ll+mk115+tb20@0da56fb` (orchestrator): €101,468 against dn1
 | Variant | Dev total | vs control | Better on | Worst week | Holdout |
 | --- | --- | --- | --- | --- | --- |
 | **`long_lanes long_markup=1.15 thin_both thin_drivers=20`** (e9f4286) | **€94,765** | **+€8,782** | **9 of 10** | **94.1%** | **€104,325 against €92,091, +€12,234, 10 of 10, worst 94.8%. Frozen** |
-| + `long_same_day=false` | €95,969 | +€9,986 | 8 of 10 | 95.2% | on orch |
+| **+ `long_same_day=false`** | **€95,969** | **+€9,986** | **8 of 10** | **95.2%** | **€105,811, +€13,720 on rd (+€1,486 on the above, 3 of 10), worst 97.2%. Frozen at 327f4ce** |
 
 Against the frozen build (`vol-rd-ll+mk115+tb20@e9f4286`, €94,765):
 
@@ -113,6 +113,11 @@ Against the frozen build (`vol-rd-ll+mk115+tb20@e9f4286`, €94,765):
 | `near_km=80` | €94,036 | −€729 | | 96.5% all | |
 | `private_slots` | €95,485 | +€720 | 4 of 10 | 91.9% | |
 | the gate reads notes with the reader (edc1eb4) | €96,172 | +€1,407 | 4 of 10 | 93.5% | The note filter was the gate's largest decline (26 long requests a week); reading them adds little |
+| `min_drivers=2` | €93,759 | −€1,006 | | 97.1% all | |
+| `long_max=720` | €94,765 | ±0 | | 94.1% | Identical to the cent: nothing over 600 minutes passes the gate |
+| `expand_brake=0.1` | €94,765 | ±0 | | 94.1% | Identical to the cent: the 6% brake never binds |
+| `thin_drivers=15` | €96,053 | +€1,288 | 3 of 10 | 92.5% | |
+| `thin_drivers=15` with `long_same_day=false`, against the 327f4ce flags | €95,714 | −€255 | 2 of 10 | 93.9% | 20 stays |
 
 Where long lanes stand in the frozen build: of about 138 long requests a week, the gate declines about 70 (a note,
 26; fewer than 6 qualified drivers near the pickup, 23; a private address, 14); the rest are quoted at about 1.8 × list
