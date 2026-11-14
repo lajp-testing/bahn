@@ -37,8 +37,8 @@ class Bundles(Part):
         legs = order["legs"]
         return len(legs) == 1 and order["id"] not in desk.urgent and (self.private or not (legs[0]["pickup"]["privateAddress"] or legs[0]["delivery"]["privateAddress"]))
 
-    def join(self, order: dict[str, Any], stops: list[dict[str, Any]], audience: dict[str, bool], desk: "Desk") -> Optional[tuple[str, list[dict[str, Any]], dict[str, bool]]]:
-        """The open gig that the order's car joins, with the joined stops and audience; None when it goes alone."""
+    def join(self, order: dict[str, Any], stops: list[dict[str, Any]], audience: dict[str, bool], desk: "Desk") -> Optional[tuple[Any, list[dict[str, Any]], dict[str, bool]]]:
+        """The gig that the order's car joins, with the joined stops and audience; None when it goes alone."""
         if not self.plain(order, desk):
             return None
         return self.search(order, stops, audience, desk, desk.orders)
@@ -52,13 +52,17 @@ class Bundles(Part):
         stops = [{"orderId": order["id"], "leg": 0, "kind": kind} for kind in ("pickup", "delivery")]
         return self.search(order, stops, {}, desk, desk.orders | {order["id"]: order}) is not None
 
-    def search(self, order: dict[str, Any], stops: list[dict[str, Any]], audience: dict[str, bool], desk: "Desk", orders: dict[str, Any]) -> Optional[tuple[str, list[dict[str, Any]], dict[str, bool]]]:
-        best: Optional[tuple[tuple[int, int], str, list[dict[str, Any]], dict[str, bool]]] = None
-        for gig_id, action in desk.posts.items():
+    def search(self, order: dict[str, Any], stops: list[dict[str, Any]], audience: dict[str, bool], desk: "Desk", orders: dict[str, Any]) -> Optional[tuple[Any, list[dict[str, Any]], dict[str, bool]]]:
+        """The best gig to join: one that is open in the app (its id), or one that the desk has decided to post
+        and not sent yet (the post itself), as when a dealer's cars are won in the same minute."""
+        best: Optional[tuple[tuple[int, int], Any, list[dict[str, Any]], dict[str, bool]]] = None
+        open_gigs = [(gig_id, action, [gig_id]) for gig_id, action in desk.posts.items() if gig_id not in desk.booked]
+        unsent = [(action, action, []) for action in desk.outbox if action["type"] == "post"]
+        for gig_id, action, carried_by in open_gigs + unsent:
             members = orders_in(action["stops"])
-            if gig_id in desk.booked or len(members) >= self.cars or order["id"] in members:
+            if len(members) >= self.cars or order["id"] in members:
                 continue
-            if not all(member in desk.orders and desk.gigs_of(member) == [gig_id] and self.plain(desk.orders[member], desk) for member in members):
+            if not all(member in desk.orders and desk.gigs_of(member) == carried_by and self.plain(desk.orders[member], desk) for member in members):
                 continue
             for joined in (action["stops"] + stops, stops + action["stops"]):
                 found = self.route(joined, desk, orders)

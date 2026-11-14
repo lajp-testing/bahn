@@ -205,11 +205,14 @@ class Desk:
             self.clock[order["id"]] = schedule
             bundles = self.parts.bundles
             joined = bundles.join(order, stops, audience, self) if bundles and retry == Retry() else None
-            if joined:  # the car joins an open gig: that gig leaves the app, and one gig with both cars takes its place
-                gig_id, stops, audience = joined
-                self.outbox.append({"type": "withdraw", "gigId": gig_id})
-                for member in orders_in(self.posts[gig_id]["stops"]):  # so that no second car joins the gig that is leaving
-                    self.leg_gigs.pop(member, None)
+            if joined:  # the car joins a gig: that gig leaves the app, or is not sent, and one gig with all its cars takes its place
+                gig, stops, audience = joined
+                if isinstance(gig, str):
+                    self.outbox.append({"type": "withdraw", "gigId": gig})
+                    for member in orders_in(self.posts[gig]["stops"]):  # so that no second car joins the gig that is leaving
+                        self.leg_gigs.pop(member, None)
+                else:
+                    self.outbox = [action for action in self.outbox if action is not gig]
                 schedule = bundles.fees([self.clock.get(member) or self.fees_for(self.orders[member], 1) for member in orders_in(stops)], self.now)
         self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": schedule})
         if len(legs) == 1:
