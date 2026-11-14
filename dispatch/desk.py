@@ -355,6 +355,9 @@ class Desk:
         if len(members) != 1 or members[0] not in self.orders or members[0] in self.urgent:
             return
         order, fee = self.orders[members[0]], self.booked_fee.get(gig_id, 0)
+        if fee and getattr(self.parts.fees, "flat", 0):  # flat fees: the fee the gig had, not more
+            self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": [{"at": self.now, "feeCents": fee}]})
+            return
         fresh = self.fees_for(order, pickups(action))
         schedule = [{"at": self.now, "feeCents": fee}] + [step for step in fresh if step["feeCents"] > fee and step["at"] > self.now]
         self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": schedule[:48]})

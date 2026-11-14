@@ -104,8 +104,15 @@ class MeasuredFees(Fees):
 
     def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
                  cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, hold_until: int = 0, rescue_fraction: float = 0,
-                 quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, far_open: float = 0, soon_open: float = 0, early: int = 0, backload: int = 0, rescue: int = 0, **kwargs: Any):
+                 quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, far_open: float = 0, soon_open: float = 0, early: int = 0, backload: int = 0, rescue: int = 0,
+                 flat: int = 0, flat_up: float = 0.0, flat_step: float = 0.15, flat_wait: int = 6 * HOUR, flat_last: int = 24 * HOUR, **kwargs: Any):
         super().__init__(**kwargs)
+        # `flat` = 1: a gig opens at the fee we expect it to need (the model's expected multiple plus `flat_up`, within
+        # 0.85 and `cap`) and keeps it, one `flat_step` more after `flat_wait` minutes of the drivers' day without a booking
+        # and one more `flat_last` minutes before its last pickup; urgent fees at the deadline warning, the booked fee
+        # after a drop. Few raises, so drivers do not learn to wait for the next one. Off by default.
+        self.flat, self.flat_up, self.flat_step = int(flat), float(flat_up), float(flat_step)
+        self.flat_wait, self.flat_last = int(flat_wait), int(flat_last)
         # `early` > 0: an order without a driver goes to the urgent fees when this many minutes of the drivers' day are
         # left before its last pickup. The world's own warning comes 3 hours before, which is late for a driver to get there.
         self.early = int(early)
@@ -172,6 +179,8 @@ class MeasuredFees(Fees):
             return schedule
         request = desk.requests[order["id"]]
         typical = request["referenceFeeCents"] * cars / len(order["legs"])
+        if self.flat:
+            return self.flat_schedule(order, request, typical, desk)
         # Keep the tested opening rule independent of the experimental refit.
         pickup = request["legs"][0]["pickup"]["placeId"]
         nearby = sum(desk.ctx.straight_km(pickup, d["homePlaceId"]) <= 30 for d in desk.ctx.roster)
@@ -196,3 +205,25 @@ class MeasuredFees(Fees):
         if self.rescuing(order, cars, desk.now):  # little of the drivers' day is left: the top of the ladder at once
             return [{"at": desk.now, "feeCents": max(1, int(typical * max(self.cap, first) + 0.5))}]
         return [{"at": self.after(start + (max(0, order["lastPickupAt"] - desk.now - self.hold_until) if k and self.hold_until else 0), k * interval), "feeCents": max(1, int(typical * min(self.cap, first + k * self.rise) + 0.5))} for k in range(1 if desk.level == 1 else count + 1)]
+
+    def flat_multiple(self, order: dict[str, Any], request: dict[str, Any], desk: "Desk") -> float:
+        """The flat fee as a multiple of typical: what the model expects the car to need, plus `flat_up`, within 0.85 (1.15 for a
+        lane under 40 km or under 5 hours before the last pickup) and the cap."""
+        multiple = self.expected(request, desk) / request["referenceFeeCents"] + self.flat_up
+        leg = request["legs"][0]
+        short = desk.ctx.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) < 40  # a tiny typical fee draws no driver
+        tight = order["lastPickupAt"] - desk.now < 5 * HOUR  # little time to wait for a driver
+        return min(self.cap, max(1.15 if short or tight else 0.85, multiple))
+
+    def flat_schedule(self, order: dict[str, Any], request: dict[str, Any], typical: float, desk: "Desk") -> list[dict[str, int]]:
+        """One fee from now, and one step more at each of the two look-again moments still ahead: after `flat_wait` minutes of
+        the drivers' day, and `flat_last` minutes before the last pickup. A function of the request and the minute alone, so a
+        restart posts the same schedule."""
+        first = self.flat_multiple(order, request, desk)
+        looks = sorted({at for at in (self.after(desk.now, self.flat_wait), order["lastPickupAt"] - self.flat_last) if at > desk.now})
+        schedule = [{"at": desk.now, "feeCents": max(1, int(typical * first + 0.5))}]
+        for k, at in enumerate([] if desk.level == 1 else looks, 1):
+            fee = max(1, int(typical * min(self.cap, first + k * self.flat_step) + 0.5))
+            if fee > schedule[-1]["feeCents"]:
+                schedule.append({"at": at, "feeCents": fee})
+        return schedule
