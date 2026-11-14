@@ -141,3 +141,18 @@ Against `b37-fee3` (the learned-model mainline), same seeds:
 t2 found that a request quoted both same_day and next_day is won 67% of the time against 34% for next_day alone, and the 80-drivers-nearby gate dropped our same_day quote on 4,117 dev requests. Quoting same_day whenever 8 h of slack remain wins those, and `car=1.05` (count the model's fee at 105%) keeps the marginal cars out: alone the same_day rule loses rob-18; together the lowest week is 93.8%. Lower prices (`car` 0.9, 0.85) bought orders at about €75 of margin each. Adopted as the default; `main` reproduces b46 dev-01 to the cent (`b49-main-check`, €11,361.54).
 
 `limit=40` on top of the learned model (`b39`, 30 weeks): +€1,071 over b37, same orders: not adopted.
+
+## 17:00 the retrained cost model and car 1.1 join the mainline
+
+Against `b46-car105-sameday480` (learned model 3, car 1.05, same_day 480):
+
+| label | weeks | margin change | ahead | orders/wk | €/car | lowest weeks |
+|---|---|---|---|---|---|---|
+| b48-fee4-car105-sameday480 (`fee_model=4`) | 50 | +€19,319 | 31 | 381 | 42.56 | rob-18 91.9, rob-17 92.1, rob-14 92.7 |
+| **b52-fee4-car110** (`fee_model=4 car=1.1`) | **40** | **+€18,349** | 26 | 367 | **44.77** | rob-18 91.3, rob-25 94.1, rob-17 94.3 |
+
+Model 4 is model 3 retrained on all saved weeks with weeks of the recent policies counted three times (`tracks/ml/FINDINGS.md`); on recent-policy holdout rows its fee error is 0.165 against 0.183, late log loss 0.125 against 0.134. Its holdout weeks: +€4,025 (b48). On 10 fresh seeds never played before (rob-21..30): b48 +€1,608, b52 +€3,050.
+
+The worst week falls from 93.8% to 91.3% (rob-18, the hardest of the 50 worlds; mean on time 96.3%, spread ±1.5 points). We judge the final's risk on the spread, not on the one hardest world: the user accepted a worst week of about 91%. Adopted as the default; `main` reproduces b52 dev-01 to the cent (`b62-main-check`, €11,284.69). An on-time governor (`guard`) is being measured as insurance.
+
+Not adopted, 30 weeks against b46: limit 40 (+€1,071), the same_day rule with car 1.0 (−€3,811), the view-count raise (+€2,760, rob-18 91.4), the ladder schedule for the model (+€9,876, rob-18 91.0), fee_flat_up −0.2 with end_car 1.12 (+€11,305 on 30 weeks, −€862 on rob-21..30), all three stacked (+€10,303), bundle_private + bundle_slack 240 (+€4,570), the scarcity tilt (lost), tighter intake (lost).
