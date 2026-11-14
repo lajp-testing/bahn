@@ -3,9 +3,10 @@
 
     python3 demo/prepare.py
 
-Reads only files on disk (no server): the test final's events, journal, reveal and leaderboard
-feed, the shared map, and one saved level-8 driver roster (the final world's own roster was not
-saved, so the learned model's driver-supply inputs are approximated with it; see README).
+Reads only files on disk (no server): the test final's events, journal, reveal, leaderboard
+feed and the world's own driver list, and the shared map. The desk replay uses the settings
+that actually played the week (commit fc3e132's mainline), so the internals it captures are
+the ones the live desk computed; see README for what is exact.
 """
 from __future__ import annotations
 
@@ -30,20 +31,43 @@ EVENTS = FINAL / "events-1794678337.jsonl.gz"
 JOURNAL = FINAL / "journal.jsonl.gz"
 REVEAL = FINAL / "reveal.json.gz"
 FEED = FINAL / "leaderboard-feed.sse.gz"
+ROSTER = FINAL / "roster.json.gz"
 
-# A coarse Finland, drawn by hand for the demo's background (the towns and roads are real data).
+# The mainline settings that played the 18:00 test final (fc3e132), passed as `--set` would:
+# fee model 4, cost tilt 1.1 on every lane (no short-lane tilt yet), flat-fee floors 0.85/1.15,
+# intake limits 35/45 with the safe-car allowance to 80, same-day quoted at 8 h of slack.
+AS_PLAYED = dict(fee_model=4, car=1.1, car_short=0, fee_flat_floor=0.85, fee_flat_short=1.15,
+                 limit=35, morning_limit=45, safe_limit=80, same_day_slack=480, same_day_drivers=0)
+
+# Finland, drawn by hand for the demo's background (the towns and roads are real data).
 OUTLINE = [
-    (59.82, 22.90), (59.90, 23.20), (60.10, 23.60), (60.15, 24.20), (60.17, 24.95),
-    (60.30, 25.30), (60.38, 25.68), (60.47, 26.30), (60.52, 26.95), (60.55, 27.55),
-    (60.62, 28.60), (61.10, 28.40), (61.60, 28.80), (62.30, 29.40), (62.80, 29.90),
-    (63.30, 30.30), (64.00, 31.00), (64.80, 31.50), (65.60, 31.60), (66.50, 31.00),
-    (67.40, 30.20), (68.10, 29.50), (68.75, 28.80), (69.10, 28.50), (69.30, 27.50),
-    (69.45, 26.00), (69.35, 24.50), (69.10, 23.50), (68.60, 22.80), (68.35, 22.10),
-    (68.10, 21.60), (67.60, 21.80), (67.00, 22.20), (66.30, 22.60), (65.80, 23.00),
-    (65.30, 23.40), (64.90, 23.10), (64.50, 22.50), (64.00, 21.90), (63.70, 21.40),
-    (63.40, 20.90), (63.00, 20.60), (62.50, 21.10), (62.00, 21.30), (61.50, 21.30),
-    (61.20, 21.40), (61.00, 21.70), (60.60, 21.60), (60.30, 21.70), (60.10, 22.30),
-    (59.90, 22.60),
+    (59.82, 22.90), (59.92, 23.15), (60.02, 23.40), (60.10, 23.60), (60.13, 23.90),
+    (60.15, 24.20), (60.17, 24.60), (60.17, 24.95), (60.22, 25.15), (60.28, 25.35),
+    (60.33, 25.60), (60.38, 25.80), (60.42, 26.10), (60.46, 26.35), (60.50, 26.65),
+    (60.52, 26.95), (60.56, 27.25), (60.58, 27.60), (60.60, 27.95), (60.63, 28.30),
+    (60.65, 28.60), (60.68, 29.00), (61.00, 28.45), (61.30, 28.60), (61.60, 28.80),
+    (61.95, 29.20), (62.30, 29.55), (62.55, 29.90), (62.85, 30.20), (63.15, 30.25),
+    (63.45, 30.35), (63.80, 30.50), (64.15, 30.75), (64.50, 30.95), (64.80, 31.15),
+    (65.15, 31.30), (65.55, 31.40), (65.95, 31.50), (66.35, 31.45), (66.75, 31.25),
+    (67.15, 31.00), (67.55, 30.65), (67.95, 30.25), (68.35, 29.85), (68.75, 29.40),
+    (69.05, 29.00), (69.20, 28.75), (69.45, 28.60), (69.75, 28.40), (70.00, 28.10),
+    (70.08, 27.90), (69.95, 27.30), (69.85, 26.70), (69.75, 26.10), (69.65, 25.50),
+    (69.58, 24.90), (69.50, 24.30), (69.38, 23.80), (69.25, 23.50), (69.15, 23.30),
+    (69.08, 22.70), (69.05, 22.00), (69.06, 21.30), (69.05, 20.65), (68.85, 20.75),
+    (68.55, 20.95), (68.25, 21.20), (67.95, 21.45), (67.65, 21.60), (67.35, 21.75),
+    (67.05, 21.90), (66.75, 22.10), (66.45, 22.35), (66.15, 22.55), (65.85, 22.85),
+    (65.75, 23.10), (65.80, 23.40), (65.84, 24.10), (65.73, 24.50), (65.55, 24.75),
+    (65.35, 24.65), (65.15, 24.90), (64.95, 25.05), (64.75, 25.20), (64.55, 25.30),
+    (64.35, 25.10), (64.15, 24.90), (63.95, 24.40), (63.85, 23.90), (63.75, 23.40),
+    (63.72, 23.00), (63.65, 22.60), (63.60, 22.20), (63.45, 22.00), (63.25, 21.80),
+    (63.10, 21.60), (62.95, 21.45), (62.80, 21.35), (62.65, 21.25), (62.50, 21.25),
+    (62.35, 21.30), (62.20, 21.35), (62.05, 21.30), (61.90, 21.40), (61.75, 21.50),
+    (61.60, 21.60), (61.50, 21.70), (61.40, 21.55), (61.25, 21.45), (61.13, 21.55),
+    (61.00, 21.60), (60.90, 21.75), (60.80, 21.90), (60.70, 21.80), (60.60, 21.70),
+    (60.50, 21.75), (60.45, 21.95), (60.42, 22.15), (60.40, 22.35), (60.38, 22.55),
+    (60.36, 22.75), (60.33, 22.95), (60.30, 23.15), (60.27, 23.40), (60.22, 23.60),
+    (60.18, 23.75), (60.13, 23.85), (60.10, 23.65), (60.02, 23.40), (59.95, 23.20),
+    (59.85, 23.00), (59.82, 22.90),
 ]
 
 
@@ -209,10 +233,9 @@ def summarize(week: dict, ledger: list) -> None:
 def build_decisions(world_map: dict, events: list, journal: list, reveal: dict, orders: dict, ledger_lines: list):
     """Replays the whole week through the real desk and parts, feeding the recorded events and
     actions, and captures each part's state at the moment of every quote."""
-    roster_file = sorted((DATA / "runs").glob("*/roster.json.gz"))[-1]
-    roster = json.loads(gzip.open(roster_file, "rt").read())
+    roster = json.loads(gzip.open(ROSTER, "rt").read())  # the final world's own driver list
     ctx = Context.build(8, world_map, roster)
-    parts = load("main")(ctx)
+    parts = load("main")(ctx, **AS_PLAYED)
     desk = Desk(NoWorld(), ctx, parts, now=0)
 
     requests = {e["request"]["id"]: e["request"] for e in events if e["kind"] == "price_request"}
@@ -320,8 +343,15 @@ def build_decisions(world_map: dict, events: list, journal: list, reveal: dict, 
                 desk.posts.pop(action["gigId"], None)
             for part in parts.all():
                 part.result(action, result, desk)
-    (OUT / "decisions.json").write_text(json.dumps(out, separators=(",", ":")))
     close = sum(1 for r in out.values() if r["replay"]["match"])
+    (OUT / "decisions.json").write_text(json.dumps(out, separators=(",", ":")))
+    settings = {
+        "asPlayed": AS_PLAYED,
+        "floors": [parts.fees.flat_floor, parts.fees.flat_short],
+        "match": [close, len(out)],
+        "model": AS_PLAYED["fee_model"],
+    }
+    (OUT / "settings.json").write_text(json.dumps(settings, separators=(",", ":")))
     print(f"decisions.json: {len(out)} requests; replayed prices match the sent quote "
           f"on {close} ({close / max(1, len(out)):.0%})")
 
@@ -385,7 +415,8 @@ def capture(desk, parts, request: dict, action: dict, orders: dict, money: dict,
     for o in request["options"]:
         start = max(desk.now, notes.earliest_pickup(request))
         slack[o["kind"]] = round((notes.latest_delivery(request, o["deadline"]) - start - drive) / 60, 1)
-    tilt = 0.85 if km < 100 else 1.1  # car_short for lanes under 100 km, else car
+    tilt = (quoter.car_short if quoter.car_short and km < quoter.short_km else quoter.car) \
+        if getattr(quoter, "car", 0) else 0
 
     rid = request["id"]
     row = {
