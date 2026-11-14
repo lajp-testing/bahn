@@ -153,6 +153,9 @@ class ProfitQuoter(Part):
         risk = self.late * fees.late_risk(request, desk) if self.late and hasattr(fees, "late_risk") else 0.0
         if self.pair and desk.parts.bundles and desk.parts.bundles.fits(request, desk):
             fee *= 1 - self.pair  # a car that can share a gig with one we hold costs less to move
+        home = getattr(desk.parts, "home", None)
+        if home and home.driver(request, desk):
+            fee *= 1 - home.cut  # a ride home for one of our drivers costs them little: price it as a bundled car
         dealer = request["dealerId"]
         factor, gain = self.factor(dealer) * self.region(request, desk), 0.0
         if self.invest:
