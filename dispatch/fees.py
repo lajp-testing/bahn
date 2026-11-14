@@ -112,7 +112,7 @@ class MeasuredFees(Fees):
     def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
                  cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, hold_until: int = 0, rescue_fraction: float = 0,
                  quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, far_open: float = 0, soon_open: float = 0, early: int = 0, backload: int = 0, rescue: int = 0,
-                 flat: int = 0, flat_up: float = 0.0, flat_step: float = 0.15, flat_wait: int = 6 * HOUR, flat_last: int = 24 * HOUR, flat_drop: int = 0, ladder_features: int = 0, **kwargs: Any):
+                 flat: int = 0, flat_up: float = 0.0, flat_step: float = 0.15, flat_wait: int = 6 * HOUR, flat_last: int = 24 * HOUR, flat_drop: int = 0, flat_views: int = 0, flat_views_steps: int = 1, ladder_features: int = 0, **kwargs: Any):
         super().__init__(**kwargs)
         # `flat` = 1: a gig opens at the fee we expect it to need (the model's expected multiple plus `flat_up`, within
         # 0.85 and `cap`) and keeps it, one `flat_step` more after `flat_wait` minutes of the drivers' day without a booking
@@ -127,6 +127,10 @@ class MeasuredFees(Fees):
         # `ladder_features` = 1: the learned model reads the schedule this part would post with the flat fee off (the ladder
         # most of its training weeks posted), instead of the flat fee itself (the teammate's fix, docs/pricing-fix-report.md)
         self.ladder_features = int(ladder_features)
+        # `flat_views` > 0: a single car without a driver inside its last `flat_last` minutes that has drawn this many views since
+        # its post, its last drop or its last such raise, with no booking, goes `flat_views_steps` flat steps up (within the cap):
+        # the drivers look and pass, so its fee is too low (Desk.viewed, t1s18). Off by default.
+        self.flat_views, self.flat_views_steps = int(flat_views), int(flat_views_steps)
         # `early` > 0: an order without a driver goes to the urgent fees when this many minutes of the drivers' day are
         # left before its last pickup. The world's own warning comes 3 hours before, which is late for a driver to get there.
         self.early = int(early)
