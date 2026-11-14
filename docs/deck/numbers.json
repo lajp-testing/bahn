@@ -1,0 +1,215 @@
+{
+ "steps": [
+  {
+   "label": "t3s10-calm",
+   "at": "10:45",
+   "weeks": 40,
+   "margin_eur": 490210.99,
+   "mean_week_eur": 12255.27,
+   "orders_per_week": 277.2,
+   "on_time_pct": 96.8,
+   "lowest_on_time": [
+    91.6,
+    92.3,
+    93.7
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "t3s15-safe-flat15",
+   "at": "13:40",
+   "weeks": 40,
+   "margin_eur": 560203.71,
+   "mean_week_eur": 14005.09,
+   "orders_per_week": 363.8,
+   "on_time_pct": 95.92,
+   "lowest_on_time": [
+    90.2,
+    91.1,
+    92.7
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b37-fee3",
+   "at": "14:00",
+   "weeks": 40,
+   "margin_eur": 592474.64,
+   "mean_week_eur": 14811.87,
+   "orders_per_week": 390.1,
+   "on_time_pct": 96.81,
+   "lowest_on_time": [
+    92.0,
+    94.0,
+    94.1
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b46-car105-sameday480",
+   "at": "15:05",
+   "weeks": 40,
+   "margin_eur": 624450.05,
+   "mean_week_eur": 15611.25,
+   "orders_per_week": 370.7,
+   "on_time_pct": 96.97,
+   "lowest_on_time": [
+    93.8,
+    94.7,
+    94.9
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b52-fee4-car110",
+   "at": "17:00",
+   "weeks": 40,
+   "margin_eur": 644278.09,
+   "mean_week_eur": 16106.95,
+   "orders_per_week": 360.6,
+   "on_time_pct": 96.42,
+   "lowest_on_time": [
+    91.3,
+    94.2,
+    94.3
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b68-floor075-short095-carshort085",
+   "at": "19:45",
+   "weeks": 40,
+   "margin_eur": 675465.22,
+   "mean_week_eur": 16886.63,
+   "orders_per_week": 386.4,
+   "on_time_pct": 96.34,
+   "lowest_on_time": [
+    92.1,
+    93.7,
+    94.0
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b84-fee5",
+   "at": "21:30",
+   "weeks": 40,
+   "margin_eur": 689909.11,
+   "mean_week_eur": 17247.73,
+   "orders_per_week": 388.6,
+   "on_time_pct": 97.08,
+   "lowest_on_time": [
+    93.8,
+    94.7,
+    94.9
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b87-fee5-limit45",
+   "at": "21:45",
+   "weeks": 40,
+   "margin_eur": 696403.97,
+   "mean_week_eur": 17410.1,
+   "orders_per_week": 394.8,
+   "on_time_pct": 96.74,
+   "lowest_on_time": [
+    93.0,
+    93.2,
+    94.2
+   ],
+   "all_ranked": true
+  }
+ ],
+ "unseen_b89_vs_b68": {
+  "weeks": 30,
+  "change_eur": 14341.51,
+  "ahead": 20
+ },
+ "unseen40_b89": {
+  "weeks": 40,
+  "margin_eur": 692339.22,
+  "mean_week_eur": 17308.48,
+  "orders_per_week": 398.7,
+  "on_time_pct": 96.08,
+  "lowest_on_time": [
+   92.4,
+   92.4,
+   92.5
+  ],
+  "all_ranked": true
+ },
+ "testfinal": {
+  "ranked_teams": 75,
+  "our_rank": 5,
+  "our_margin_eur": 17442.75,
+  "our_orders": 356,
+  "our_on_time_pct": 97.2,
+  "top_margin_eur": 19592.05,
+  "top_orders": 469
+ },
+ "flood_on_time": [
+  [
+   "under\n100 km",
+   98.1,
+   94.6
+  ],
+  [
+   "100–200",
+   97.2,
+   95.3
+  ],
+  [
+   "200–300",
+   96.8,
+   94.3
+  ],
+  [
+   "300–500",
+   96.1,
+   88.2
+  ],
+  [
+   "500 km\nand more",
+   88.2,
+   72.3
+  ],
+  [
+   "private\naddress",
+   81.1,
+   75.9
+  ]
+ ],
+ "sameday_vs_b37_30wk": [
+  {
+   "label": "b44-car100",
+   "change_eur": 7394.77,
+   "ahead": 20,
+   "lowest_on_time": 94.2
+  },
+  {
+   "label": "b43-car105",
+   "change_eur": 9074.41,
+   "ahead": 18,
+   "lowest_on_time": 95.2
+  },
+  {
+   "label": "b45-sameday480",
+   "change_eur": 25732.47,
+   "ahead": 25,
+   "lowest_on_time": 89.2
+  },
+  {
+   "label": "b46-car105-sameday480",
+   "change_eur": 27281.49,
+   "ahead": 23,
+   "lowest_on_time": 94.7
+  }
+ ],
+ "board_saturday_2100": {
+  "runs": 5,
+  "margin_eur": 84856.64,
+  "orders": 2018,
+  "on_time_pct": 96.43
+ }
+}
