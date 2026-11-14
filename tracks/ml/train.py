@@ -5,12 +5,18 @@ and 2 on the holdout worlds, and writes it out as plain Python (dispatch/learned
     nix develop --command python tracks/ml/train.py --no-export  # report only
     nix develop --command python tracks/ml/train.py --no-export --shipped --name "model 4" \\
         --recent-weight 5 --out dispatch/learned2.py             # a retrained second model
+    nix develop --command python tracks/ml/train.py --no-lean --shipped --name "model 5" --recent-weight 3 \\
+        --tier b68-floor,b70,b71-winner,b72,b73,b74,b75,b76,b77,b78,b79,b80,b81,b82,g1-yard,g2-viewskm,fe7164a=3 \\
+        --tier b52,b62,b63,b64,b66,b67,b69,fc3e132=3 --out dispatch/learned3.py   # model 5
 
 Split by world, never by row: the holdout seeds (hold-01..10) are never trained on; the number of trees is
 chosen on a few training worlds held back for that (every seventh training seed). Then the model is refit on
 all training worlds with that number of trees. Rows from recent-policy weeks (flat fees or fee_model=3,
 see `recent`) can be weighted higher with --recent-weight; the report adds a second table on the holdout
 rows of those weeks only, which is the test that matters under the mainline we will play.
+`--tier PREFIXES=WEIGHT` (repeatable, first match wins) weights the weeks of one policy generation: a week
+belongs to the tier when its label starts with one of the comma-separated prefixes, or when a prefix is a
+commit and the week is policy main at that commit or later. The report adds a table for each tier's holdout rows.
 """
 from __future__ import annotations
 
@@ -45,22 +51,18 @@ RECENT_VERSIONS = ("5ba1bf0", "e01292a", "3a6e7d9", "782a036", "5bb0223")
 _ANCESTORS: dict[str, bool] = {}
 
 
-def later(version: str) -> bool:
-    """True when the version's mainline already opens with flat fees (5ba1bf0 or a descendant)."""
+def later(version: str, commit: str = "5ba1bf0") -> bool:
+    """True when the version's mainline already contains the commit (by default 5ba1bf0: flat fees)."""
     base = version.split("+")[0]
-    if base not in _ANCESTORS:
-        done = subprocess.run(["git", "merge-base", "--is-ancestor", "5ba1bf0", base],
-                              cwd=ROOT, capture_output=True, check=False)
-        _ANCESTORS[base] = done.returncode == 0
-    return _ANCESTORS[base]
+    if (commit, base) not in _ANCESTORS:
+        done = subprocess.run(["git", "merge-base", "--is-ancestor", commit, base],
+                              cwd=ROOT, capture_output=True, check=False) if base else None
+        _ANCESTORS[(commit, base)] = done is not None and done.returncode == 0
+    return _ANCESTORS[(commit, base)]
 
 
-def recent(frame: pd.DataFrame) -> np.ndarray:
-    """One flag per row: the week was played under a recent policy (flat fees or fee_model=3).
-
-    From the run's index row: params fee_flat=1 or fee_model=3; or a code version whose mainline
-    defaults already carry flat fees (5ba1bf0 or later, checked by git when the version is unknown).
-    """
+def index_rows() -> dict[str, dict]:
+    """The runs index by week folder name."""
     index = {}
     try:
         with open(config.INDEX, encoding="utf-8") as file:
@@ -69,6 +71,34 @@ def recent(frame: pd.DataFrame) -> np.ndarray:
                 index[os.path.basename(row.get("folder") or "")] = row
     except OSError:
         pass
+    return index
+
+
+def tiers(frame: pd.DataFrame, specs: list[str]) -> np.ndarray:
+    """One tier number per row: 1 + the first `PREFIXES=WEIGHT` spec the week matches, 0 for none."""
+    index, out = index_rows(), np.zeros(len(frame), dtype=int)
+    for n, spec in reversed(list(enumerate(specs, 1))):
+        prefixes = spec.rsplit("=", 1)[0].split(",")
+        commits = [p for p in prefixes if len(p) >= 7 and all(c in "0123456789abcdef" for c in p)]
+        labels = tuple(p for p in prefixes if p not in commits)
+
+        def match(week: str, label: str, version: str, labels: tuple = labels, commits: list = commits) -> bool:
+            row = index.get(week, {})
+            base = (row.get("version") or version or "").split("+")[0]
+            return label.startswith(labels) or (row.get("policy") == "main" and any(later(base, c) for c in commits))
+
+        hit = np.array([match(w, lab, v) for w, lab, v in zip(frame["week"], frame["label"].astype(str), frame["version"].astype(str))])
+        out[hit] = n
+    return out
+
+
+def recent(frame: pd.DataFrame) -> np.ndarray:
+    """One flag per row: the week was played under a recent policy (flat fees or fee_model=3).
+
+    From the run's index row: params fee_flat=1 or fee_model=3; or a code version whose mainline
+    defaults already carry flat fees (5ba1bf0 or later, checked by git when the version is unknown).
+    """
+    index = index_rows()
 
     def is_recent(week: str, version: str) -> bool:
         row = index.get(week, {})
@@ -222,7 +252,10 @@ def main() -> None:
                         help="sample weight of rows from recent-policy weeks (flat fees or fee_model=3); 1 = off")
     parser.add_argument("--out", default=os.path.join(ROOT, "dispatch", "learned.py"), help="the exported module's path")
     parser.add_argument("--name", default="model 3", help="the trained model's name in the report")
-    parser.add_argument("--shipped", action="store_true", help="add the current dispatch/learned.py to the report")
+    parser.add_argument("--shipped", action="store_true", help="add the shipped models 3 and 4 to the report")
+    parser.add_argument("--tier", action="append", default=[], metavar="PREFIXES=WEIGHT",
+                        help="weight of the weeks whose label starts with one of the prefixes (or policy main at a listed commit or later); first match wins")
+    parser.add_argument("--no-lean", action="store_true", help="skip the model without our own state (faster)")
     args = parser.parse_args()
     frame = load(args.rows)
     train, test = frame[~frame["holdout"]], frame[frame["holdout"]]
@@ -232,6 +265,11 @@ def main() -> None:
           f"{is_recent[~hold].sum()} of them in recent-policy weeks; "
           f"test {len(test)} orders in {test['week'].nunique()} weeks of {test['seed'].nunique()} worlds")
     weight = pd.Series(np.where(is_recent[~hold], args.recent_weight, 1.0), index=train.index)
+    tier = tiers(frame, args.tier)
+    for n, spec in enumerate(args.tier, 1):
+        weight[tier[~hold] == n] = float(spec.rsplit("=", 1)[1])
+        print(f"tier {n} ({spec[:60]}): train {(tier[~hold] == n).sum()} orders in {train['week'][tier[~hold] == n].nunique()} weeks, "
+              f"holdout {(tier[hold] == n).sum()} orders in {test['week'][tier[hold] == n].nunique()} weeks")
     models = {target: fit(train, target, NAMES, weight) for target in TARGETS}
     x = test[list(NAMES)].to_numpy()
     fee3, late3 = predict(models["fee"], x), predict(models["late"], x)
@@ -241,12 +279,15 @@ def main() -> None:
                   args.name: (fee3, late3)}
     if args.shipped:
         candidates["model 3 (shipped)"] = shipped(x)
+        candidates["model 4 (shipped)"] = shipped(x, "learned2")
 
-    print("  without our own state at quote time (lane, time, car, note, options, schedule only):")
-    lean = tuple(name for name in NAMES if name not in STATE)
-    fee_lean, late_lean = fit(train, "fee", lean, weight), fit(train, "late", lean, weight)
-    xl = test[list(lean)].to_numpy()
-    extra = {f"{args.name} without state": (predict(fee_lean, xl), predict(late_lean, xl))}
+    extra = {}
+    if not args.no_lean:
+        print("  without our own state at quote time (lane, time, car, note, options, schedule only):")
+        lean = tuple(name for name in NAMES if name not in STATE)
+        fee_lean, late_lean = fit(train, "fee", lean, weight), fit(train, "late", lean, weight)
+        xl = test[list(lean)].to_numpy()
+        extra[f"{args.name} without state"] = (predict(fee_lean, xl), predict(late_lean, xl))
     refund3 = predict(models["refund"], x)
     extra[f"{args.name}, late from refund"] = (fee3, np.clip(refund3 / 0.25, 0, 1))  # a late order gives back about a quarter
 
@@ -262,12 +303,20 @@ def main() -> None:
         print(f"\nrecent-policy holdout rows only: {mask.sum()} orders in {sub['week'].nunique()} weeks of "
               f"{sub['seed'].nunique()} worlds; mean fee {fee[mask].mean():.3f}, late share {late[mask].mean():.3f}")
         table(fee[mask], late[mask], {k: (f[mask], p[mask]) for k, (f, p) in candidates.items()})
+    for n, spec in enumerate(args.tier, 1):
+        mask = tier[hold] == n
+        if mask.any():
+            fee, late = test["fee"].to_numpy(), test["late"].to_numpy()
+            print(f"\ntier {n} holdout rows only ({spec[:60]}): {mask.sum()} orders in {test['week'][mask].nunique()} weeks of "
+                  f"{test['seed'][mask].nunique()} worlds; mean fee {fee[mask].mean():.3f}, late share {late[mask].mean():.3f}")
+            table(fee[mask], late[mask], {k: (f[mask], p[mask]) for k, (f, p) in candidates.items()})
 
     if not args.no_export:
         summary = (f"Trained on {len(train)} orders from {train['seed'].nunique()} worlds (every seed but hold-*), "
                    f"recent-policy rows weighted {args.recent_weight:g}, "
+                   + "".join(f"tier {spec.rsplit('=', 1)[0][:40]}... weighted {spec.rsplit('=', 1)[1]}, " for spec in args.tier) +
                    f"{len(_trees(models['fee']))}/{len(_trees(models['late']))}/{len(_trees(models['refund']))} trees of at most depth {PARAMS['max_depth']}.")
-        export(models, args.out, summary, f"fee model {3 if args.out.endswith('learned.py') else 4}")
+        export(models, args.out, summary, f"fee {args.name}")
         check(models, test[list(NAMES)].head(2000).to_numpy(), args.out)
 
 
@@ -285,9 +334,10 @@ def feature_gain(est) -> list[tuple[int, float]]:
     return sorted(enumerate(gain), key=lambda t: -t[1])
 
 
-def shipped(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """The current dispatch/learned.py's answers, in plain Python exactly as the dispatcher runs it."""
-    import dispatch.learned as learned
+def shipped(x: np.ndarray, module: str = "learned") -> tuple[np.ndarray, np.ndarray]:
+    """A shipped model's answers (dispatch/learned.py by default), in plain Python exactly as the dispatcher runs it."""
+    import importlib
+    learned = importlib.import_module("dispatch." + module)
     fee = np.array([learned.fee([float(v) for v in row]) for row in x])
     late = np.array([learned.late([float(v) for v in row]) for row in x])
     return fee, late

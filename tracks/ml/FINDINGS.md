@@ -98,3 +98,83 @@ the recent rows on both metrics, so the win is the retrain on recent weeks itsel
 `fee_model=4` answers in plain Python as fast as model 3: measured 0.056 ms per request (fee and late
 together, 2,000 requests; model 3 0.065 ms on the same machine, 0.15 ms under load), against the 1 ms
 budget. The offline test suite passes (26 tests, `tests/test_ml.py` covers the model 4 switch).
+
+## Retrain on the floor-0.75 weeks, 14 Nov evening
+
+Model 4 was trained at about 15:00 UTC. Since then the mainline changed twice: `fee_model=4` and `car=1.1`
+(fc3e132, 17:00), then flat-fee floors 0.75 / 0.95 and short lanes at `car_short=0.85` (fe7164a, 19:45). The
+lower floors change the schedules drivers see (the inputs `sched_open` / `sched_cap`) and the fees paid, and
+model 4 has seen almost none of those weeks. On the floor-0.75 holdout weeks it **overpredicts the fee by
+0.076 of typical** (model 3 by 0.050), which feeds straight into the flat opening and the quote.
+
+`tracks/ml/train.py` gained `--tier PREFIXES=WEIGHT` (repeatable, first match wins; a prefix is a label
+prefix, or a commit meaning "policy main at that commit or later"), `--no-lean` (skips the model without our
+own state) and `--shipped` now reports models 3 and 4. Defaults are unchanged. The two tiers:
+
+- **floor-0.75 (tier 1):** labels `b68-floor`, `b70`, `b71-winner`, `b72`..`b82`, `g1-yard`, `g2-viewskm`, or main at fe7164a or later.
+- **recent fee4 (tier 2):** labels `b52`, `b62`..`b67`, `b69`, or main at fc3e132 or later (and not tier 1).
+
+Rows: rebuilt from all 6,701 saved level 8 weeks (`rows.py --jobs 11`, about 9 minutes with the per-week
+cache, no week skipped): 1,964,366 orders. Training 1,900,930 orders in 6,468 weeks of 54 worlds; 780,561 of
+them in recent-policy weeks (flat fees or later), of which **256,333 in 644 floor-0.75 weeks** and 142,806 in
+386 recent fee4 weeks. Holdout 63,436 orders in 230 weeks of 10 worlds; tier 1 holdout = `b68-floor075-short095-carshort085`
+hold-01..10 (3,765 orders, 10 weeks), tier 2 holdout = `b52-fee4-car110` hold-01..10 (3,475 orders, 10 weeks).
+
+Candidates, all with `--recent-weight 3` (model 4's recipe) for the other flat-fee weeks:
+
+| candidate | tier 1 / tier 2 weight | (a) all: fee MAE / late LL / Brier | (b) floor-0.75: fee MAE / bias / late LL / Brier | (c) fee4: fee MAE / late LL |
+|---|---|---|---|---|
+| A | 3 / 2 | 0.2066 / 0.1079 / 0.0262 | **0.1651** / +0.0067 / 0.1173 / 0.0289 | **0.1495** / 0.1227 |
+| B | 6 / 2 | 0.2071 / 0.1081 / 0.0262 | 0.1657 / **+0.0051** / 0.1177 / **0.0286** | 0.1498 / 0.1228 |
+| **C (pick)** | 3 / 3 | **0.2068** / **0.1077** / **0.0260** | 0.1663 / +0.0077 / **0.1170** / **0.0286** | 0.1499 / 0.1232 |
+
+The three are within noise of each other on (b): 3,765 orders, 10 weeks, differences of 0.001 in fee MAE
+and 0.0007 in log loss. **Pick C**: it is the best on (a) on all three metrics, the best on late log loss and
+Brier on (b), within 0.0012 of A on fee MAE, and it is the simplest: every recent week weighted 3, which is
+model 4's recipe on the new rows. So an online difference measures the new weeks, not a new weighting.
+Exported to `dispatch/learned3.py` (2.5 MB, 500 / 324 / 163 trees, identical to sklearn on 2,000 rows),
+behind **`fee_model=5`** in `dispatch/fees.py` (same feature function as models 3 and 4; both unchanged).
+
+### (a) All holdout rows (63,436 orders, 230 weeks, 10 worlds; mean fee 1.044, late 3.1%)
+
+| | fee MAE | fee bias | late log loss | late Brier |
+|---|---|---|---|---|
+| constant | 0.2792 | +0.0217 | 0.1395 | 0.0302 |
+| model 2 | 0.2690 | +0.0299 | 0.1327 | 0.0292 |
+| model 3 (shipped) | 0.2126 | +0.0064 | 0.1118 | 0.0269 |
+| model 4 (mainline) | 0.2092 | +0.0100 | 0.1086 | 0.0262 |
+| **model 5** | **0.2068** | **+0.0019** | **0.1077** | **0.0260** |
+
+### (b) Floor-0.75 holdout rows (3,765 orders, 10 weeks, 10 worlds; mean fee 0.959, late 3.3%)
+
+| | fee MAE | fee bias | late log loss | late Brier |
+|---|---|---|---|---|
+| constant | 0.2886 | +0.1073 | 0.1454 | 0.0319 |
+| model 2 | 0.2989 | +0.1211 | 0.1602 | 0.0338 |
+| model 3 (shipped) | 0.1934 | +0.0499 | 0.1318 | 0.0310 |
+| model 4 (mainline) | 0.1935 | +0.0755 | 0.1283 | 0.0307 |
+| **model 5** | **0.1663** | **+0.0077** | **0.1170** | **0.0286** |
+
+### (c) Recent fee4 holdout rows (3,475 orders, 10 weeks, 10 worlds; mean fee 0.983, late 3.6%)
+
+| | fee MAE | fee bias | late log loss | late Brier |
+|---|---|---|---|---|
+| constant | 0.2515 | +0.0835 | 0.1551 | 0.0347 |
+| model 2 | 0.2585 | +0.1001 | 0.1623 | 0.0357 |
+| model 3 (shipped) | 0.1672 | −0.0016 | 0.1387 | 0.0322 |
+| model 4 (mainline) | 0.1564 | +0.0074 | 0.1327 | 0.0315 |
+| **model 5** | **0.1499** | −0.0079 | **0.1232** | **0.0304** |
+
+On all recent-policy holdout rows (21,939 orders, 60 weeks) model 5 has fee MAE 0.1545 against 0.1638 and late log loss 0.1210 against 0.1265.
+
+- **What it means:** on the floor-0.75 weeks model 5 cuts fee MAE by 14% (0.194 → 0.166), removes model 4's
+  +0.076 fee overprediction and cuts late log loss by 9%. Model 4 thinks the cars under the new floors cost
+  more than they do, so it opens higher and quotes higher than it needs to.
+- **Caveat, feedback:** a lower expected fee also lowers the flat opening (`sched_open`), which is an input
+  of the same model. The offline numbers hold the mainline's schedules fixed; only `--set fee_model=5`
+  online can tell whether the lower openings still book on time.
+- **Speed:** 0.099 ms per request in plain Python (fee and late, 2,000 rows; model 4 0.090 ms on the same
+  machine), well under the 1 ms budget. `tests/test_ml.py` covers the switch; 37 tests pass.
+- Rerun: `SPREAD_DATA=<data> python3 tracks/ml/rows.py --jobs 11`, then
+  `nix develop --command python tracks/ml/train.py --no-lean --shipped --name "model 5" --recent-weight 3 --tier <tier 1>=3 --tier <tier 2>=3 --out dispatch/learned3.py`
+  (the full prefix lists are in the train.py docstring; about 10 minutes).
