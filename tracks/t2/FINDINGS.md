@@ -441,3 +441,45 @@ All weeks ranked (lowest on-time week: dev-07, 92.7% / 92.7% / 90.9%).
 Also from this stint: with `pair=0.2`, `target=0.55` comes within €1,335 (1.1%) of the mainline on 22% more orders (`t2s14-t55-pair20` vs `t1s11-base`), better than `t2s13-target55` without pairing (€122,212).
 
 Leads: hold only at night (a car won after 20:00 is not booked before morning anyway, so the wait costs nothing); or hold only a car whose quote `fits` told us a partner is likely (a busy lane).
+
+## Quoting lower on top of the learned cost model, 14 Nov (afternoon)
+
+Base: `b37-fee3` (mainline 3a6e7d9: fee_model=3, safe_limit=80, car=0.95, flat fees). 10 dev weeks, paired.
+
+**Which requests we lose under `b37-fee3`** (10 dev weeks, 10,353 requests, 3,932 won). The quoter is already a per-option profit maximiser over one cost, so "the same margin on every option" is what it does; no change needed there. The lever is the set of options we quote:
+
+| options offered → quoted | requests | win rate |
+|---|---|---|
+| next_day+same_day → next_day only | 3,167 | 0.34 |
+| next_day+same_day → both | 1,373 | 0.67 |
+| all three → next_day+3 days | 950 | 0.32 |
+| all three → all three | 369 | 0.63 |
+| next_day only | 2,259 | 0.37 |
+| same_day only | 1,407 | 0.17 |
+
+A request where we also quote same_day wins about twice as often. The intake (track 1's `same_day_slack=360`, `same_day_drivers=80`) drops same_day on 4,117 requests. The 3-day option wins 7–10% at about 1.5× list price.
+
+Screens, 10 dev weeks paired against `b37-fee3` (€147,171, 389 orders/week, €37.80/car, 96.8%):
+
+| label | Δ margin | weeks ahead | orders/week | €/car | on time | three lowest on-time weeks |
+|---|---|---|---|---|---|---|
+| `main[car=0.9]@3a6e7d9` | −€156 | 5/10 | 409 | €35.98 | 96.6% | dev-01 93.3%, dev-10 95.3%, dev-09 95.9% |
+| `main[car=0.85]@3a6e7d9` | −€2,725 | 4/10 | 426 | €33.88 | 96.6% | dev-10 93.9%, dev-01 94.0%, dev-05 95.0% |
+| `main[same_day_drivers=40]@3a6e7d9` | +€2,494 | 5/10 | 398 | €37.60 | 96.3% | dev-01 94.3%, dev-05 95.6%, dev-04 96.1% |
+| `main[same_day_drivers=0]@3a6e7d9` | +€10,172 | 9/10 | 423 | €37.21 | 94.7% | dev-10 90.6%, dev-05 92.9%, dev-09 93.9% |
+
+All weeks ranked. `same_day_drivers` is track 1's intake parameter (no code change); we used it because which options get a quote is where the volume is.
+
+**What it shows.** Quoting lower (`car`) buys orders at about €75 each in lost margin (car=0.85: +37 orders a week for −€272 a week); it does not pay. Quoting same_day more often buys orders *and* margin: with no nearby-driver gate, +34 orders a week and +€1,017 a week, 9 of 10 weeks better (dev-01, our weakest week, +€2,382). The cost is on time: 96.8% → 94.7%, and dev-10 sits at 90.6%, too close to the 90% line for the final as it stands.
+
+Second round, same base, all weeks ranked:
+
+| label | Δ margin | weeks ahead | orders/week | €/car | on time | three lowest on-time weeks |
+|---|---|---|---|---|---|---|
+| `main[same_day_drivers=20]@3a6e7d9` | +€9,094 | 9/10 | 405 | €38.58 | 96.5% | dev-10 94.8%, dev-02 95.1%, dev-01 95.5% |
+| `main[same_day_drivers=0,same_day_slack=480]@3a6e7d9` | **+€10,397** | **10/10** | 410 | €38.42 | 96.7% | dev-10 95.3%, dev-07 95.7%, dev-03/04/09 96.0% |
+| `main[car=0.9,same_day_drivers=20]@3a6e7d9` | +€2,365 | — | 419 | €35.67 | 95.8% | dev-03 94.7%, dev-09 95.0%, dev-07 95.2% |
+
+**Verdict.** The nearby-driver gate on same_day (`same_day_drivers=80`) costs us money: it drops a same_day quote on 40% of the requests that offer it, and a request with a same_day quote wins about twice as often. Removing the gate and asking for 8 h of slack instead of 6 h (`same_day_drivers=0 same_day_slack=480`) beats `b37-fee3` on every dev week: +€10,397 (+7.1%), +21 orders a week, €/car up (€37.80 → €38.42), on time unchanged (96.7%, lowest week 95.3%). The slack keeps the on-time share where the plain gate removal lost it (dev-10 90.6% → 95.3%). Lower prices (`car`) still do not pay, even with more same_day quotes. The rule in one sentence: quote same_day whenever the car can be delivered with 8 hours to spare, whoever lives nearby.
+
+**Recommendation.** Candidate for the mainline: `same_day_drivers=0 same_day_slack=480` (track 1's intake parameters, no code change). Confirm on 30 more weeks (orchestrator holdout) before switching; it is one dev screen, 10/10 weeks ahead. Next: `same_day_slack` 420/540 to find the edge, and stack with t3's `limit=40 morning_limit=50`.
