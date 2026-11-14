@@ -327,3 +327,34 @@ Stint of 30 minutes. Question: why did `t1s13-safe80q-car95` lose two rob weeks,
 - **Caution: the dev differences are within noise.** `end102` sits closer to the reference than `end110` but loses more on dev (−€2,854). A re-priced week replays differently, so ±€2.5k over 10 weeks is not a finding. The gain on rob-18 and rob-17 is two weeks: a lead.
 
 **Next.** (1) Play `end_car=1.1` on the other 18 rob seeds against `t1s13-safe80q-car95` (30 weeks in all, about 9 minutes on two slots). Adopt it only if no week drops out and the 30-week total stays within about €1.5k. (2) A cheaper fix belongs to fees and the desk, not intake: from Thursday evening, book Friday gigs with drivers of few drops, or re-raise dropped Friday gigs at 07:00 sharp, so that the morning's first look sees a fee that books. (3) The risk-weighted room price was not built: the bad week's late cars were short, safe lanes, so a price per unit of lane risk would not have caught them.
+
+## The floor under the learned cost model, 14 Nov (t1s16)
+
+Stint of 30 minutes on mainline `b37-fee3` (fee_model=3, flat fees, safe_limit=80, car=0.95). New scripts: `tracks/t1/timeline.py <seed> <label>` (each late car's story: posts, bookings, drops, views, reprices) and `tracks/t1/dropwait.py <label>` (dropped cars: late or not, last day or earlier, views while open after the drop).
+
+**The lowest weeks are no longer a Friday wave.** rob-18 (92.0%, 21 late): 17 late cars due Friday, 14 of them won on Thursday; causes dropped 10, no driver until the warning 8, driven late 3. dev-01 (94.0%, 21 late): 18 of the 21 late cars were due on **Wednesday**; causes dropped 9, no driver until the warning 11. The queue never passed 35 in either week.
+
+**Mechanism: a dropped flat-fee gig is stuck at its booked fee.** The mainline has no `drops` repair, so a dropped gig comes back with its old schedule, whose steps have all started: under flat fees that is the fee it was booked at, with no later steps. A car dropped inside its last day has no flat look-again step ahead, so it waits at that fee until the deadline warning (3 hours before its last pickup) starts the urgent ladder. Example, dev-01 R00383 (369 km, last pickup Wed): booked Tue 15:30, dropped Wed 00:30, then **viewed 50 times from 07:12 to 10:20 at the old fee and never booked**, urgent at 10:27, late.
+
+Over the 30 dev and rob weeks of `b37-fee3`: 358 late cars, 103 of them dropped (29%). 94 were dropped in their last 24 hours, with **87 views each** while open after the drop. Dropped cars that still arrived on time had 12 views each (lastday 848 cars) and 15 (earlier). The drivers look at the gig and pass on it, so the fee is too low.
+
+**Rule `fee_flat_drop=1`** (off by default; new `Desk.last_day_drop` on `gig_dropped`, parameter in `MeasuredFees`, `FEES` in `main.py`; 17 lines of `desk.py`, a small change to the desk): a car dropped inside its last `flat_last` minutes (24 h) comes back at the top of the fee schedule a new post would get (the model's fee plus one `flat_step`), not at the booked fee. Reason in one sentence: *a car dropped in its last day has no look-again step left, so it gets that step at once instead of at the warning.*
+
+**Checks.** Switch off: `t1s16-off2` dev-01 €9,956.48, 352 orders, 94.0%, the same as `b37-fee3` to the cent. (A first try, `t1s16-drop`, hooked the rule into `after_drop`, which the mainline never calls because it has no `drops` repair. It reproduced `b37-fee3` exactly and was stopped after 2 weeks.)
+
+**Screen** `t1s16-drop2` (`fee_flat_drop=1`) against `b37-fee3`, 10 dev seeds plus rob-17 and rob-18:
+
+| | margin (12 weeks) | orders/week | 3 lowest weeks |
+|---|---|---|---|
+| `b37-fee3` | €167,106.65 | 377.3 | rob-18 92.0%, dev-01 94.0%, dev-09 95.2% |
+| `t1s16-drop2` | €169,861.46 | 380.0 | rob-18 91.5%, dev-01 94.4%, dev-09 95.7% |
+
+**+€2,754.81 over 12 weeks (dev only +€2,687.83), 10 of 12 weeks ahead**, all ranked, 4,560 orders against 4,527. dev-05 95.3% → 97.2%, rob-17 95.4% → 96.3%. Behind: dev-03 −€398 and rob-18 −€158 (92.0% → 91.5%, 22 late against 21).
+
+**What it did to the drops** (`dropwait.py`, the same 12 seeds): late cars dropped in their last day 56 → 52, views per such car 90 → 79. The rule helps a little, but the drivers still look and pass: one flat step does not book a car that has been dropped. **The floor did not rise.** rob-18's late cars are still Friday cars (18 of 22) dropped on Friday itself, for example R00524 (64 km, dropped Fri 13:59, warned at 16:14) and R00662 (dropped Fri 00:54).
+
+**Reading.** A small, consistent gain in money and volume. That is a lead (12 weeks), not a floor fix. The floor needs a stronger answer for a drop inside the last day than one more flat step, such as the urgent ladder at once (treat a last-day drop like a deadline warning) or a direct offer (`offers=drops`).
+
+**The other 18 rob seeds** (same label `t1s16-drop2`): all ranked. Paired with `b37-fee3` on the 29 weeks both labels hold (10 dev and 19 rob; one rob seed is missing from `b37-fee3`'s index): **+€2,462.11 (€432,598.79 against €430,136.68), 18 of 29 weeks ahead, 392.4 against 391.5 orders/week**. The rob weeks alone come to −€225.72. The 3 lowest weeks: `b37-fee3` rob-18 92.0%, dev-01 94.0%, rob-04 94.7%; `t1s16-drop2` rob-18 91.5%, dev-01 94.4%, rob-04 94.7%.
+
+**Verdict: neutral.** About +€85 a week, which is noise; no change in volume; the floor did not move. Not recommended for the mainline. Keep the switch for the next step: on a last-day drop, start the urgent ladder at once (`raise_fees` at the drop) instead of one flat step, since 79 to 90 looks per dropped late car say the fee is far below what that driver pool takes.

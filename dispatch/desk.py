@@ -179,6 +179,8 @@ class Desk:
             self.booked.discard(event["gigId"])
             if "drops" in self.parts.repairs and kind == "gig_dropped":
                 self.after_drop(event["gigId"])
+            elif getattr(self.parts.fees, "flat_drop", 0) and kind == "gig_dropped":
+                self.last_day_drop(event["gigId"])
         elif kind == "delivered":
             self.delivered(event["orderId"], event["leg"], event["at"])
 
@@ -361,6 +363,20 @@ class Desk:
         fresh = self.fees_for(order, pickups(action))
         schedule = [{"at": self.now, "feeCents": fee}] + [step for step in fresh if step["feeCents"] > fee and step["at"] > self.now]
         self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": schedule[:48]})
+
+    def last_day_drop(self, gig_id: str) -> None:
+        """A single car dropped inside its last `flat_last` minutes has no look-again step left: it comes back at once at
+        the top a new post would reach, if that is above the fee it was booked at (t1s16)."""
+        action = self.posts.get(gig_id)
+        members = orders_in(action["stops"]) if action else []
+        if len(members) != 1 or members[0] not in self.orders or members[0] in self.urgent:
+            return
+        order = self.orders[members[0]]
+        if order["lastPickupAt"] - self.now >= self.parts.fees.flat_last:
+            return
+        top = self.fees_for(order, pickups(action))[-1]["feeCents"]
+        if top > self.booked_fee.get(gig_id, 0):
+            self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": [{"at": self.now, "feeCents": top}]})
 
     def cut(self, stops: list[Any]) -> list[Any]:
         """The stops without the windows that have ended. With the "windows" repair a window that ends this minute

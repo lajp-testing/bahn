@@ -105,7 +105,7 @@ class MeasuredFees(Fees):
     def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
                  cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, hold_until: int = 0, rescue_fraction: float = 0,
                  quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, far_open: float = 0, soon_open: float = 0, early: int = 0, backload: int = 0, rescue: int = 0,
-                 flat: int = 0, flat_up: float = 0.0, flat_step: float = 0.15, flat_wait: int = 6 * HOUR, flat_last: int = 24 * HOUR, **kwargs: Any):
+                 flat: int = 0, flat_up: float = 0.0, flat_step: float = 0.15, flat_wait: int = 6 * HOUR, flat_last: int = 24 * HOUR, flat_drop: int = 0, **kwargs: Any):
         super().__init__(**kwargs)
         # `flat` = 1: a gig opens at the fee we expect it to need (the model's expected multiple plus `flat_up`, within
         # 0.85 and `cap`) and keeps it, one `flat_step` more after `flat_wait` minutes of the drivers' day without a booking
@@ -113,6 +113,9 @@ class MeasuredFees(Fees):
         # after a drop. Few raises, so drivers do not learn to wait for the next one. Off by default.
         self.flat, self.flat_up, self.flat_step = int(flat), float(flat_up), float(flat_step)
         self.flat_wait, self.flat_last = int(flat_wait), int(flat_last)
+        # `flat_drop` = 1: a car dropped inside its last `flat_last` minutes comes back at the top of a fresh flat schedule,
+        # not at the fee it was booked at (Desk.after_drop)
+        self.flat_drop = int(flat_drop)
         # `early` > 0: an order without a driver goes to the urgent fees when this many minutes of the drivers' day are
         # left before its last pickup. The world's own warning comes 3 hours before, which is late for a driver to get there.
         self.early = int(early)
