@@ -215,3 +215,45 @@ Stint of 30 minutes. Track 3 found that keeping gigs open longer costs orders th
 **`t1s11-q48`** (`queue_hours=48`): €373,119.48 (**+€1,505.46**), 8,728 orders (+308), **96.37%** on time, 30/30 ranked, 15/30 weeks higher; lowest rob-18 **91.8%**, dev-07 91.9%, rob-17 92.0%. Milder than 36 h in orders but the same loss of on-time share; the gain is 0.4% of margin, within the spread of a coin flip (15/30 weeks higher).
 
 **Verdict.** Not adopted; the switch stays off. The limit binds on volume the drivers cannot move on time even when the pickup is two days away: the extra orders land in the same short driver pool (see "More orders, same worst week"). Every lever that adds volume so far (limit 40/45, day cap, now far orders) buys about +€1-2k over 30 weeks at the price of 2 points in the weakest week. Untested: a fraction (`queue_far=0.5`), and pairing `queue_hours` with a lower limit (e.g. `limit=32 queue_hours=48`) to keep total volume equal and only shift its mix toward far orders.
+
+## The ceiling, 14 Nov
+
+Stint of 30 minutes. Question: is our limit our delivery or our caution? Make the system win far more orders and see where it breaks. Dev seeds only, so this is a screen, not a finding. Group tables: `python3 tracks/t1/ceiling.py <label> ...` (new script; the groups come from `harness.orders` plus bundled or alone).
+
+| label | settings | orders | margin | on time | ranked | lowest weeks |
+|---|---|---|---|---|---|---|
+| `t1s11-base` | mainline (limit 35, 45 before noon, car 1.1) | 2,879 | €127,567 | 96.8% | 10/10 | dev-07 93.7% |
+| `t1s13-wide` | limit 55, morning 65, car 0.95 | 3,673 (+28%) | €124,922 | 94.8% | 9/10 | dev-07 **87.5%**, dev-10 91.6%, dev-08 94.1% |
+| `t1s13-flood` | limit 80, morning 90, car 0.8 | 4,453 (+55%) | €103,440 | 91.8% | 8/10 | dev-07 **83.4%**, dev-10 **86.6%**, dev-03 92.5% |
+
+**The orders are there.** Flood wins 370 to 506 a week (median about 450), which is the top teams' volume. So intake caution, not demand, keeps us at 300. Note that a flood week at 92.5 to 93.8% on time with 450 orders is what the board shows as about 97% for the top teams. They deliver it; we do not.
+
+**Where the money goes in the flood** (€ per order, base → flood): price/list 1.55 → 1.41 (the cheaper quote), fee/typical 1.02 → **1.09** (the same driver pool, asked for more, costs more), refunds €1.8 → **€6.8**. Margin per order €44.3 → €23.4. The loss is spread across every group, so about half of it is price and fee, not lateness alone.
+
+**What breaks, by group** (on time and total margin, base → flood):
+
+- Lane length: under 100 km 98.1% → 94.6%, €21.3k → €18.3k; 100-200 km 97.2 → 95.3%, €31.2k → €31.4k; 200-300 km 96.8 → 94.3%, €22.8k → €23.2k; **300-500 km 96.1 → 88.2%, €35.6k → €28.2k; 500 km and more 88.2 → 72.3%, €16.8k → €3.0k** (refunds €51 per order).
+- **Private address**: 81.1 → 75.9%, €6.0k → €3.1k (refund €24 per order, fee 1.44 times typical).
+- Drivers living near the pickup or the delivery: little difference. P+D+ 93.0%, P-D+ 94.3%, P+D- 91.0%, P-D- 89.7%. Few drivers near the delivery (under 10) is the weakest (89.1%), but not enough to build a rule on.
+- Option: same day 92.0%, next day 91.3%, within 3 days 98.0% (205 orders, €35.5 each: the safest and best-paid car in the flood).
+- Day the request arrived: Monday holds up (1,122 orders, 93.6%, the same €28k as base from 675 orders); Wednesday to Friday fall to 90-91%.
+- Bundled or alone: about the same (92.2% / 91.4%). Bundling rises from 49% to 56% of cars, on its own.
+- Why late (`latecause.py`): in the flood 199 of 356 late orders had **no driver until the deadline warning**. The pool runs out.
+
+`t1s13-wide` shows the same shape, milder. Lanes under 300 km stay 96-97% on time and add €2.9k; 300-500 km fall to 92.5% and over 500 km to 79.2% (−€4.0k); private addresses 77.6%.
+
+**Reading.** Both limits bind. Caution (the intake cap) holds back about 50% more orders that dealers will give us. Delivery breaks first on long lanes (300 km and more) and on private addresses: those cars use a whole driver-day, find a driver late, and pay refunds. Short lanes without a private address stay cheap and on time even in a flood.
+
+**Rule, built behind a switch** (`safe_limit=<n>`, off by default; `LimitedIntake.safe` in `dispatch/intake.py`, wired in `main.py`). Past the usual limit and up to n waiting orders, quote only a car with no private address, a lane under `safe_km` (300) and at least `safe_near` drivers living near the pickup (0 here, since the screen shows that this hardly matters). Reason in one sentence: the drivers can take many more short cars, but not more long ones. Prices stay at car 1.1, so only volume changes.
+
+**Screens of the rule** (10 dev weeks, against `t1s11-base` €127,567 / 2,879 / 96.8% / 10 of 10):
+
+- `t1s13-off` (switch off, dev-01): €8,764.79, 246 orders, 97.6%, the same as the baseline to the cent.
+- `t1s13-safe80` (`safe_limit=80 safe_km=300 safe_near=0`): €126,673.66, 2,889 orders, 97.0%, 10 of 10 ranked, 1 of 10 weeks higher. **The room hardly fills.** The quoter's queue charge (`ProfitQuoter.prices`: 0.3 list prices times fullness², fullness = unbooked / `limit`) is at its full 0.3 by the time the intake limit binds. So a safe car past the limit gets a quote 0.3 list prices higher and loses. *Finding: much of our caution is the queue charge, not the intake cap.* That is why `wide` and `flood`, which raise the quoter's `limit` too, won far more.
+- `t1s13-safe80q` (the same, plus a safe car's charge reads its fullness against `safe_limit` instead of `limit`; `dispatch/pricing.py`, only when the switch is on): **€129,101.16 (+€1,534), 2,989 orders (+110), 97.0% on time, 10 of 10 ranked, 5 of 10 weeks higher; lowest dev-07 94.3% (base 93.7%).** By group: lanes under 300 km +€4.0k (+130 orders, 97.3 to 97.8% on time), lanes of 300 km and more −€1.8k (−20 orders, which the short cars push out of the queue). A lead, not a finding: +1.2% of margin, 5 of 10 weeks.
+
+- `t1s13-safe80q-car95` (the same plus `car=0.95` for every car): €128,473.04 (+€906), **3,640 orders (+26%)**, 95.5% on time, 10 of 10 ranked; lowest dev-08 93.3%, dev-10 93.6%, dev-07 93.9%. It has about the volume of `wide` (3,673) at €3.5k more margin, and it keeps all 10 weeks ranked where `wide` loses dev-07 (87.5%). The cheaper price is spent on every lane, so long lanes come back: over 500 km 201 orders at 83.1%, private addresses 147 at 76.9%. The next step is therefore car 0.95 for safe cars only.
+
+(Group totals from `ceiling.py` differ a little from the runner's totals, because `harness.orders` drops cancelled orders.)
+
+**Next.** (1) Play `safe80q` on the 20 rob seeds against `t1s11-base` before anyone adopts it. (2) Volume is still about 300 a week: the brake is price (car 1.1 plus the queue charge), not room. The next lever is pricing safe cars like the flood (car 0.8 to 0.95 for safe cars only) and quoting long lanes and private addresses higher (or not at all) once the queue holds 35. That keeps the flood's short-lane volume (95% on time) without its 72% long lanes. (3) Over 500 km is 88% on time even in the baseline, with €13 of refunds per order. A separate stricter limit for those lanes is worth a screen.

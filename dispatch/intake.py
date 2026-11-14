@@ -95,7 +95,9 @@ class LimitedIntake(Intake):
             limit = min(limit, self.shortage_limit)
         # A quote awaiting its dealer holds `pending_weight` of a place: about a third of them win.
         waiting = held + getattr(self, "pending_weight", 1.0) * len(self.pending)
-        if not later or waiting >= limit:
+        if later and waiting >= limit and getattr(self, "safe_limit", 0) and waiting < self.safe_limit and self.safe(request, desk):
+            pass  # past the limit, a car the flood screen showed stays cheap and on time still gets its quote
+        elif not later or waiting >= limit:
             return decline(request)
         if self.queue_price:
             load = waiting / self.limit
@@ -106,6 +108,16 @@ class LimitedIntake(Intake):
         self.pending[request["id"]] = request["respondBy"]
         self.pending_days[request["id"]] = {self.due_day(o["deadline"]) for o in request["options"] if o["kind"] in later}
         return later
+
+    def safe(self, request: dict[str, Any], desk: "Desk") -> bool:
+        """A car that stays on time in a flood: no private address, a lane under `safe_km`, and `safe_near` drivers living near the pickup."""
+        if any(leg[side]["privateAddress"] for leg in request["legs"] for side in ("pickup", "delivery")):
+            return False
+        leg = request["legs"][0]
+        if desk.ctx.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) >= self.safe_km:
+            return False
+        near = sum(desk.ctx.straight_km(driver["homePlaceId"], leg["pickup"]["placeId"]) <= 30 for driver in desk.ctx.roster)
+        return near >= self.safe_near
 
     @staticmethod
     def due_day(deadline: int) -> int:

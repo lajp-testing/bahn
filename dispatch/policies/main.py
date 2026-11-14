@@ -31,7 +31,7 @@ OFFERS = ("offer_n", "offer_up", "offer_near", "offer_fresh", "offer_rounds")  #
 BUNDLES = ("bundle_dead", "bundle_slack", "bundle_split", "bundle_discount", "bundle_drive", "bundle_private", "bundle_patience", "bundle_room")  # passed to the bundles without the prefix
 
 
-def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans+calm", pending: float = 1.0, queue_hours: float = 0, queue_far: float = 0.0, offers: str = "", day_limit: int = 0, home: float = 0.0, home_cut: float = 0.2, **params: Any) -> Parts:
+def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans+calm", pending: float = 1.0, queue_hours: float = 0, queue_far: float = 0.0, offers: str = "", day_limit: int = 0, safe_limit: int = 0, safe_km: float = 300, safe_near: int = 30, home: float = 0.0, home_cut: float = 0.2, **params: Any) -> Parts:
     together = {"patience": 120} | {key[7:]: params.pop(key) for key in BUNDLES if key in params}
     offer = {key[6:]: params.pop(key) for key in OFFERS if key in params}
     fee = {key[4:]: params.pop(key) for key in FEES if key in params}
@@ -42,6 +42,8 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
     # An unbooked order whose last pickup is more than `queue_hours` away holds only `queue_far` of a place: it is not yet a risk.
     parts.intake.queue_hours, parts.intake.queue_far = queue_hours, queue_far
     parts.intake.day_limit = day_limit  # the most undelivered orders due on one day; 0 for no such limit
+    # Past `limit`, up to `safe_limit`, quote only the cars that stay on time in a flood (LimitedIntake.safe); 0 for off.
+    parts.intake.safe_limit, parts.intake.safe_km, parts.intake.safe_near = safe_limit, safe_km, safe_near
     if price == "profit":
         parts.quoter = ProfitQuoter(limit=parts.intake.limit, **profit)
         parts.quoter.queue_hours, parts.quoter.queue_far = queue_hours, queue_far
