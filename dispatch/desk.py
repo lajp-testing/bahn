@@ -246,7 +246,10 @@ class Desk:
 
     def fees_for(self, order: Order, cars: int) -> list[Any]:
         """The fee schedule for `cars` of the order's cars, from now."""
-        return self.parts.fees.schedule(order, cars, order["id"] in self.urgent, self)
+        urgent = order["id"] in self.urgent
+        if urgent and "calm" in self.parts.repairs and self.now > order["lastPickupAt"]:
+            urgent = False  # untested: past its last pickup minute the car is late anyway, and an urgent fee does not deliver it sooner
+        return self.parts.fees.schedule(order, cars, urgent, self)
 
     def retry(self, order_id: str, leg: int, reason: str) -> None:
         if order_id in self.orders:

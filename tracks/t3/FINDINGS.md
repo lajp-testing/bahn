@@ -212,3 +212,23 @@ The fork method took 1,585 requests and 31.4 seconds for 10 grid checks, and 1,7
 `t3-density-buffer-v1` was compared with fee13 on the same 10 seeds: +€25,848.20, 95.9% versus 96.2% on time, worst 92.1% versus 93.2%, 10/10 ranked for both. Against fee11 it gained €741.14 and ranked 10/10 versus 9/10; against fee15 it gained €69,941.14, both 10/10. The scan and buffer were tested together; the test does not isolate the density term or prove the estimate predicts realised driver costs. A 92.1% worst week leaves very little room. Next: test more independent weeks and trade-ins, probe monotonicity more finely and isolate the density term, before using the estimate in quotes or intake. Direct offers and rising-versus-flat forks were not tested.
 
 Offline tests: 9 passed with `SPREAD_ON_VPS=1`; without it the existing slot test fails on the local `REMOTE_ONLY` guard.
+
+## Late cars and urgent fees, 14 Nov
+
+Stint cut to 30 minutes, so this is offline analysis only; no week was played. Script: `tracks/t3/late_cars.py b26-fix-wol b26-fix-wo` (saved weeks, 30 seeds dev-01..10, rob-01..20).
+
+**What the `late` repair did to its cars.** In `b26-fix-wol` it posted 121 orders again past `lastPickupAt`. Against the same orders in `b26-fix-wo`:
+
+| Group | Orders | Fees, wol − wo | Refunds, wol − wo | Lateness |
+|---|---|---|---|---|
+| late in both labels | 91 | +€319 | −€475 (less refunded) | same: quartiles 15 / 18 / 62 h in both |
+| on time in wo, late in wol | 25 | +€1,317 | +€1,531 | 23 h later (median) |
+| not won or undelivered in one label | 5 | | | |
+
+- In the 91 cars late in both labels, the late repost found a driver much sooner: the booking came a median 22 minutes after `lastPickupAt` instead of 121 (quartiles 4 / 22 / 107 against 32 / 121 / 270 minutes). The car still did not arrive sooner: 20 cars came more than an hour earlier and 20 more than an hour later. Overnight hours and site hours set the delivery time, not the booking minute. The repost opens on the urgent ladder at 1.50 times the typical fee and books at a median of 1.50. Net, these cars were roughly even (−€156 in cost).
+- The 25 cars lost in wol had all been booked before `lastPickupAt` in wo, and in wol their gig was booked later or dropped. The weeks drift apart after the first change, so this is mostly path divergence: noise, not a mechanism. It makes up most of the −€1,837. `lastPickupAt` was not out of date: in all 121 cases the last value the world sent was before the repost minute.
+- Tiers: 57 cars at 25% in both labels, 21 at 50% in both, 6 moved from 25% to 50% with the repair and 4 from 50% to 25%.
+
+**Reading.** Once a car is past its last pickup minute, an earlier booking rarely moves its refund tier: most late cars sit in the 2 to 24 hour tier, and the delivery lands the next working morning either way. An urgent fee then buys nothing. This holds for the mainline too, which reposts the expired gig on the urgent ladder (`repost` → `fees_for` with `urgent`). So the lever is the fee of a car already late, not how soon it is posted again.
+
+**Built, not measured.** Repair `calm` (`--set repairs=windows+orphans+calm`, off by default): in `Desk.fees_for` an urgent order past its `lastPickupAt` gets the normal measured ladder instead of the urgent one. Next, about 15 minutes of play: (1) `--seed dev-01 --set repairs=windows+orphans` with the new code, which must equal `b26-fix-wo` dev-01 (€8,742.09) to the cent; (2) `t3s9-calm` = windows+orphans+calm and `t3s9-late-calm` = windows+orphans+late+calm on the 30 seeds, paired with `b26-fix-wo`. Risk to watch: a late car on the slow ladder may drift from the 24-hour tier to the 50% tier; if so, add a guard that returns to the urgent ladder when deadline + 24 h − the drive comes near.
