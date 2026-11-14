@@ -149,3 +149,15 @@ Both rejected: warn2 does not rank rob-17; drop3 misses the floor on rob-18 and 
 `t1s5-best-rob` (warn3) completed 20 rob weeks: €196,236.83, 5,258 orders, 97.0% aggregate on time, 20/20 ranked. Sorted shares: rob-14 92.24%, rob-17 92.77%, rob-18 93.99%, rob-05 96.25%, rob-10 96.53%, rob-11 96.58%, rob-12 96.76%, rob-08 97.05%, rob-06 97.40%, rob-13 97.40%, rob-20 97.45%, rob-19 97.60%, rob-07 97.62%, rob-09 97.77%, rob-02 97.78%, rob-16 98.26%, rob-15 98.40%, rob-01 98.54%, rob-03 98.68%, rob-04 98.95%. These include the five selected for testing, so the sample is not independent.
 
 `t1s5-afternoon` declines requests after 15:00 when ready within three hours. It reached 94.4% on rob-18 but only 89.5% on rob-17, not ranked; complete totals pending. `t1s5-warn3-limit10` tests a queue limit of 10 while the warning rule is active; in progress.
+
+| Label | Dev margin | Five margin | Worst of 15 | rob-18, rob-17, rob-14, rob-11, rob-10 |
+|---|---:|---:|---:|---|
+| `t1s5-afternoon` | 97,071.36 | 39,028.91 | 89.52% | 94.44, 89.52, 93.78, 97.14, 97.50% |
+
+Rejected: it loses €5,155.97 on dev and fails to rank rob-17.
+
+| Label | Dev margin | Five margin | Worst of 15 | rob-18, rob-17, rob-14, rob-11, rob-10 |
+|---|---:|---:|---:|---|
+| `t1s5-late5` | 102,643.57 | 41,115.72 | 91.98% | 91.98, 92.43, 93.22, 96.20, 96.53% |
+
+The late-share governor adds €416.24 on dev and lifts rob-18, but leaves rob-17 and rob-14 unchanged. It fails the 94% target, as does dev-07 at 93.3%. Its signal often arrives after the vulnerable intake decisions.
