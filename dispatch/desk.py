@@ -59,6 +59,12 @@ class Desk:
         for gig_id, minute in list(self.split_at.items()):
             if gig_id not in self.booked and self.now >= minute:
                 self.split(gig_id)
+        if getattr(self.parts.fees, "early", 0):  # the desk's own, earlier deadline warning
+            for order in list(self.orders.values()):
+                if order["id"] not in self.urgent and self.now >= self.parts.fees.urgent_from(order) and any(at is None for at in order["deliveredAt"]):
+                    gigs = self.gigs_of(order["id"])
+                    if gigs and any(gig_id not in self.booked for gig_id in gigs):
+                        self.raise_fees(order["id"])
 
     # --- events ---
 
@@ -146,6 +152,8 @@ class Desk:
         if order["id"] in self.requests and order["id"] not in self.orders:  # rejoin can know it already
             self.orders[order["id"]] = order
             self.post(order, undelivered(order))
+            if getattr(self.parts.fees, "early", 0):
+                self.wake(self.parts.fees.urgent_from(order))
 
     def change(self, order: Order) -> None:
         if order["id"] in self.orders:

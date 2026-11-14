@@ -89,8 +89,11 @@ class MeasuredFees(Fees):
 
     def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
                  cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, hold_until: int = 0, rescue_fraction: float = 0,
-                 quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, far_open: float = 0, soon_open: float = 0, **kwargs: Any):
+                 quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, far_open: float = 0, soon_open: float = 0, early: int = 0, **kwargs: Any):
         super().__init__(**kwargs)
+        # `early` > 0: an order without a driver goes to the urgent fees when this many minutes of the drivers' day are
+        # left before its last pickup. The world's own warning comes 3 hours before, which is late for a driver to get there.
+        self.early = int(early)
         self.model = model  # 2: the refitted expected fee and late risk (MODEL2 above)
         # `quiet_from` > 0: the fee does not rise from this minute of the day until `quiet_to` the next morning.
         # Few drivers look at the app at night, so a raise then pays the morning's first driver more for nothing.
@@ -116,6 +119,13 @@ class MeasuredFees(Fees):
             else:
                 step = min(minutes, self.quiet_from - minute)
                 at, minutes = at + step, minutes - step
+        return at
+
+    def urgent_from(self, order: dict[str, Any]) -> int:
+        """The minute from which the order is urgent on the desk's own account: `early` minutes of the drivers' day before its last pickup."""
+        at = order["lastPickupAt"] - self.early
+        while self.after(at, self.early) > order["lastPickupAt"]:
+            at -= 15
         return at
 
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
