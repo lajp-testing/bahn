@@ -1,0 +1,96 @@
+/* The deck's look. One light theme: it is projected and printed. */
+:root {
+  --ink: #0b0b0b; --ink2: #52514e; --muted: #8a8984; --line: #e4e3df; --paper: #ffffff; --wash: #f6f5f2;
+  --blue: #2a78d6; --blue-wash: #eaf2fc; --orange: #eb6834; --orange-ink: #b8461a;
+  --k: 1;
+  font-family: Inter, "Helvetica Neue", Arial, "DejaVu Sans", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #1d1d1b; color: var(--ink); }
+body { overflow: hidden; }
+
+.slide {
+  position: absolute; left: 50%; top: 50%;
+  width: 1280px; height: 720px; margin: -360px 0 0 -640px;
+  transform: scale(var(--k)); transform-origin: center;
+  background: var(--paper); display: none; overflow: hidden;
+}
+.slide.on { display: block; }
+.inner { position: absolute; inset: 44px 60px 40px 60px; display: flex; flex-direction: column; gap: 14px; }
+.num { position: absolute; right: 26px; bottom: 14px; font-size: 13px; color: var(--muted); }
+
+/* print: every slide one page */
+@page { size: 1280px 720px; margin: 0; }
+body.print, body.print html { overflow: visible; background: white; height: auto; }
+body.print .slide { position: relative; display: block; left: 0; top: 0; margin: 0; transform: none; page-break-after: always; break-after: page; }
+@media print {
+  html, body { overflow: visible; background: white; height: auto; }
+  .slide { position: relative !important; display: block !important; left: 0; top: 0; margin: 0 !important; transform: none !important; break-after: page; }
+}
+
+/* type */
+h1 { font-size: 36px; line-height: 1.15; margin: 0; font-weight: 700; letter-spacing: -0.01em; max-width: 1120px; }
+h2 { font-size: 21px; margin: 0; font-weight: 650; }
+h3 { font-size: 15px; margin: 0 0 2px; font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: .06em; }
+p, li { font-size: 19px; line-height: 1.38; margin: 0; color: var(--ink); }
+ul, ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 7px; }
+strong { font-weight: 700; }
+em { font-style: normal; color: var(--ink2); }
+code { font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace; font-size: 0.86em; background: var(--wash); padding: 1px 5px; border-radius: 4px; }
+.kicker p { font-size: 15px; font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; }
+
+/* layout blocks */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; flex: 1; min-height: 0; }
+.cols.c37 { grid-template-columns: 3fr 7fr; }
+.cols.c46 { grid-template-columns: 4fr 6fr; }
+.cols.c55 { grid-template-columns: 1fr 1fr; }
+.cols.c64 { grid-template-columns: 6fr 4fr; }
+.cols.c333 { grid-template-columns: 1fr 1fr 1fr; gap: 28px; }
+.col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+figure { margin: 0; }
+figure svg { width: 100%; height: auto; display: block; }
+.source { margin-top: auto; }
+.source p { font-size: 12.5px; color: var(--muted); line-height: 1.3; }
+.source code { background: none; padding: 0; font-size: 12px; }
+
+/* tiles: a list whose strong part is a big number */
+.tiles ul { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 16px; }
+.tiles li { background: var(--wash); border-radius: 12px; padding: 14px 18px 16px; font-size: 15.5px; line-height: 1.32; color: var(--ink2); }
+.tiles li strong { display: block; font-size: 32px; line-height: 1.1; color: var(--ink); margin-bottom: 6px; letter-spacing: -0.01em; }
+.tiles.small li strong { font-size: 25px; }
+.tiles.stack ul { grid-template-columns: 1fr; gap: 12px; }
+
+/* the result to fill in on Sunday */
+.fill li { background: #fff4ee; outline: 2px dashed var(--orange); }
+
+/* a claim box: the effect */
+.effect { background: var(--blue-wash); border-left: 5px solid var(--blue); border-radius: 8px; padding: 12px 18px; }
+.effect p, .effect li { font-size: 17.5px; }
+.caveat { background: #fff4ee; border-left: 5px solid var(--orange); border-radius: 8px; padding: 12px 18px; }
+.caveat p, .caveat li { font-size: 16.5px; }
+.formula { background: var(--wash); border-radius: 10px; padding: 12px 18px; }
+.formula p { font-size: 17px; line-height: 1.5; }
+.formula code { background: none; padding: 0; font-size: 16px; color: var(--ink); }
+
+/* tables */
+table { border-collapse: collapse; font-size: 16px; width: 100%; }
+th { text-align: left; font-weight: 650; color: var(--ink2); border-bottom: 2px solid var(--ink); padding: 6px 10px 6px 0; }
+td { border-bottom: 1px solid var(--line); padding: 6px 10px 6px 0; }
+tr.us td, td strong { color: var(--ink); }
+
+.small p, .small li { font-size: 16px; }
+.ideas ol { gap: 6px; }
+.ideas li { font-size: 18px; }
+
+/* three columns of short statements on the limits slide */
+.limits h2 { font-size: 19px; color: var(--blue); border-bottom: 2px solid var(--blue); padding-bottom: 4px; }
+.limits .col:nth-child(2) h2 { color: var(--orange-ink); border-color: var(--orange); }
+.limits .col:nth-child(3) h2 { color: var(--ink2); border-color: var(--ink2); }
+.limits li { font-size: 17px; line-height: 1.33; }
+.limits ul { gap: 9px; }
+
+/* title slide */
+.slide.title h1 { font-size: 40px; max-width: 1080px; }
+
+/* the steps chart leaves room for the three rules under it */
+.steps figure svg { max-height: 330px; }
