@@ -161,3 +161,9 @@ Rejected: it loses €5,155.97 on dev and fails to rank rob-17.
 | `t1s5-late5` | 102,643.57 | 41,115.72 | 91.98% | 91.98, 92.43, 93.22, 96.20, 96.53% |
 
 The late-share governor adds €416.24 on dev and lifts rob-18, but leaves rob-17 and rob-14 unchanged. It fails the 94% target, as does dev-07 at 93.3%. Its signal often arrives after the vulnerable intake decisions.
+
+| Label | Dev margin | Five margin | Worst of 15 | rob-18, rob-17, rob-14, rob-11, rob-10 |
+|---|---:|---:|---:|---|
+| `t1s5-warn3-limit10` | 91,491.72 | 36,941.40 | 89.47% | 93.59, 89.47, 95.15, 95.91, 98.68% |
+
+Rejected: dev margin falls €10,735.61, and rob-17 does not rank. `t1s5-late3` tests the late-share trigger at 3%; pending.
