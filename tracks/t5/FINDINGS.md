@@ -77,3 +77,21 @@ No `t5` policy or dev-week comparison was built: the controlled screen found no 
 **Still open.** The 30-week paired run of `t2s9-offers` (about 15 minutes on two slots). Whether the 5 bookings came earlier than the app would have booked them, or were only bought at a higher fee. Whether `offer_up=0` (the app's own fee, so no premium) keeps the acceptances.
 
 **Next 30 minutes.** (1) `bin/vps python3 -m harness.run --policy main --seeds dev --seed rob-01 … --seed rob-20 --set offers=urgent+drops --label t2s9-offers`, then `python3 -m harness.compare t2s9-base t2s9-offers` and `python3 tracks/t5/offer_counts.py t2s9-offers`. (2) If the result is neutral or better, the same with `--set offer_up=0`. (3) Adopt only if the margin is higher over the 30 weeks and no week drops below 90%.
+
+## Offers at realistic fees: the 30-week measurement, 14 Nov (t2s10)
+
+**Measurement.** `t2s10-offers` = mainline + `offers=urgent+drops` (defaults: n 3, up 0.1, near 30 km, fresh 180, rounds 2), paired with `t2s9-base` on dev-01…10 and rob-01…20.
+
+**Result: not adopted.**
+
+- Margin €366,267 → €364,251 (**−€2,016**, −0.6%); orders 8,424 → 8,410; on time 96.90% → 96.91% (unchanged); 30/30 ranked; 15/30 weeks higher (a coin toss).
+- Lowest on-time weeks with offers: rob-18 91.0% (baseline 95.1%), rob-17 92.4% (94.9%), dev-07 93.2% (93.7%). The worst week moved 4 points **towards** the 90% line. rob-18 also lost €1,035, the largest single loss.
+- **Offers over 30 weeks:** 3,783 sent, 117 refused by the server, 1,360 declined, 2,215 expired (unread), **91 accepted (2.4% of sent, about 6% of answered)**. Offer fee median 1.60× typical, 1.07× the app's fee then. Accepted fees: 0.95 to 2.35× typical, most at 1.60× (the top of the fee schedule plus the 0.1 step).
+- The 91 accepted gigs show 37 drops and 5 no-shows among their events (some are the drops that triggered the offer). A driver taking an offer is not more reliable than one booking from the app.
+- **Reading.** Offers buy roughly 3 cars a week at about the app's top fee. These cars would mostly have been booked anyway at the next raise. The premium costs about €70 a week and on-time share does not move. Requests went up by about 60 a week. The rule says offers reach drivers a notification does not, but here most offers go unread (59% expire).
+
+**Variation `offer_up=0`** (`t2s10-offers-up0`, the app's own fee with no premium), 30 weeks: margin €366,267 → €365,031 (**−€1,236**). On time 96.90% → 96.94%. 30/30 ranked. 11/30 weeks higher. Lowest weeks: rob-17 92.6% (94.9%), dev-07 93.6% (93.7%), rob-14 93.6% (94.4%). Offers: 3,788 sent, **79 accepted** (91 with the premium), median offer fee 1.50× typical, mostly accepted at 1.50× (the schedule's top). The loss is smaller without the premium but is still a loss, and the worst weeks still move towards the line. The 0.1 step buys 12 more acceptances and costs about €780.
+
+**Recommendation.** Keep offers off. Over 30 weeks neither fee adds margin or on-time share. Most offers go unread. The drivers who accept would mostly have taken the gig from the app.
+
+**Next 30 minutes, if the track keeps offers at all:** try drops only (`offers=drops`, `offer_up=0`): the urgent offers make up most of the volume and go mostly unread. Otherwise drop the line and spend the slots elsewhere.
