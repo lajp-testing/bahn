@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spread — a dispatcher's week in Finland</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>A dispatcher's week in Finland</h1>
+    <p>How our team played <b>Spread</b>, Bahn Express's challenge at Junction 2026 — explained for newcomers, shown on a real week.</p>
+  </div>
+  <div class="score" id="finalScore"></div>
+</header>
+<nav id="tabs">
+  <button data-tab="challenge" class="on">The challenge</button>
+  <button data-tab="week">The week &#9654;</button>
+  <button data-tab="decision">Inspect a decision</button>
+  <button data-tab="system">How it works</button>
+  <button data-tab="race">The race</button>
+</nav>
+
+<!-- ============================== THE CHALLENGE ============================== -->
+<main id="tab-challenge" class="tab on">
+  <section>
+    <div class="steps" id="steps"></div>
+    <div class="flow" id="flow"></div>
+  </section>
+  <section>
+    <h2>The words of the game</h2>
+    <dl class="words" id="words"></dl>
+  </section>
+  <section class="callout">
+    <h2>The one rule that shapes everything</h2>
+    <p>Below <b>90% of orders on time, a team is not ranked at all</b> — whatever its margin. So the desk's central
+    question is never &ldquo;how much can we win?&rdquo; but <b>&ldquo;how much profitable work can we still promise?&rdquo;</b>
+    The final is one secret week at the hardest level: a third of the drivers, unevenly spread between towns,
+    a price war nobody announces, and dealers who trust a team only after on-time deliveries.</p>
+  </section>
+</main>
+
+<!-- ============================== THE WEEK ============================== -->
+<main id="tab-week" class="tab">
+  <div class="weekgrid">
+    <div class="mapwrap">
+      <svg id="map" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="maplegend">
+        <span><i class="dot req"></i> request</span>
+        <span><i class="dot won"></i> won order</span>
+        <span><i class="dot lost"></i> lost</span>
+        <span><i class="dot car"></i> car en route</span>
+        <span><i class="dot late"></i> late</span>
+      </div>
+    </div>
+    <aside class="side">
+      <div class="counters">
+        <div class="big"><span id="cMargin">€0</span><label>margin</label></div>
+        <div class="grid">
+          <div><span id="cReq">0</span><label>requests</label></div>
+          <div><span id="cWon">0</span><label>orders won</label></div>
+          <div><span id="cLost">0</span><label>lost</label></div>
+          <div><span id="cMove">0</span><label>cars en route</label></div>
+          <div><span id="cDone">0</span><label>delivered</label></div>
+          <div><span id="cLate">0</span><label>late</label></div>
+        </div>
+        <div class="ontime"><div id="onTimeBar"><i id="onTimeFill"></i><b id="onTimePct">–</b></div><label>on time (90% needed to rank)</label></div>
+      </div>
+      <h3>Right now</h3>
+      <ol id="feed" class="feed"></ol>
+    </aside>
+  </div>
+  <div class="timebar">
+    <button id="prevDay" title="back one day">&#8630; day</button>
+    <button id="prevHour" title="back one hour">&#8722;1h</button>
+    <button id="prevEvent" title="previous event">&#9668; event</button>
+    <button id="play" class="play">&#9654; play</button>
+    <select id="speed">
+      <option value="15">15 min/s</option>
+      <option value="60" selected>1 h/s</option>
+      <option value="240">4 h/s</option>
+      <option value="960">16 h/s</option>
+    </select>
+    <button id="nextEvent" title="next event">event &#9658;</button>
+    <button id="nextHour" title="forward one hour">+1h</button>
+    <button id="nextDay" title="forward one day">day &#8631;</button>
+    <div class="clockwrap"><span id="clock">Mon 00:00</span><input id="slider" type="range" min="0" max="14280" step="1" value="0"><span class="tiny">drag to any minute</span></div>
+    <div class="dayjumps" id="dayJumps"></div>
+  </div>
+  <p class="note">Every marker, counter and list is the exact state at the chosen minute — scrub forwards or backwards,
+  step event by event, or play. This is the organiser's 18:00 test final (14 Nov 2026), recorded from our live system:
+  the week our evening fix came out of.</p>
+</main>
+
+<!-- ============================== A DECISION ============================== -->
+<main id="tab-decision" class="tab">
+  <div class="decgrid">
+    <div class="declist">
+      <div class="filters">
+        <input id="search" placeholder="search id, dealer, town&hellip;">
+        <select id="filter">
+          <option value="all">all requests</option>
+          <option value="won">won</option>
+          <option value="lost">lost</option>
+          <option value="late">delivered late</option>
+          <option value="note">with a note</option>
+          <option value="bundle">moved in a bundle</option>
+        </select>
+      </div>
+      <div class="stats" id="laneStats"></div>
+      <table class="dtable"><thead><tr>
+        <th>when</th><th>request</th><th>lane</th><th class="r">km</th><th class="r">quote/list</th><th>outcome</th>
+      </tr></thead><tbody id="drows"></tbody></table>
+    </div>
+    <div class="detail" id="detail"><p class="hint">Pick a request to see every number behind its quote.</p></div>
+  </div>
+</main>
+
+<!-- ============================== THE SYSTEM ============================== -->
+<main id="tab-system" class="tab">
+  <p class="lead">Eight parts, each with one reason and one measured effect. Every number is a paired comparison
+  on the same 40 saved worlds — gains are never added across rows.</p>
+  <div class="pipeline" id="pipeline"></div>
+  <section class="twocol">
+    <div>
+      <h2>How we decided</h2>
+      <dl class="method" id="method"></dl>
+      <h2>What we tried and rejected</h2>
+      <p class="small">Negative results, all paired weeks on the same seeds; the reason is the rule, not the number.</p>
+      <table class="rej" id="rejected"></table>
+    </div>
+    <div>
+      <h2>Each adopted step, measured</h2>
+      <p class="small">Margin change over 40 paired worlds, one comparison per row (not additive).</p>
+      <div id="adoption"></div>
+    </div>
+  </section>
+</main>
+
+<!-- ============================== THE RACE ============================== -->
+<main id="tab-race" class="tab">
+  <p class="lead">The live leaderboard feed of the test final, recorded every 2 seconds from Tuesday 13:51 to the end.
+  We finished <b>5th of 75 ranked teams</b>. The gap to the top was volume — about 110 cars on lanes under 100 km —
+  not price; the fix went in the same evening and is in <a href="#" data-goto="system">how it works</a>.</p>
+  <div class="racecharts">
+    <svg id="raceMargin"></svg>
+    <svg id="raceOrders"></svg>
+  </div>
+  <div class="racenotes" id="raceNotes"></div>
+</main>
+
+<footer>
+  <p>Built for peer review: everything runs offline from saved data — the recorded events, actions and reveal of one
+  real week, replayed through the same code that played it. No server, no live data.</p>
+</footer>
+<script src="demo.js"></script>
+</body>
+</html>
