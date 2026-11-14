@@ -30,6 +30,10 @@ class Desk:
         self.level = ctx.level
         self.outbox: list[Action] = []  # the actions decided since the desk last sent
         self.requests: dict[str, PriceRequest] = {}
+        self.requote = parts.requote  # quote each undecided request again this many minutes before its respondBy; 0 for off
+        self.quoted: dict[str, dict[str, int]] = {}  # request id -> the prices of its last quote
+        self.requote_at: dict[str, int] = {}  # request id -> the minute at which it is quoted again
+        self.lost: set[str] = set()  # the requests a dealer has given to the competitor
         self.orders: dict[str, Order] = {}  # the orders won and not cancelled
         self.leg_gigs: dict[str, dict[int, str]] = {}  # order id -> leg -> the gig that carries the leg
         self.booked: set[str] = set()  # the gigs that a driver holds now
@@ -62,6 +66,8 @@ class Desk:
 
     def tick(self) -> None:
         """Called after each step of the clock, with `self.now` current."""
+        if self.requote:
+            self.requote_due()
         for part in self.parts.all():
             part.tick(self)
         for gig_id, minute in list(self.split_at.items()):
@@ -158,6 +164,8 @@ class Desk:
             self.quote(event["request"])
         elif kind == "order_won":
             self.win(event["order"])
+        elif kind == "order_lost":
+            self.lost.add(event["requestId"])
         elif kind == "order_changed":
             self.change(event["order"])
         elif kind == "order_cancelled":  # the world has stopped the car and told each of its gigs what happens
@@ -197,13 +205,35 @@ class Desk:
 
     # --- quotes ---
 
-    def quote(self, request: PriceRequest) -> None:
-        """The quoter names a price for each option it wants; the intake may raise them or decline."""
+    def quote(self, request: PriceRequest, again: bool = False) -> None:
+        """The quoter names a price for each option it wants; the intake may raise them or decline. With
+        `requote` on, the desk quotes each request again `requote` minutes before its respondBy (`again`),
+        at the prices it names then, but only when one has moved by more than a percent: the dealer decides
+        on the last quote, so a re-sent price replaces the one the desk sent first."""
         self.requests[request["id"]] = request
         prices = self.parts.quoter.prices(request, self)
         prices = self.parts.intake.admit(request, prices, self)
-        if prices:
-            self.outbox.append({"type": "quote", "requestId": request["id"], "prices": {kind: int(cents) for kind, cents in prices.items()}})
+        if not prices:
+            return
+        new = {kind: int(cents) for kind, cents in prices.items()}
+        old = self.quoted.get(request["id"]) if again else None
+        if old is not None and set(new) == set(old) and all(abs(new[kind] - old[kind]) <= 0.01 * old[kind] for kind in new):
+            return  # within a percent of the last quote: it stands
+        self.outbox.append({"type": "quote", "requestId": request["id"], "prices": new})
+        self.quoted[request["id"]] = new
+        if self.requote and not again and request["respondBy"] - self.requote - self.now > 1:
+            self.requote_at[request["id"]] = request["respondBy"] - self.requote
+            self.wake(self.requote_at[request["id"]])
+
+    def requote_due(self) -> None:
+        """Quotes again the requests whose minute has come and whose dealer has not decided."""
+        for request_id, minute in list(self.requote_at.items()):
+            if minute > self.now:
+                continue
+            del self.requote_at[request_id]
+            request = self.requests.get(request_id)
+            if request is not None and request_id not in self.orders and request_id not in self.lost:
+                self.quote(request, again=True)
 
     def win(self, order: Order) -> None:
         if order["id"] in self.requests and order["id"] not in self.orders:  # rejoin can know it already
