@@ -5,7 +5,7 @@
     fees    track 3: open near each car's estimated booking fee and rise a little every `rise` minutes, but not at night
     quoter  the price that earns the most at the level the week shows, over each car's expected fee and late risk, at each dealer's own level of trust (dispatch/pricing.py)
 
-Each part can be switched back, to measure it: `notes=starter`, `fees=starter`, `private=false`, `price=fixed`, `slack=1440`, `same_day_slack=-1`, `car=0`, `late=0`, `trust=0`, `limit=15`, `fee_quiet_from=0`.
+Each part can be switched back, to measure it: `notes=starter`, `fees=starter`, `private=false`, `price=fixed`, `slack=1440`, `same_day_slack=-1`, `car=0`, `late=0`, `trust=0`, `limit=15`, `fee_quiet_from=0`, `requote=0` (the last off by default: quote again N minutes before each request's respondBy).
 Other parameters go on to the t1 policy (limit, markup, options, and the starter fees' numbers).
 """
 from __future__ import annotations
@@ -32,7 +32,7 @@ OFFERS = ("offer_n", "offer_up", "offer_near", "offer_fresh", "offer_rounds", "o
 BUNDLES = ("bundle_dead", "bundle_slack", "bundle_split", "bundle_discount", "bundle_drive", "bundle_private", "bundle_patience", "bundle_room", "bundle_plan", "bundle_reach", "bundle_hold_slack")  # passed to the bundles without the prefix
 
 
-def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 45, morning_limit: int = 55, same_day_slack: int = 480, same_day_drivers: int = 0, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans+calm", pending: float = 1.0, queue_hours: float = 0, queue_far: float = 0.0, offers: str = "", day_limit: int = 0, safe_limit: int = 100, safe_km: float = 300, safe_near: int = 0, home: float = 0.0, home_cut: float = 0.2, hold: int = 0, barrier_limit: int = 120, guard: float = 0.0, guard_car: float = 1.1, **params: Any) -> Parts:
+def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 45, morning_limit: int = 55, same_day_slack: int = 480, same_day_drivers: int = 0, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans+calm", pending: float = 1.0, queue_hours: float = 0, queue_far: float = 0.0, offers: str = "", day_limit: int = 0, safe_limit: int = 100, safe_km: float = 300, safe_near: int = 0, home: float = 0.0, home_cut: float = 0.2, hold: int = 0, barrier_limit: int = 120, guard: float = 0.0, guard_car: float = 1.1, requote: int = 0, **params: Any) -> Parts:
     together = {"patience": 120, "hold": hold} | {key[7:]: params.pop(key) for key in BUNDLES if key in params}
     offer = {key[6:]: params.pop(key) for key in OFFERS if key in params}
     fee = {key[4:]: params.pop(key) for key in FEES if key in params}
@@ -41,6 +41,7 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
         limit = morning_limit = barrier_limit
     parts = t1.build(ctx, markup=markup, slack=slack, limit=limit, morning_limit=morning_limit, same_day_slack=same_day_slack, same_day_drivers=same_day_drivers, **params)
     parts.intake.private = private
+    parts.requote = requote  # quote each undecided request again this many minutes before its respondBy; 0 for off
     parts.intake.pending_weight = pending  # how much of a place in the queue a quote awaiting its dealer holds
     # An unbooked order whose last pickup is more than `queue_hours` away holds only `queue_far` of a place: it is not yet a risk.
     parts.intake.queue_hours, parts.intake.queue_far = queue_hours, queue_far
