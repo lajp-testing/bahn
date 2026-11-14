@@ -54,7 +54,7 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
     if notes == "read":
         parts.notes = ReadNotes()
     if fees == "measured":
-        parts.fees = MeasuredFees(interval=rise, **({"quiet_from": 21 * 60, "model": 2, "flat": 1, "flat_up": -0.15} | fee))
+        parts.fees = MeasuredFees(interval=rise, **({"quiet_from": 21 * 60, "model": 3, "flat": 1, "flat_up": -0.15} | fee))
     parts.repairs = frozenset(repairs.replace("+", ",").split(",")) - {""}  # e.g. --set repairs=windows+orphans+late+keep_urgent
     if bundle > 1:  # the most cars in one gig; below 2 every order goes alone
         parts.bundles = Bundles(cars=bundle, **together)

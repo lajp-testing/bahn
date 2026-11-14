@@ -53,5 +53,5 @@ def test_learned_model_and_switch():
     fee, risk = d.parts.fees.expected(r, d), d.parts.fees.late_risk(r, d)
     assert 0.2 * r["referenceFeeCents"] < fee < 5 * r["referenceFeeCents"]
     assert 0.0 <= risk <= 1.0
-    d2 = desk()  # the mainline's model is untouched
-    assert d2.parts.fees.model == 2
+    assert desk().parts.fees.model == 3  # the mainline uses the learned model (b37: 40 weeks +EUR 32,271)
+    assert desk(fee_model=2).parts.fees.model == 2  # the hand-fit model stays one switch away

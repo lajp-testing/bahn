@@ -118,3 +118,11 @@ Default of `main` now: `safe_limit=80 safe_km=300 safe_near=0 car=0.95 fee_flat=
 | all 40 | +€69,993 (+14.3%) | 38/40 | 364 vs 277 | 90.2, 91.1, 92.7 |
 
 Learned cost model (`fee_model=3`, teammate) on the previous mainline, 30 weeks (dev + rob) against `t1s11-base`: +€45,013, 28/30 weeks better, 331 orders a week, lowest 94.2%; with `pair=0.2` +€49,587, lowest 92.9%. Not yet measured on top of flat fees. `dispatch/features.py`: a flat fee that asks model 3 no longer recurses (the schedule features read 1.0 inside that call).
+
+## 14:00 the learned cost model joins the mainline
+
+`b37-fee3` (`fee_model=3`, the teammate's model in `dispatch/learned.py`) on top of the safe-car limit + flat fees, paired with `t3s15-safe-flat15` on all 40 weeks: **+€32,271**, better in 29 of 40 weeks (dev +€5,025, rob +€21,089, holdout +€6,156), 390 orders a week instead of 364, €37.97 a car instead of €38.50. The lowest weeks rise: rob-17 90.2% → 95.4%, rob-18 91.1% → 92.0%, dev-07 92.7% → 96.8%; the new lowest are rob-18 92.0%, dev-01 94.0%, hold-10 94.1%. Adopted as the default (fee model 3); `--policy main` reproduces `b37-fee3` dev-01 to the cent (`b40-main-fee3-check`, €9,956.48). The hand-fit model stays as `--set fee_model=2`.
+
+Keep `pair` at 0 with this model: the model already reads whether a car fits an open gig (feature `fits`), so the `pair` discount would count that saving twice. On the older mainline, the model with `pair=0.2` added €4.6k over 30 weeks but lowered the worst week from 94.2% to 92.9% (`b35`).
+
+Volume I (t3, dev screens on top of the safe + flat setting, before the model): `limit=40` (50 before noon) +€3.3k, ahead 7 of 8, 383 orders, lowest 92.9%; `limit=45` +€2.9k, lowest 91.6%; `safe_limit=100` +€0.4k. `b39` tests the model with `limit=40` on 30 weeks.
