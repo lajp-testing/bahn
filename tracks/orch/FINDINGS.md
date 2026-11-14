@@ -196,3 +196,7 @@ The holdout is flat, but the weak weeks rise everywhere (rob-18 92.1 → 94.9; l
 | on model 5: holdout | 10 | +€4,033 | 6 | hold-10 93.2 |
 
 Small but positive on every set, including unseen worlds. Adopted (`limit=45`, `morning_limit=55`, `safe_limit=100`); `main` reproduces b87 dev-01 to the cent (`b88-main-check`, €12,250.75).
+
+## 21:50 the candidate for the final on 30 unseen worlds
+
+The mainline at f5bf65f (model 5, floors 0.75/0.95, car_short 0.85, limits 45/55/100; label `b89-main`) against b68 on rob-21..50, worlds that no part was tuned or trained on: **+€14,342, ahead in 20 of 30**, 404 orders a week against 394, €43.05 a car; lowest weeks 92.4 / 92.4 / 92.5 against 91.8 / 92.5 / 93.1; mean on time 96.0% for both. From here on, rob-21..50 is the test set for every change.
