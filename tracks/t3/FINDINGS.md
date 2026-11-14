@@ -253,3 +253,25 @@ Check: `t3s10-check` (main, repairs=windows+orphans, dev-01) = €8,742.09, equa
 **`t3s10-late-calm`** (`repairs=windows+orphans+late+calm`), only the 10 dev seeds (not enough time for 30): €127,381.46, 96.81% on time, lowest dev-07 93.4%, dev-10 95.2%, dev-03 96.2%. Against `b26-fix-wo` on dev: +€2,359, higher in 6 of 10. Against `t3s10-calm` on dev (€126,921.82, 96.77%): +€460 but higher in only 2 of 10, which is noise. With `calm`, `late` no longer loses (it lost €1,837 alone, `b26-fix-wol`), because its reposts no longer pay the urgent ladder. It does not earn anything either. Tiers the same as calm: 25% 54 → 40, 50% 24 → 30, 100% 1 → 3. **Reading:** `late` adds a part and gains nothing measurable, so leave it off.
 
 **`t3s10-calm-guard`** (`repairs=windows+orphans+calm+guard`; past `lastPickupAt` the normal ladder, then the urgent ladder from `lastPickupAt` + 18 h), 10 dev seeds: €126,834.56, 96.77% on time, lowest dev-07 93.7%, dev-10 95.3%, dev-08 95.7%. Against `t3s10-calm` on dev: −€87, higher in 2 of 10, the same on-time share. The guard did not stop the slide: 25% back 42 → 41, 50% back 28 → 27, 100% back 1 → 5. **Reading:** the guard makes no difference, so leave it off. Cars that slide to the 50% tier probably cross it overnight or outside site hours, where a higher fee does not help, the same thing that made the urgent ladder useless. Recommendation: adopt `calm` alone (30 weeks +€5,347, 20/30 higher, every week ranked) and leave `late` and `guard` off.
+
+## Stint 11: hold the ladder while a car has time (10:20 to 10:55 UTC, 14 Nov)
+
+Question: does raising less while a car has plenty of time, and more when its time runs short, cut what we pay and keep the late tail down? Switches off: `main` = `b26-fix-wo` on dev-01 to the cent (€8,742.09, `t3s11-off`). Each variant on dev-01..10 + rob-01..20, `calm` off, paired with `b26-fix-wo` (€366,266.96, 96.90% on time, lowest 93.7 / 94.4 / 94.8, 8,424 orders, €43.48 per order).
+
+| Label | Switch | Margin 30 wk | Δ vs b26-fix-wo | On time | Lowest 3 | Higher | Orders | € / order |
+|---|---|---|---|---|---|---|---|---|
+| `t3s11-hold720` | `fee_hold_until=720` (existing: raises start 12 h before `lastPickupAt`, counted in drivers'-day minutes) | €301,016.08 | **−€65,251** | 94.88% | 90.1, 91.0, 91.2 | 2/30 | 6,488 | 46.40 |
+| `t3s11-back300` | `fee_backload=300` (new: wait at the opening fee, start the normal ladder as late as still reaches the cap 5 h of drivers' day before `lastPickupAt`) | €231,592.88 | **−€134,674** | 97.05% | 92.2, 95.1, 95.2 | 0/30 | 5,179 | 44.72 |
+
+All 60 weeks ranked. **Reading:** both lose heavily, and not through fees: each order earns a little more (+€3 and +€1), but the desk wins 23% and 39% fewer orders. A held gig stays unbooked for longer, so it holds a place in the intake's queue (`limit`) for longer, and the intake quotes less work. `hold720` also loses on-time share (lowest week 90.1%, close to the 90% line): with quiet hours counted, 12 h of drivers' day often starts the ladder the evening before and ends it after the 3 h warning, so the gig reaches the urgent fees without having been near the cap.
+
+Booked fee / fee at the booking driver's first view, and minutes from that view to booking, by day of booking (10 dev weeks, `tracks/t3/s11_viewratio.py`; per booking driver, so the numbers are lower than the brief's 1.12 / 1.19 / 1.33, which were first view by any driver):
+
+| Day | `b26-fix-wo` | `t3s11-hold720` | `t3s11-back300` |
+|---|---|---|---|
+| Mon | 1.06, 26 min | 1.03, 14 min | 1.06, 36 min |
+| Wed | 1.08, 82 min | 1.11, 179 min | 1.11, 152 min |
+| Fri | 1.11, 84 min | 1.18, 306 min | 1.18, 263 min |
+| after Sun | 29 gigs | 147 gigs | 181 gigs |
+
+Holding the ladder does not teach drivers to book early: they wait longer (Friday 84 → 306 min) and book higher above the fee they first saw (1.11 → 1.18), because when the raise finally comes it comes in a run. **Recommendation:** keep `hold_until=0` and leave `backload` off (default 0, kept in the code as a measured negative). A fee schedule cannot be judged with intake held fixed: anything that keeps gigs open longer costs orders through the queue limit. The next fee experiment should go the other way (book sooner, e.g. a slightly higher opening for gigs with little time) or count a posted, unbooked gig less in the intake's queue while it still has many hours.
