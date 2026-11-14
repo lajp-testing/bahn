@@ -21,7 +21,7 @@ HOUR, DAY = 60, 24 * 60
 
 
 class Bundles(Part):
-    def __init__(self, cars: int = 2, dead: int = 30, slack: int = 6 * HOUR, split: int = 4 * HOUR, discount: float = 0.85, drive: int = 11 * HOUR, private: bool = False, patience: int = 0, room: int = 0, plan: int = 0, reach: int = 60):
+    def __init__(self, cars: int = 2, dead: int = 30, slack: int = 6 * HOUR, split: int = 4 * HOUR, discount: float = 0.85, drive: int = 11 * HOUR, private: bool = False, patience: int = 0, room: int = 0, plan: int = 0, reach: int = 60, hold: int = 0, hold_slack: int = 12 * HOUR):
         self.cars = cars  # the most cars in one gig
         self.dead = dead  # the longest drive without a car between two cars, in minutes
         self.slack = slack  # a bundle is made only when its last possible start is at least this far away
@@ -33,6 +33,8 @@ class Bundles(Part):
         self.room = room  # a bundle is made only when a driver can start it over at least this many minutes
         self.plan = plan  # every this many minutes, the open cars are rebuilt into chains (`chains`); 0: never
         self.reach = reach  # the longest drive without a car between two cars of a planned chain, in minutes
+        self.hold = hold  # a newly won car that finds no gig waits this many minutes for a partner before it goes alone; 0: never
+        self.hold_slack = hold_slack  # it waits only while a driver can still start it this many minutes from now
         self.planned_at = -1
 
     def plain(self, order: dict[str, Any], desk: "Desk") -> bool:
@@ -61,6 +63,7 @@ class Bundles(Part):
         best: Optional[tuple[tuple[int, int], Any, list[dict[str, Any]], dict[str, bool]]] = None
         open_gigs = [(gig_id, action, [gig_id]) for gig_id, action in desk.posts.items() if gig_id not in desk.booked]
         unsent = [(action, action, []) for action in desk.outbox if action["type"] == "post"]
+        unsent += [(action, action, []) for action in desk.held.values()]  # cars held back for a partner
         for gig_id, action, carried_by in open_gigs + unsent:
             members = orders_in(action["stops"])
             if len(members) >= self.cars or order["id"] in members:
@@ -76,7 +79,19 @@ class Bundles(Part):
                     best = (score, gig_id, joined, {key: audience[key] or action["audience"][key] for key in audience})
         return best[1:] if best else None
 
+    def holds(self, order: dict[str, Any], stops: list[dict[str, Any]], desk: "Desk") -> bool:
+        """Whether a newly won car that found no gig waits for a partner: only a plain car with time to spare."""
+        if not self.hold or not self.plain(order, desk):
+            return False
+        found = self.route(stops, desk)
+        return found is not None and found[1] - desk.now >= self.hold_slack + self.hold
+
     def tick(self, desk: "Desk") -> None:
+        for order_id, action in list(desk.held.items()):  # the hold ended without a partner: the car goes alone
+            if desk.now >= action["until"]:
+                del desk.held[order_id]
+                if order_id in desk.orders and not desk.gigs_of(order_id):
+                    desk.alone(desk.orders[order_id])
         if self.plan and desk.now >= self.planned_at + self.plan:
             self.planned_at = desk.now - desk.now % self.plan
             desk.wake(self.planned_at + self.plan)

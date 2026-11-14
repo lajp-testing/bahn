@@ -40,6 +40,7 @@ class Desk:
         self.late_posted: set[str] = set()  # orders posted again without windows after their last pickup minute
         self.urgent_gigs: set[str] = set()  # gigs that already carry an urgent fee schedule
         self.schedules: dict[str, list[Any]] = {}  # gig id -> its fee schedule in the app now (its post, or its last reprice)
+        self.held: dict[str, dict[str, Any]] = {}  # order id -> a newly won car's post, held back for a partner until its "until" minute (Bundles.hold)
         self.split_at: dict[str, int] = {}  # bundle gig id -> the minute at which, still without a driver, it goes back to one gig per car
         self.refused: list[tuple[int, Action, str]] = []  # (minute, action, reason) for each action the world refused
         self.wake_on: list[DeskEventKind] = list(dict.fromkeys(WAKE_ON + [kind for part in parts.all() for kind in part.wake_on]))
@@ -82,7 +83,7 @@ class Desk:
                     if self.withdraw(order["id"]):
                         self.post_bare(order)
         if "orphans" in repairs:  # an undelivered car with no gig, after a refused post: post it again, without windows
-            waiting = {stop["orderId"] for action in self.outbox if action["type"] == "post" for stop in action["stops"]}
+            waiting = {stop["orderId"] for action in self.outbox if action["type"] == "post" for stop in action["stops"]} | set(self.held)
             for order in list(self.orders.values()):
                 legs = [leg for leg in undelivered(order) if leg not in self.leg_gigs.get(order["id"], {})]
                 if legs and order["id"] not in waiting and order["status"] != "cancelled":
@@ -199,7 +200,7 @@ class Desk:
     def win(self, order: Order) -> None:
         if order["id"] in self.requests and order["id"] not in self.orders:  # rejoin can know it already
             self.orders[order["id"]] = order
-            self.post(order, undelivered(order))
+            self.post(order, undelivered(order), hold=True)
             if "late" in self.parts.repairs:
                 self.wake(order["lastPickupAt"] + 1)
             if getattr(self.parts.fees, "early", 0):
@@ -294,7 +295,8 @@ class Desk:
             pickup_from = retry_from(order, self.requests[order_id], leg, self.now) if car_not_there else 0
             self.post(order, [leg], Retry(pickup_from, manual_licence=reason == "licence", plates=reason == "no_plates"))
 
-    def post(self, order: Order, legs: list[int], retry: Retry = Retry()) -> None:
+    def post(self, order: Order, legs: list[int], retry: Retry = Retry(), hold: bool = False) -> None:
+        self.held.pop(order["id"], None)
         stops, audience = self.parts.notes.plan(order, legs, self.requests[order["id"]], retry, self)
         stops, schedule = self.cut(stops), self.fees_for(order, len(legs))
         if len(order["legs"]) == 1:
@@ -309,7 +311,12 @@ class Desk:
                         self.leg_gigs.pop(member, None)
                 else:
                     self.outbox = [action for action in self.outbox if action is not gig]
+                    self.held = {key: action for key, action in self.held.items() if action is not gig}
                 schedule = bundles.fees([self.clock.get(member) or self.fees_for(self.orders[member], 1) for member in orders_in(stops)], self.now)
+            elif hold and bundles and bundles.holds(order, stops, self):  # no gig to join: wait a little for a partner
+                self.held[order["id"]] = {"type": "post", "stops": stops, "audience": audience, "schedule": schedule, "until": self.now + bundles.hold}
+                self.wake(self.now + bundles.hold)
+                return
         self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": schedule})
         if len(legs) == 1:
             return
