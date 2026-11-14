@@ -104,11 +104,7 @@ def unbooked_at_requests(events: list, snapshot: dict, quoted: set | None = None
             booked.add(event["gigId"])
         elif kind in ("gig_dropped", "no_show"):
             booked.discard(event["gigId"])
-        elif kind == "delivered":
-            oid = event["orderId"]
-            if oid in orders:
-                orders[oid][1].add(event["leg"])
-        elif kind == "release":  # the dealer gave a leg up: it will never be delivered
+        elif kind in ("delivered", "release"):  # a release: the dealer gave a leg up, it will never be delivered
             oid = event["orderId"]
             if oid in orders:
                 orders[oid][1].add(event["leg"])
@@ -172,7 +168,7 @@ def analyse(dirpath: str) -> None:
     bucket_table("q_wait", "quoter's waiting = unbooked / 35 (what the queue charge uses, all day)")
 
     print(f"declines: {len(declines)} in all; at/over the limit (unbooked + pending >= limit): "
-          f"{len(limit_decl)}, on {sorted(set(r['at'] // DAY for r in limit_decl))}; "
+          f"{len(limit_decl)}, on {sorted({r['at'] // DAY for r in limit_decl})}; "
           f"the other {len(declines) - len(limit_decl)} failed the slack screen")
     over = [r for r in rows if not r["declined"] and r["held"] + r["pend"] >= r["limit"]]
     print(f"over the limit but quoted through (the safe-car screen): {len(over)}\n")
