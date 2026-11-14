@@ -611,3 +611,22 @@ Conclusions:
 - Cutting the within_3_days price by 0.15 list units did not raise volume (−27 orders) and cut margin per car to €44.06: the dealer-side win rate on within_3_days is not fixed by a flat discount — the 8% win rate at 1.58× likely reflects the option's low value to the dealer, and the discount mostly gave money away on the ones we already won.
 - Raising the same_day price by 0.15 raised margin per car (€45.27) but cost 85 orders in 10 weeks and still lost €1,459 total: the same-day demand curve is steep enough that a flat surcharge loses more orders than the extra margin per car pays.
 - All 30 weeks stayed ranked (on-time ≥ 94.7% in every week). Script: `tracks/t2/g2_compare.py`.
+
+## g2 dealer trust in the late cost (invest), 14 Nov
+
+Parameter sweep only, no code change: the mainline defaults plus `invest` in the quoter (`dispatch/pricing.py`, `ProfitQuoter.prices`), 10 dev weeks at level 8, against the mainline label `b52-fee4-car110` on the same seeds. Background: at level 8 a dealer accepts ~1.6% higher prices per on-time order delivered to it, a late order halves that count, and in the test final one car 3 minutes late halved D01's trust (31% of requests; win rate 60%→30% next day). `invest=0.25` is the switch's intended weight, `invest=0.1` the analysis's "test it small".
+
+| label | change | total margin | diff vs base | weeks higher | orders (per week) | margin per car | 3 lowest onTimeShare |
+|---|---|---|---|---|---|---|---|
+| b52-fee4-car110 | mainline (invest=0) | €163,494.47 | — | — | 3664 (366.4) | €44.62 | dev-10 94.7%, dev-04 95.3%, dev-07 95.3% |
+| g2-invest025 | invest=0.25 | €162,330.34 | −€1,164.13 | 5/10 | 3724 (372.4) | €43.59 | dev-07 94.4%, dev-10 95.1%, dev-03 95.3% |
+| g2-invest010 | invest=0.1 | €163,629.63 | +€135.16 | 8/10 | 3700 (370.0) | €44.22 | dev-10 95.4%, dev-05 95.6%, dev-07 95.8% |
+
+Per-week margin diff vs base (EUR): g2-invest025 dev-03 −1,385, dev-09 +791; g2-invest010 dev-08 −2,403 stands out, the other 9 weeks are +134 to +749.
+
+Conclusions:
+
+- **`invest=0.25` loses; `invest=0.1` is marginally positive but too thin to adopt.** The intended weight gives away more price than the trust effect pays back: +60 orders but margin per car drops €1.03 and total margin falls €1,164.
+- `invest=0.1` wins 8/10 weeks and +€135 total (+0.08%), with on-time share actually higher than base (96.7% vs 96.1%; every week ≥ 95.4%). But the whole gain is smaller than one bad week (dev-08 −€2,403), so the sign of the total is within noise between worlds; it does not clear the bar of a measured effect worth a part.
+- The on-time side of `invest` (charging late-risk cars more, discounting early ones) did lift the on-time share at both weights, so the mechanism works — but at 0.25 the price cost outweighs it, and at 0.1 the margin gain is not robust.
+- All 20 sweep weeks stayed ranked (on-time ≥ 94.4% in every week). Script: `tracks/t2/g2_compare.py`.
