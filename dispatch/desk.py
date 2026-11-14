@@ -39,6 +39,7 @@ class Desk:
         self.booked_fee: dict[str, int] = {}  # gig id -> the fee its last driver booked it at
         self.late_posted: set[str] = set()  # orders posted again without windows after their last pickup minute
         self.urgent_gigs: set[str] = set()  # gigs that already carry an urgent fee schedule
+        self.schedules: dict[str, list[Any]] = {}  # gig id -> its fee schedule in the app now (its post, or its last reprice)
         self.split_at: dict[str, int] = {}  # bundle gig id -> the minute at which, still without a driver, it goes back to one gig per car
         self.refused: list[tuple[int, Action, str]] = []  # (minute, action, reason) for each action the world refused
         self.wake_on: list[DeskEventKind] = list(dict.fromkeys(WAKE_ON + [kind for part in parts.all() for kind in part.wake_on]))
@@ -69,6 +70,8 @@ class Desk:
                     gigs = self.gigs_of(order["id"])
                     if gigs and any(gig_id not in self.booked for gig_id in gigs):
                         self.raise_fees(order["id"])
+        if getattr(self.parts.fees, "rescue", 0):
+            self.rescue()
         repairs = self.parts.repairs
         if "late" in repairs:  # past its last pickup minute an open gig can find no driver: post it again, without windows
             for order in list(self.orders.values()):
@@ -201,12 +204,16 @@ class Desk:
                 self.wake(order["lastPickupAt"] + 1)
             if getattr(self.parts.fees, "early", 0):
                 self.wake(self.parts.fees.urgent_from(order))
+            if getattr(self.parts.fees, "rescue", 0):
+                self.wake(self.parts.fees.rescue_from(order))
 
     def change(self, order: Order) -> None:
         if order["id"] in self.orders:
             self.orders[order["id"]] = order
             if "late" in self.parts.repairs:
                 self.wake(order["lastPickupAt"] + 1)
+            if getattr(self.parts.fees, "rescue", 0):
+                self.wake(self.parts.fees.rescue_from(order))
             if self.withdraw(order["id"]):
                 self.post(order, undelivered(order))
 
@@ -245,6 +252,23 @@ class Desk:
             else:
                 self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": self.fees_for(order, pickups(self.posts[gig_id]))})
                 self.urgent_gigs.add(gig_id)
+
+    def rescue(self) -> None:
+        """A single car without a driver and with little of the drivers' day left before its last pickup goes at once to the
+        top of its normal ladder (`MeasuredFees.rescue`), also right after a drop. Urgent cars keep the urgent ladder."""
+        for order in list(self.orders.values()):
+            if order["id"] in self.urgent or not self.parts.fees.rescuing(order, 1, self.now):
+                continue
+            for gig_id in self.gigs_of(order["id"]):
+                action = self.posts.get(gig_id)
+                if gig_id in self.booked or action is None or len(orders_in(action["stops"])) > 1 or pickups(action) != 1:
+                    continue
+                top = self.fees_for(order, 1)
+                steps = self.schedules.get(gig_id) or action["schedule"]
+                started = [step["feeCents"] for step in steps if step["at"] <= self.now]
+                if (max(started) if started else steps[0]["feeCents"]) < top[0]["feeCents"]:
+                    self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": top})
+                    self.schedules[gig_id] = top  # so the next tick does not send it again before the world answers
 
     def fees_for(self, order: Order, cars: int) -> list[Any]:
         """The fee schedule for `cars` of the order's cars, from now."""
@@ -350,6 +374,7 @@ class Desk:
         for stop in action["stops"]:
             self.leg_gigs.setdefault(stop["orderId"], {})[stop["leg"]] = gig_id
         self.posts[gig_id] = action
+        self.schedules[gig_id] = action["schedule"]
         if any(order_id in self.urgent for order_id in orders_in(action["stops"])):
             self.urgent_gigs.add(gig_id)
         if len(orders_in(action["stops"])) > 1 and self.parts.bundles:
@@ -402,6 +427,8 @@ class Desk:
                             self.leg_gigs.setdefault(stop["orderId"], {}).setdefault(stop["leg"], action["gigId"])
             elif action["type"] == "post":
                 self.carry(action, result["id"])
+            elif action["type"] == "reprice":
+                self.schedules[action["gigId"]] = action["schedule"]
             for part in self.parts.all():
                 part.result(action, result, self)
 
