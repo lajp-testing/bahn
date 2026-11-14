@@ -13,6 +13,16 @@ if TYPE_CHECKING:
     from .desk import Desk
 
 
+def unbooked(desk: "Desk", hours: float = 0, far: float = 0.0) -> float:
+    """The orders without a booked driver; with `hours`, one whose last pickup is more than `hours` away counts only `far`: it is not yet a risk."""
+    count = 0.0
+    for order in desk.orders.values():
+        gigs = desk.gigs_of(order["id"])
+        if any(at is None for at in order["deliveredAt"]) and (not gigs or any(gig not in desk.booked for gig in gigs)):
+            count += far if hours and order["lastPickupAt"] - desk.now > hours * 60 else 1.0
+    return count
+
+
 class Intake(Part):
     """The starter's intake: take everything."""
 
@@ -47,11 +57,7 @@ class LimitedIntake(Intake):
 
         self.pending = {key: end for key, end in self.pending.items() if end > desk.now}
         self.pending_days = {key: days for key, days in self.pending_days.items() if key in self.pending}
-        unbooked = sum(
-            1 for order in desk.orders.values()
-            if any(at is None for at in order["deliveredAt"])
-            and (not desk.gigs_of(order["id"]) or any(gig not in desk.booked for gig in desk.gigs_of(order["id"])))
-        )
+        held = unbooked(desk, getattr(self, "queue_hours", 0), getattr(self, "queue_far", 0.0))
         later = {kind: price for kind, price in prices.items() if kind != "same_day"}
         notes = desk.parts.notes
         if self.slack and hasattr(notes, "earliest_pickup") and hasattr(notes, "latest_delivery"):
@@ -88,7 +94,7 @@ class LimitedIntake(Intake):
         if shortage and self.shortage_limit:
             limit = min(limit, self.shortage_limit)
         # A quote awaiting its dealer holds `pending_weight` of a place: about a third of them win.
-        waiting = unbooked + getattr(self, "pending_weight", 1.0) * len(self.pending)
+        waiting = held + getattr(self, "pending_weight", 1.0) * len(self.pending)
         if not later or waiting >= limit:
             return decline(request)
         if self.queue_price:

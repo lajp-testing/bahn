@@ -142,8 +142,8 @@ class ProfitQuoter(Part):
 
     def waiting(self, desk: "Desk") -> float:
         """How full the queue of orders without a booked driver is, from 0 to 1."""
-        count = sum(1 for order in desk.orders.values() if any(at is None for at in order["deliveredAt"])
-                    and (not desk.gigs_of(order["id"]) or any(gig not in desk.booked for gig in desk.gigs_of(order["id"]))))
+        from .intake import unbooked
+        count = unbooked(desk, getattr(self, "queue_hours", 0), getattr(self, "queue_far", 0.0))
         return min(1.0, count / self.limit)
 
     def prices(self, request: dict[str, Any], desk: "Desk") -> dict[str, int]:
