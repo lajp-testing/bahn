@@ -423,3 +423,19 @@ All 39 weeks ranked. Baseline total on the 13 seeds: €193,969.21; runs: views1
 **Reading.** On this mainline the rule no longer pays. The t1s18 gain (+€2,638) was measured against `b37-fee3`; b46's other changes have already lifted the floor (rob-18 92.0% → 94.7%), and the view-raise variants give that back: every variant drops rob-18 below the baseline (94.7% → 93.4%, 92.2%, 92.2%), and views25s2 does worst on money (−€289 a week, 6/13 weeks ahead). The best variant, views40, is +€108 a week, 7/13 weeks, inside the ±€2.5k noise band. N=15 wins the most weeks (8/13) but loses money on dev-08 (−€1,767). Doubling the step size makes both money and floor worse, so the fee is already near what this pool takes.
 
 **Verdict.** None adopted; the switch stays off on the mainline. The single-step N=25 value itself was not re-run against b46 (`b54-views25` is not in the index); if the family is kept at all, that is the one value still worth a paired 13-week check, since 15 and 40 bracket it with −€478 and +€1,398.
+
+## g1 tighter intake and the rob-18 floor, 14 Nov
+
+Two tighter intake settings on the current mainline, 10 dev weeks plus rob-04, rob-17, rob-18, paired with `b46-car105-sameday480` (the same 13 seeds). No code changes; parameter runs only. `safe_limit` is the total waiting-car allowance when the extras are short safe lanes (mainline 80); `limit`/`morning_limit` are the normal queue limits (mainline 35/45).
+
+| label | common seeds | Δ margin vs b46 | weeks higher | orders/week | rob-18 on time | 3 lowest weeks |
+|---|---:|---:|---:|---:|---:|---|
+| `b46-car105-sameday480` (baseline) | 13 | – | – | 362.2 | 94.7% | rob-18 94.7%, rob-17 94.9%, dev-05 95.7% |
+| `g1-safe70` (safe_limit=70) | 13 | −€1,614 | 6/13 | 360.8 | 94.5% | rob-18 94.5%, dev-05 95.7%, dev-07 96.1% |
+| `g1-limit32` (limit=32, morning_limit=42) | 13 | −€286 | 7/13 | 360.3 | 92.9% | rob-18 92.9%, dev-01 96.3%, dev-05 96.3% |
+
+All 39 weeks ranked (nothing near the 90% line). Baseline total on the 13 seeds: €193,969.21; runs: safe70 €192,354.92, limit32 €193,683.28.
+
+**Reading.** Tighter intake does not buy the rob-18 floor; it gives it away. Both settings lose money overall and both push rob-18 *below* the baseline (94.7% → 94.5% and 92.9%, the latter with 18 late cars and −€906). The reason is in the week itself: of baseline rob-18's 14 late cars, 12 were won while the waiting queue was under 20 — the intake limits were never binding for them — and 8 of 14 were due Thursday, won Tuesday/Wednesday. Causes: 8 dropped by their booked driver (mostly overnight no-shows) and 6 never booked before the deadline warning (gigs drew dozens of views, drivers passed, first booking came only after the warning). Refusing more work upstream does not fix a driver-supply problem; it just shrinks the good weeks (dev-08 −€1,358/−€1,738 in the two runs).
+
+**Verdict.** Keep the mainline intake (safe_limit=80, limit=35/morning 45). The rob-18 floor has to be protected on the posting/fee side (fewer drops, faster first bookings), not by taking less work.
