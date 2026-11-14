@@ -406,3 +406,20 @@ Dev only: +€2,720 (10 weeks, 6 ahead). All 13 weeks ranked; on time 96.3% → 
 **Caution.** 13 weeks, +€200 a week: a lead, inside the ±€2.5k noise band seen in t1s13. The floor gain is more consistent (all three low weeks up). Only N=25, one step, was played (the waiter for the run hung on its own `pgrep` match, which cost the second variant).
 
 **Next.** (1) The other 17 rob seeds with N=25 against `b37-fee3`. (2) N=15 and N=40, and `fee_flat_views_steps=2`, on the same 13 weeks. (3) Since late last-day drops did not move, a dropped gig's views may need a lower N (it draws 87 views); try N counted only after a drop.
+
+## g1 view-count sweep on the car 1.05 + same_day mainline, 14 Nov
+
+Three values of `fee_flat_views` (the t1s18 rule) on the **current** mainline, 10 dev weeks plus rob-04, rob-17, rob-18, paired with `b46-car105-sameday480` (the same 13 seeds; `b54-views25` holds no index rows, so b46 is the only baseline). No code changes; parameter runs only.
+
+| label | common seeds | Δ margin vs b46 | weeks higher | orders/week | 3 lowest weeks |
+|---|---:|---:|---:|---:|---|
+| `b46-car105-sameday480` (baseline) | 13 | – | – | 362.2 | rob-18 94.7%, rob-17 94.9%, dev-05 95.7% |
+| `g1-views15` | 13 | −€478 | 8/13 | 366.1 | rob-18 93.4%, rob-17 95.8%, dev-05 96.0% |
+| `g1-views40` | 13 | **+€1,398** | 7/13 | 363.5 | rob-18 92.2%, rob-17 95.6%, dev-05 96.3% |
+| `g1-views25s2` (steps=2) | 13 | −€3,758 | 6/13 | 364.0 | rob-18 92.2%, dev-10 95.7%, dev-04 96.0% |
+
+All 39 weeks ranked. Baseline total on the 13 seeds: €193,969.21; runs: views15 €193,491.37, views40 €195,366.99, views25s2 €190,211.03.
+
+**Reading.** On this mainline the rule no longer pays. The t1s18 gain (+€2,638) was measured against `b37-fee3`; b46's other changes have already lifted the floor (rob-18 92.0% → 94.7%), and the view-raise variants give that back: every variant drops rob-18 below the baseline (94.7% → 93.4%, 92.2%, 92.2%), and views25s2 does worst on money (−€289 a week, 6/13 weeks ahead). The best variant, views40, is +€108 a week, 7/13 weeks, inside the ±€2.5k noise band. N=15 wins the most weeks (8/13) but loses money on dev-08 (−€1,767). Doubling the step size makes both money and floor worse, so the fee is already near what this pool takes.
+
+**Verdict.** None adopted; the switch stays off on the mainline. The single-step N=25 value itself was not re-run against b46 (`b54-views25` is not in the index); if the family is kept at all, that is the one value still worth a paired 13-week check, since 15 and 40 bracket it with −€478 and +€1,398.
