@@ -36,7 +36,7 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
     together = {"patience": 120, "hold": hold} | {key[7:]: params.pop(key) for key in BUNDLES if key in params}
     offer = {key[6:]: params.pop(key) for key in OFFERS if key in params}
     fee = {key[4:]: params.pop(key) for key in FEES if key in params}
-    profit = {"car": car, "late": late, "trust": trust} | {key: params.pop(key) for key in PROFIT if key in params}
+    profit = {"car": car, "late": late, "trust": trust, "car_short": 0.85} | {key: params.pop(key) for key in PROFIT if key in params}
     if params.get("barrier"):  # prices decide volume: the hard limit only guards against a runaway
         limit = morning_limit = barrier_limit
     parts = t1.build(ctx, markup=markup, slack=slack, limit=limit, morning_limit=morning_limit, same_day_slack=same_day_slack, same_day_drivers=same_day_drivers, **params)
@@ -55,7 +55,7 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
     if notes == "read":
         parts.notes = ReadNotes()
     if fees == "measured":
-        parts.fees = MeasuredFees(interval=rise, **({"quiet_from": 21 * 60, "model": 4, "flat": 1, "flat_up": -0.15} | fee))
+        parts.fees = MeasuredFees(interval=rise, **({"quiet_from": 21 * 60, "model": 4, "flat": 1, "flat_up": -0.15, "flat_floor": 0.75, "flat_short": 0.95} | fee))
     parts.repairs = frozenset(repairs.replace("+", ",").split(",")) - {""}  # e.g. --set repairs=windows+orphans+late+keep_urgent
     if bundle > 1:  # the most cars in one gig; below 2 every order goes alone
         parts.bundles = Bundles(cars=bundle, **together)

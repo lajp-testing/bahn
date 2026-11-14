@@ -156,3 +156,18 @@ Model 4 is model 3 retrained on all saved weeks with weeks of the recent policie
 The worst week falls from 93.8% to 91.3% (rob-18, the hardest of the 50 worlds; mean on time 96.3%, spread ±1.5 points). We judge the final's risk on the spread, not on the one hardest world: the user accepted a worst week of about 91%. Adopted as the default; `main` reproduces b52 dev-01 to the cent (`b62-main-check`, €11,284.69). An on-time governor (`guard`) is being measured as insurance.
 
 Not adopted, 30 weeks against b46: limit 40 (+€1,071), the same_day rule with car 1.0 (−€3,811), the view-count raise (+€2,760, rob-18 91.4), the ladder schedule for the model (+€9,876, rob-18 91.0), fee_flat_up −0.2 with end_car 1.12 (+€11,305 on 30 weeks, −€862 on rob-21..30), all three stacked (+€10,303), bundle_private + bundle_slack 240 (+€4,570), the scarcity tilt (lost), tighter intake (lost).
+
+## 19:45 cheaper short cars: lower flat-fee floors and a short-lane tilt
+
+From the test-final analysis (`tracks/orch/finals/testfinal-20261114-1800/ANALYSIS.md`): the top teams' extra orders are cars under 100 km, and our flat fee never went below 0.85 x typical (1.15 under 40 km), the floor on 73% of our single cars. New switches `fee_flat_floor`, `fee_flat_short` (fees) and `car_short` (the cost tilt for a lane under `short_km` = 100 km). Against `b52-fee4-car110`:
+
+| label | weeks | margin change | ahead | orders/wk | €/car | lowest weeks other than rob-18 |
+|---|---|---|---|---|---|---|
+| b68-floor075-short100 | 30 | +€4,827 | 19 | 347 | 47.23 | dev-07 93.2 |
+| **b68-floor075-short095-carshort085** | **40** | **+€31,187** (holdout +€10,243, 9 of 10) | **34** | 386 | 43.70 | rob-17 93.7, hold-10 94.0 (rob-18 92.1) |
+| b70-floor075-short095-carshort075 | 30 | +€13,059 | 24 | 404 | 41.31 | rob-17 92.2 |
+| b70-floor070-short090-carshort085 | 30 | +€15,126 | 26 | 384 | 43.66 | rob-17 93.0 |
+
+Lower floors alone only cut costs; with short lanes quoted at 0.85 instead of 1.1 the cheaper cars are won too. Adopted: `fee_flat_floor=0.75`, `fee_flat_short=0.95`, `car_short=0.85` are the defaults; `main` reproduces b68 dev-01 to the cent (`b72-main-check`, €12,348.31).
+
+Tried tonight and not adopted (30 weeks against b52 unless noted): car 1.0 (+€5,168, 403 orders, lowest 92.6), car 1.05 (−€1,612), queue 0.1 (−€2,811), limits 45/55 + safe 100 (+€2,602), same_day 360 (+€9,209 but dev-10 91.1), slack 540 (+€235), bundle leads (−€840), chain offers at post time (10 dev, −€1,466; 21 of 3,253 offers taken), quoter step 0.1 / boost 5 (10 dev, −€3,835 / −€1,335), kind_offset −0.15 / same +0.15 (10 dev, −€3,258 / −€1,459), invest 0.25 / 0.1 (10 dev, −€1,164 / +€135), view raise on lanes ≥300 km (13 weeks, −€2,727).
