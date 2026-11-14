@@ -145,3 +145,7 @@ Further tests in progress: `t1s5-warn2` reaches only 89.0% on rob-17 (not ranked
 | `t1s5-drop3` | 101,227.69 | 40,135.54 | 90.06% | 90.06, 94.26, 91.91, 96.65, 96.24% |
 
 Both rejected: warn2 does not rank rob-17; drop3 misses the floor on rob-18 and rob-14. `t1s5-late5` is in progress: after 30 orders, use a 5% observed late share, including orders past deadline, to trigger the same restrictions. Offline checks 22 passed.
+
+`t1s5-best-rob` (warn3) completed 20 rob weeks: €196,236.83, 5,258 orders, 97.0% aggregate on time, 20/20 ranked. Sorted shares: rob-14 92.24%, rob-17 92.77%, rob-18 93.99%, rob-05 96.25%, rob-10 96.53%, rob-11 96.58%, rob-12 96.76%, rob-08 97.05%, rob-06 97.40%, rob-13 97.40%, rob-20 97.45%, rob-19 97.60%, rob-07 97.62%, rob-09 97.77%, rob-02 97.78%, rob-16 98.26%, rob-15 98.40%, rob-01 98.54%, rob-03 98.68%, rob-04 98.95%. These include the five selected for testing, so the sample is not independent.
+
+`t1s5-afternoon` declines requests after 15:00 when ready within three hours. It reached 94.4% on rob-18 but only 89.5% on rob-17, not ranked; complete totals pending. `t1s5-warn3-limit10` tests a queue limit of 10 while the warning rule is active; in progress.
