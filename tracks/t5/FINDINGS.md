@@ -1,6 +1,28 @@
 # Track 5: more cars per driver
 
-**Verdict: not established.** The direct-offer pilot covered one gig: 8 offers sent, 4 read, 0 accepted; this cannot establish whether offers beat the app. At 1.0 times typical fee, none of 315 offers across 30 gigs in two seeds was accepted. On 30 fresh gigs, viewer offers at 0.5, 0.7 and 0.9 times typical also found no driver (67 offers per fee, 26 gigs with viewers); the parent app later booked 27 of those 30 gigs. No accepted offer exists to measure a fee saving. Do not adopt a policy on this evidence.
+**Verdict (14 Nov): one gig with two cars costs less than two gigs, and finds drivers for cars that nobody takes alone. The desk now bundles (`dispatch/bundles.py`, `--set bundle=2`).** Direct offers stay unproven (below).
+
+## Two cars in one gig: the measurement
+
+`tracks/t5/pairs.py --seed t5-pair-1` plays a week with the mainline. When a car is won that fits before or after an open car (the second pickup at most 30 minutes from the first delivery, both inside their windows), copies of the world find the lowest flat fee that books within 3 hours: each car alone, and both in one gig. 14 pairs, `t5-pair-1-pairs.jsonl`.
+
+| | pairs | fee alone, both cars | fee as one gig | |
+|---|---|---|---|---|
+| all three found a driver | 11 | €1,068 | €916 | -14% |
+| one car found no driver alone, at up to 2.3 times typical | 2 | - | 0.74 and 0.86 times typical | the gig booked |
+| the gig found no driver (experienced drivers only) | 1 | 1.36 and 0.86 times typical | - | |
+
+9 of the 11 complete pairs were cheaper as one gig (from -6% to -52%), 2 were dearer (+17%, +72%: one car alone happened to suit a driver going home). The saving is largest for two short city legs (-27%, -42%) and where one car is hard alone (-34%). A flat fee over 3 hours is a noisy measure of what a driver needs, so read the -14% as "between a tenth and a fifth".
+
+`tracks/t5/potential.py b10-quiet21` counts, in the saved mainline weeks, the won cars that fit with another won car by the same test: 1,846 of 2,670 (an upper bound: it ignores that a car may have its driver before the partner is won).
+
+## Bundles in the desk
+
+A newly won car joins an open gig when one driver can do all stops in a row. The bundle's fee is the sum of what its cars' own schedules pay at each minute, times 0.85. A bundle without a driver goes back to one gig per car, each at the fee its own schedule shows then. First result, 7 dev weeks, `b13-bundle2` against `t3s5-model2`: €74,982 against €70,496 (+6.4%), 6 of 7 weeks higher, 97.4% against 97.6% on time; 430 bundles posted, 394 booked, median 80 minutes to the booking, booked at 0.87 to 0.91 times the typical fees. Later numbers are in the orchestrator's batch table.
+
+## Direct offers
+
+**Not established.** The direct-offer pilot covered one gig: 8 offers sent, 4 read, 0 accepted; this cannot establish whether offers beat the app. At 1.0 times typical fee, none of 315 offers across 30 gigs in two seeds was accepted. On 30 fresh gigs, viewer offers at 0.5, 0.7 and 0.9 times typical also found no driver (67 offers per fee, 26 gigs with viewers); the parent app later booked 27 of those 30 gigs. No accepted offer exists to measure a fee saving. Do not adopt a policy on this evidence.
 
 **Earlier stint:** The saved-week screen finds 17 consecutive same-town gig pairs across 10 mainline dev weeks (1.7 per week), but does not measure how many orders a combined gig or direct offer could add, nor its fee saving. No policy should be adopted on this evidence. The required driving-time feasibility analysis and copy experiments remain to be done.
 
