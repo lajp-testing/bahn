@@ -66,3 +66,14 @@ def test_learned2_model_and_switch():
     assert 0.2 * r["referenceFeeCents"] < fee < 5 * r["referenceFeeCents"]
     assert 0.0 <= risk <= 1.0
     assert desk(fee_model=3).parts.fees.model == 3  # model 3 stays unchanged, one switch away
+
+
+def test_learned3_model_and_switch():
+    learned3 = pytest.importorskip("dispatch.learned3")
+    assert tuple(learned3.NAMES) == F.NAMES
+    d = desk(fee_model=5)
+    r = request()
+    fee, risk = d.parts.fees.expected(r, d), d.parts.fees.late_risk(r, d)
+    assert 0.2 * r["referenceFeeCents"] < fee < 5 * r["referenceFeeCents"]
+    assert 0.0 <= risk <= 1.0
+    assert desk(fee_model=4).parts.fees.model == 4  # model 4 stays unchanged, one switch away
