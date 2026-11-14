@@ -19,6 +19,7 @@ from ..notes import ReadNotes
 from ..home import Home
 from ..offers import Offers
 from ..parts import Parts
+from ..guard import Governor
 from ..pricing import ProfitQuoter
 from . import t1
 
@@ -31,7 +32,7 @@ OFFERS = ("offer_n", "offer_up", "offer_near", "offer_fresh", "offer_rounds", "o
 BUNDLES = ("bundle_dead", "bundle_slack", "bundle_split", "bundle_discount", "bundle_drive", "bundle_private", "bundle_patience", "bundle_room", "bundle_plan", "bundle_reach", "bundle_hold_slack")  # passed to the bundles without the prefix
 
 
-def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 480, same_day_drivers: int = 0, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans+calm", pending: float = 1.0, queue_hours: float = 0, queue_far: float = 0.0, offers: str = "", day_limit: int = 0, safe_limit: int = 80, safe_km: float = 300, safe_near: int = 0, home: float = 0.0, home_cut: float = 0.2, hold: int = 0, barrier_limit: int = 120, **params: Any) -> Parts:
+def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 480, same_day_drivers: int = 0, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans+calm", pending: float = 1.0, queue_hours: float = 0, queue_far: float = 0.0, offers: str = "", day_limit: int = 0, safe_limit: int = 80, safe_km: float = 300, safe_near: int = 0, home: float = 0.0, home_cut: float = 0.2, hold: int = 0, barrier_limit: int = 120, guard: float = 0.0, guard_car: float = 1.1, **params: Any) -> Parts:
     together = {"patience": 120, "hold": hold} | {key[7:]: params.pop(key) for key in BUNDLES if key in params}
     offer = {key[6:]: params.pop(key) for key in OFFERS if key in params}
     fee = {key[4:]: params.pop(key) for key in FEES if key in params}
@@ -62,4 +63,6 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
         parts.offers = Offers(on=offers, **offer)
     if home:  # e.g. --set home=30: rides home for our drivers within 30 km (dispatch/home.py)
         parts.home = Home(km=home, cut=home_cut)
+    if guard:  # the on-time governor (dispatch/guard.py): a week whose own on-time share slips under `guard` quotes dearer and without same-day speed; 0 for off
+        parts.quoter.guard = parts.intake.guard = Governor(guard, guard_car)
     return parts
