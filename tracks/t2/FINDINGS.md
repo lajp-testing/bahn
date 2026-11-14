@@ -376,3 +376,19 @@ The quoter already prices by where drivers live. The single-car fee hardly diffe
 
 1. **Price the partner (a quote that knows the bundle).** When `bundles.join` would accept a request into an open gig, quote it at its bundled cost: fee about 0.8 times typical instead of 0.95, and it uses no new driver-day. A cheaper car to deliver should get a lower price, and the partners exist (81% of quoted requests have one) while 81% of our cars go alone. *Measurement:* the share of won cars in gigs with 2 or more cars (19% now), cars per driver-day (1.6), won orders a week and total margin over the 10 dev weeks, with no week below 90% on time.
 2. **Rides home at a lower price.** A request that starts near where one of our drivers will finish, and ends near that driver's home, is the cheapest car in the world for that driver. We lose 145 a week of these at a median 1.52 times list. Quote them lower, and post them as a bundle with the driver's current gig while it is unbooked, or as a direct offer to that driver before they finish. *Measurement:* how many such requests we win (63 a week now), the fee/typical paid on them against 0.95, and the margin and on-time share over the 10 dev weeks.
+
+## Rides home, built behind a switch (t2s12, 14 Nov)
+
+**Rule.** A request is a ride home for driver D when its pickup is within `home` km (straight line) of where D's last booked gig of ours ends, its pickup window opens no later than 6 hours after that gig's latest finish (its deadline) and closes no earlier than its earliest finish, and its delivery is within `home` km of D's `homePlaceId`. The quoter takes `home_cut` (default 0.2) off such a car's expected fee, which is about what a second car in a gig saves (0.95 to 0.79 times typical). Once the order is won, its gig goes to the app as usual, plus **one direct offer to D** at the fee the gig's schedule shows then.
+
+**Why an offer and not a later window.** A direct offer reaches a driver whom the app never notifies there, the gig stays in the app so a no costs nothing, and the world checks whether the gig fits D's day. A later pickup window would delay every ride and would still not notify D.
+
+**Code.** `dispatch/home.py` (one part, about 120 lines), a `home` field in `Parts`, three lines in `ProfitQuoter.prices`, and `home`/`home_cut` in `policies/main.py`. Off by default (`home=0`). Restart: the part learns gigs from post results (the journal), drivers from `gig_booked`/`offer_answered`, rides from `order_won`, and offers already sent from the journal's offer results.
+
+**Switch-off check.** `t2s12-off` dev-01: €8,764.79, 246 orders, 97.6% on time, the same to the cent as `t1s11-base` dev-01.
+
+**Smoke week, one week only (a lead, not a finding).** `t2s12-home-smoke` (`--set home=30`) dev-07: €12,590.67, 316 orders, 92.1% on time, against `t1s11-base` dev-07 at €13,047.78, 301 orders, 93.7%. 68 rides home were won and offered (all 68 offers accepted by the world). Answers: **3 accepted**, 31 declined, 34 expired. The offered fee was the schedule's opening step, a median of about **0.75 times typical** (from 0.64 to 1.06). Of the 3 accepted, 2 delivered with that driver at 0.75 and 0.71 times typical; one (g381) was later delivered by another driver at twice the offer.
+
+**Reading.** Rides home exist and the cheaper quote wins them (+15 orders), but the offer at the opening fee is mostly ignored: half the offers are never read (expired), and almost all readers decline at 0.64 to 0.75 typical. So most rides go to the app like any car, at a cost the quote assumed was 20% lower. On this week that cost about €457 and 1.6 points on time.
+
+**Next, if there is time to measure.** (1) 30 weeks as it is, to see whether the one-week loss holds. (2) An offer at about 0.85 to 0.9 typical, the price a bundled car pays, instead of the opening step. (3) A smaller `home_cut` (0.1) while the acceptance is this low.
