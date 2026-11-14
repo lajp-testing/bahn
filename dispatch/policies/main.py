@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..bundles import Bundles
 from ..context import Context
 from ..fees import MeasuredFees
 from ..notes import ReadNotes
@@ -24,7 +25,11 @@ PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "c
 FEES = ("fee_model", "fee_buffer", "fee_rise", "fee_cap", "fee_max_raises", "fee_hold_until", "fee_deadline_margin", "fee_quiet_from", "fee_quiet_to", "fee_far_open", "fee_soon_open")  # passed to the fees without the prefix
 
 
-def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 25, morning_limit: int = 35, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, **params: Any) -> Parts:
+BUNDLES = ("bundle_dead", "bundle_slack", "bundle_split", "bundle_discount", "bundle_drive", "bundle_private")  # passed to the bundles without the prefix
+
+
+def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 25, morning_limit: int = 35, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 0, **params: Any) -> Parts:
+    together = {key[7:]: params.pop(key) for key in BUNDLES if key in params}
     fee = {key[4:]: params.pop(key) for key in FEES if key in params}
     profit = {"car": car, "late": late, "trust": trust} | {key: params.pop(key) for key in PROFIT if key in params}
     parts = t1.build(ctx, markup=markup, slack=slack, limit=limit, morning_limit=morning_limit, same_day_slack=same_day_slack, same_day_drivers=same_day_drivers, **params)
@@ -35,4 +40,6 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
         parts.notes = ReadNotes()
     if fees == "measured":
         parts.fees = MeasuredFees(interval=rise, **({"quiet_from": 21 * 60} | fee))
+    if bundle > 1:  # the most cars in one gig; below 2 every order goes alone
+        parts.bundles = Bundles(cars=bundle, **together)
     return parts

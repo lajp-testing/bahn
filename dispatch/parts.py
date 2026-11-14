@@ -49,6 +49,7 @@ class Parts:
     intake: Any
     fees: Any
     notes: Any
+    bundles: Any = None  # dispatch/bundles.py: which cars share a gig; None posts every order alone
 
     def all(self) -> list[Part]:
-        return [self.quoter, self.intake, self.fees, self.notes]
+        return [self.quoter, self.intake, self.fees, self.notes] + ([self.bundles] if self.bundles else [])
