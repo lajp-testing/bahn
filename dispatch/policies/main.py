@@ -2,10 +2,10 @@
 
     intake  track 1: a limit on the orders without a booked driver, more room before noon, only options with 12 hours of slack; same-day options with 6 hours of slack and 80 drivers living near the pickup
     notes   the reader (dispatch/reader.py)
-    fees    track 3: open near each car's estimated booking fee and rise a little every `rise` minutes
+    fees    track 3: open near each car's estimated booking fee and rise a little every `rise` minutes, but not at night
     quoter  the price that earns the most at the level the week shows, over each car's expected fee and late risk, at each dealer's own level of trust (dispatch/pricing.py)
 
-Each part can be switched back, to measure it: `notes=starter`, `fees=starter`, `private=false`, `price=fixed`, `slack=1440`, `same_day_slack=-1`, `car=0`, `late=0`, `trust=0`, `limit=15`.
+Each part can be switched back, to measure it: `notes=starter`, `fees=starter`, `private=false`, `price=fixed`, `slack=1440`, `same_day_slack=-1`, `car=0`, `late=0`, `trust=0`, `limit=15`, `fee_quiet_from=0`.
 Other parameters go on to the t1 policy (limit, markup, options, and the starter fees' numbers).
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ from ..pricing import ProfitQuoter
 from . import t1
 
 
-PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "car", "late", "trust", "invest", "share", "lag", "dealer", "towns")
+PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "car", "late", "trust", "invest", "share", "lag", "dealer", "towns", "same", "kind_offset", "shape", "shape_scale")
 FEES = ("fee_buffer", "fee_rise", "fee_cap", "fee_max_raises", "fee_hold_until", "fee_deadline_margin", "fee_quiet_from", "fee_quiet_to")  # passed to the fees without the prefix
 
 
@@ -34,5 +34,5 @@ def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bo
     if notes == "read":
         parts.notes = ReadNotes()
     if fees == "measured":
-        parts.fees = MeasuredFees(interval=rise, **fee)
+        parts.fees = MeasuredFees(interval=rise, **({"quiet_from": 21 * 60} | fee))
     return parts

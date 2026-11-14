@@ -165,3 +165,69 @@ On the old mainline (stint 4) the peak was at towns=2.0 (+1,842); on the current
 - Keep: `towns=1.5` (delivery-town lane offsets, `dispatch/towns.py`), +1,568 over the base on the dev weeks, all weeks ranked, on time up. Held out for the orchestrator's holdout check.
 - Reject: per-dealer learned offsets (`dealer`), all step sizes negative; `spread=0.4`, catastrophic.
 - 9 of 16 runs used.
+
+## Stint 6: same-day options and the curve's shape
+
+Test bed: the mainline with track 1's same-day admission (`--set same_day_slack=360 --set same_day_drivers=80`), expected about EUR 100,657. `same` (stint 6) is a level offset for a `same_day` option; `kind_offset` (within_3_days, re-added through the same code path) and `shape`/`shape_scale` (the measured curve) are default-off.
+
+### Step 1 measurement: the same-day premium (`tracks/t2/kinds2.py`)
+
+Leftover = an option's switching ratio minus its world-and-day mean of `next_day` rows (switch_high=0 rows skipped):
+
+| kind | n | mean | q25 | q50 | q75 |
+|---|---:|---:|---:|---:|---:|
+| next_day | 2,942 | 0.000 | −0.148 | −0.001 | 0.154 |
+| same_day | 3,918 | +0.008 | −0.144 | −0.007 | 0.144 |
+| within_3_days | 131 | +0.048 | −0.073 | +0.077 | 0.224 |
+
+The pooled +0.008 is an artifact of composition. Only scan-1 scanned two options of the same request; scans 2–6 scanned one option per request, and their `next_day` rows are only requests *without* a same-day option (list EUR 89.79 vs 76.93, lane 231 vs 172 km — disjoint populations). Split by world, the same_day leftover is +0.140 in scan-1 but −0.02 to −0.06 in scans 2–6, exactly where the populations are disjoint. The only within-request evidence is scan-1's 723 paired requests: same_day ratio minus next_day ratio **+0.186** (558/725 pairs higher; list +610 cents, absolute switch price +1,664 cents). The handbook fits this: the competitor's price is list × factors (the same for every option of a request), and the dealer adds the value of each option's speed. So the premium is real but measured in one world only; the `same` sweep (0.1/0.2/0.3) arbitrates on the test bed.
+
+### Step 2 measurement: the true shape (`tracks/t2/shape.py`, `dispatch/shape.py`)
+
+z = switching ratio minus the world-and-day mean of the same kind (same_day rows, the most common kind: 3,918 rows, 30 world-days). S(z) = share of rows with leftover above z, against the logistic the quoter assumed:
+
+| z | −0.4 | −0.3 | −0.2 | −0.1 | 0 | +0.1 | +0.2 | +0.3 | +0.4 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| S(z) | 0.979 | 0.938 | 0.836 | 0.672 | 0.474 | 0.293 | 0.158 | 0.080 | 0.037 |
+| logistic 0.2 | 0.881 | 0.818 | 0.731 | 0.622 | 0.500 | 0.378 | 0.269 | 0.182 | 0.119 |
+| logistic 0.3 | 0.791 | 0.731 | 0.661 | 0.583 | 0.500 | 0.417 | 0.339 | 0.269 | 0.209 |
+
+The true curve is **steeper in the middle** than the logistic 0.2 (S falls 0.84→0.16 over ±0.2 vs 0.73→0.27; the middle slope matches a logistic with spread ≈0.13) and **thinner in both tails** (2% of mass beyond ±0.4 vs 12%). It is not flatter, so the stint-5 spread=0.4 failure does not predict a failure for the table; a steeper curve moves the profit-maximising price *down*, towards more volume. next_day rows give nearly the same curve. The table is `dispatch/shape.py` (`SURVIVAL`), used by `shape="table"` with linear interpolation.
+
+### Step 1 runs: the `same` sweep on the test bed
+
+| label | change | margin EUR | orders | on time | worst | ranked | weeks better than base |
+|---|---|---:|---:|---:|---:|---|---:|
+| `t2s6-base` | none | 100,657 | 2,731 | 96.7% | 91.5% | 10/10 | — |
+| `t2s6-same01` | same=0.1 | 99,135 | 2,670 | 96.5% | 93.2% | 10/10 | 3/10 |
+| `t2s6-same02` | same=0.2 | 101,088 | 2,650 | 97.2% | 93.8% | 10/10 | 5/10 |
+| `t2s6-same03` | same=0.3 | 98,049 | 2,605 | 97.2% | 95.0% | 10/10 | 3/10 |
+
+same=0.1 loses 1,522 and 61 orders; same=0.3 loses 2,608 (3/10 weeks, though on time again better, worst 95.0%). same=0.2 gains +431 — under the noise bar with only 5/10 weeks agreeing, so not a finding by the evidence rules — but it wins fewer orders (−81) at a clearly higher EUR/order (38.1 vs 36.9) and on time improves everywhere (96.7%→97.2%, worst 91.5%→93.8%; dev-07 +1,322). The same-day premium is real but small at the operating point: the hill peaks near 0.2, and the volume the higher same-day prices give up eats most of what they earn.
+
+### Step 2 runs: the measured curve
+
+| label | change | margin EUR | orders | on time | worst | ranked | weeks better than base |
+|---|---|---:|---:|---:|---:|---|---:|
+| `t2s6-shape` | shape=table | 94,148 | 3,034 | 96.2% | 92.3% | 10/10 | 3/10 |
+| `t2s6-shape-same` | shape=table, same=0.2 | 93,355 | 2,942 | 96.4% | 93.4% | 10/10 | 1/10 |
+| `t2s6-shape15` | shape=table, shape_scale=1.5 | 101,854 | 2,768 | 96.7% | 93.8% | 10/10 | 6/10 |
+
+Widening the table's z axis by 1.5 (middle slope back to about the logistic 0.2, tails still thinner) recovers the loss and lands at +1,198 over the base, 6/10 weeks better, worst week 93.8% vs the base's 91.5% (dev-07 +1,278, dev-10 +1,188, dev-08 −2,069 the drag). The gain is under the noise bar without 7/10 agreement, so the table at scale 1.5 is a lead, not a finding. `same` on top of the steep table loses more (93,355, −793 vs the table alone) — the steeper curve already prices same-day options closer to their level. On the widened table, `same=0.2` cancels the gain instead of adding to it: `t2s6-shape15-same02` 100,569 (−88 vs base, 97.2% on time, worst 94.2%).
+
+### Step 3 runs: the town table on the test bed
+
+| label | change | margin EUR | orders | on time | worst | ranked | weeks better than base |
+|---|---|---:|---:|---:|---:|---|---:|
+| `t2s6-towns15` | towns=1.5 | 99,417 | 2,739 | 96.9% | 92.9% | 10/10 | 5/10 |
+| `t2s6-towns15-same` | towns=1.5, same=0.2 | 100,556 | 2,672 | 97.3% | 94.3% | 10/10 | 5/10 |
+| `t2s6-shape15-same02` | shape=table, shape_scale=1.5, same=0.2 | 100,569 | 2,707 | 97.2% | 94.2% | 10/10 | |
+
+On the old mainline towns=1.5 gained +1,568 (stint 5); on the same-day test bed it loses 1,240 (5/10 weeks) and `same` on top does not recover it either (−101 vs base, 5/10). The same-day volume moves the operating point again: the town offsets' cheap-town wins now collide with the same-day options the intake admits. `towns` stays at the mainline's default on this test bed.
+
+### Stint 6 bottom line
+
+- Nothing passes the evidence rules on the same-day test bed. The two leads, both under the EUR 1,500 bar: `shape=table shape_scale=1.5` (+1,198, 6/10 weeks, worst week 93.8% vs the base's 91.5%) and `same=0.2` (+431, 5/10, on time 97.2%, worst 93.8%). They do not compose (100,569, −88). `towns=1.5`, the stint 5 keep, loses 1,240 on this test bed and should be re-tuned or dropped if the mainline adopts same-day admission.
+- Reject: the measured curve at its natural scale (`shape=table`, −6,509 — the table is measured around the true day mean, but the live level's own error widens the effective curve), `same` at 0.1 and 0.3, every combination with `towns=1.5`.
+- Code kept, all default-off: `same`, `kind_offset` (re-added through one `kind_off` path), `shape`, `shape_scale` in `ProfitQuoter`; `PROFIT` passes them through. 22 offline tests pass.
+- 10 of 16 runs used.
