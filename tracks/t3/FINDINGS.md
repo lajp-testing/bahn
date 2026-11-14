@@ -409,3 +409,19 @@ What we saw:
 - **`end_car=1.12` makes money but trims volume**: +€2.5k on 7 of 10 weeks, but 9 fewer orders a week (370.2) and dev-04 drops to 96.0% (−1.1). Pricier Friday options win per car (€43.14) at the cost of some volume.
 
 Pick: **`fee_flat_up=-0.2`** — the only change that is both ahead on most weeks and safe on the 90% line. `end_car=1.12` is a weaker second (+€2.5k but −9 orders/wk); worth a holdout check before adopting. `bundle_patience` stays at 120.
+
+## g3 bundle sweep A, 14 Nov
+
+**The question.** In the mainline's 40 saved weeks 72% of delivered cars went alone in a gig at 0.97x the typical fee and 3.7% late, while 2-car-gig cars cost 0.79x and were 1.0% late — the best team wins ~470 orders/week at €43/car, so more bundles is our likely gap. Each run changes one bundle setting on `main` (defaults `bundle_dead=30`, `bundle_private=0`), 10 dev weeks, no code change. Baseline `b46-car105-sameday480` (dev total €157,205, 372.1 orders/wk, €42.25/car, 2-3-car share of delivered cars 28%).
+
+| label | change | Δ total margin (10 dev weeks) | weeks higher | orders/wk | €/car | 2-3-car share of delivered cars | 3 lowest on-time weeks (vs base) | ranked |
+|---|---|---|---|---|---|---|---|---|
+| g3-bdead60 | bundle_dead 30 → 60 | +€530 | 5/10 | 370.1 | 42.62 | 35.5% | dev-10 93.3% (95.9), dev-07 96.1% (96.4), dev-04 96.5% (97.1) | 10/10 |
+| g3-bprivate | bundle_private 0 → 1 | **+€1,955** | 6/10 | 372.9 | 42.68 | 31.7% | dev-07 95.6% (96.4), dev-05 95.7% (95.7), dev-04 96.3% (97.1) | 10/10 |
+
+What we saw:
+- **Both bundle levers move cars into bundles, but neither clears the 7-of-10 bar.** `bundle_dead=60` lifts the 2-3-car share from 28% to 35.5% (2-car gigs posted 101/wk vs 73/wk in the baseline) yet only 5 of 10 weeks gain, and dev-10 falls to 93.3% (−2.6): the longer empty-drive allowance pairs cars that then run late. `bundle_private=1` gives the bigger, steadier gain (+€1,955, 6/10, worst week still 95.6%) at a smaller share shift (31.7%), mostly through dev-02 (+€1,318) and dev-10 (+€1,525).
+- **`bundle_private=1` is the better of the two but not a finding**: ahead on 6 of 10 weeks with no on-time week below 95.6%. Per the sweep's rule (7+ of 10) the combined run `bundle_dead=60 bundle_private=1` was not played.
+- Late cars inside bundles stay rare in both runs (2-car 0.7-1.3% vs singles ~4%), so the fee saving is real; the volume of bundleable pairs, not the fee, is the brake.
+
+Pick: **`bundle_private=1`** as the lead worth confirming (a holdout check on the orchestrator's seeds, then a combined `bundle_private=1 bundle_dead=45`-style run). `bundle_dead=60` alone is not worth its on-time risk (dev-10 at 93.3% near the 90% ranking line).
