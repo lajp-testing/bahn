@@ -112,7 +112,7 @@ class MeasuredFees(Fees):
     def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
                  cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, hold_until: int = 0, rescue_fraction: float = 0,
                  quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, far_open: float = 0, soon_open: float = 0, early: int = 0, backload: int = 0, rescue: int = 0,
-                 flat: int = 0, flat_up: float = 0.0, flat_step: float = 0.15, flat_wait: int = 6 * HOUR, flat_last: int = 24 * HOUR, flat_drop: int = 0, flat_views: int = 0, flat_views_steps: int = 1, ladder_features: int = 0, **kwargs: Any):
+                 flat: int = 0, flat_up: float = 0.0, flat_step: float = 0.15, flat_wait: int = 6 * HOUR, flat_last: int = 24 * HOUR, flat_drop: int = 0, flat_views: int = 0, flat_views_steps: int = 1, ladder_features: int = 0, flat_floor: float = 0.85, flat_short: float = 1.15, **kwargs: Any):
         super().__init__(**kwargs)
         # `flat` = 1: a gig opens at the fee we expect it to need (the model's expected multiple plus `flat_up`, within
         # 0.85 and `cap`) and keeps it, one `flat_step` more after `flat_wait` minutes of the drivers' day without a booking
@@ -124,6 +124,10 @@ class MeasuredFees(Fees):
         # not at the fee it was booked at (Desk.last_day_drop); 2: the urgent ladder at once; 3: one fee on the urgent
         # ladder's range, higher the less time is left
         self.flat_drop = int(flat_drop)
+        # `flat_floor`, `flat_short`: the lowest flat fee, as a multiple of typical (`flat_short` for a lane under 40 km or a car
+        # with under 5 hours left). In the 18:00 test final 73% of our single cars opened at the 0.85 floor and half booked within
+        # 7 minutes; every lane under 40 km booked at 1.15 at its first view (tracks/orch/finals/testfinal-20261114-1800/ANALYSIS.md).
+        self.flat_floor, self.flat_short = float(flat_floor), float(flat_short)
         # `ladder_features` = 1: the learned model reads the schedule this part would post with the flat fee off (the ladder
         # most of its training weeks posted), instead of the flat fee itself (the teammate's fix, docs/pricing-fix-report.md)
         self.ladder_features = int(ladder_features)
@@ -225,13 +229,13 @@ class MeasuredFees(Fees):
         return [{"at": self.after(start + (max(0, order["lastPickupAt"] - desk.now - self.hold_until) if k and self.hold_until else 0), k * interval), "feeCents": max(1, int(typical * min(self.cap, first + k * self.rise) + 0.5))} for k in range(1 if desk.level == 1 else count + 1)]
 
     def flat_multiple(self, order: dict[str, Any], request: dict[str, Any], desk: "Desk") -> float:
-        """The flat fee as a multiple of typical: what the model expects the car to need, plus `flat_up`, within 0.85 (1.15 for a
+        """The flat fee as a multiple of typical: what the model expects the car to need, plus `flat_up`, within `flat_floor` (`flat_short` for a
         lane under 40 km or under 5 hours before the last pickup) and the cap."""
         multiple = self.expected(request, desk) / request["referenceFeeCents"] + self.flat_up
         leg = request["legs"][0]
         short = desk.ctx.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) < 40  # a tiny typical fee draws no driver
         tight = order["lastPickupAt"] - desk.now < 5 * HOUR  # little time to wait for a driver
-        return min(self.cap, max(1.15 if short or tight else 0.85, multiple))
+        return min(self.cap, max(self.flat_short if short or tight else self.flat_floor, multiple))
 
     def flat_schedule(self, order: dict[str, Any], request: dict[str, Any], typical: float, desk: "Desk") -> list[dict[str, int]]:
         """One fee from now, and one step more at each of the two look-again moments still ahead: after `flat_wait` minutes of
