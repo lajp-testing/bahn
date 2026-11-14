@@ -21,7 +21,7 @@ HOUR, DAY = 60, 24 * 60
 
 
 class Bundles(Part):
-    def __init__(self, cars: int = 2, dead: int = 30, slack: int = 6 * HOUR, split: int = 4 * HOUR, discount: float = 0.85, drive: int = 11 * HOUR, private: bool = False):
+    def __init__(self, cars: int = 2, dead: int = 30, slack: int = 6 * HOUR, split: int = 4 * HOUR, discount: float = 0.85, drive: int = 11 * HOUR, private: bool = False, patience: int = 0, room: int = 0):
         self.cars = cars  # the most cars in one gig
         self.dead = dead  # the longest drive without a car between two cars, in minutes
         self.slack = slack  # a bundle is made only when its last possible start is at least this far away
@@ -29,6 +29,8 @@ class Bundles(Part):
         self.discount = discount  # a bundle's fee: this share of the sum of its cars' fees
         self.drive = drive  # the longest drive from first pickup to last delivery; the world's limit is 12 hours
         self.private = private  # whether a car at a private address may join a bundle
+        self.patience = patience  # a bundle without a driver after this many minutes of the drivers' day goes back to one gig per car; 0: no limit
+        self.room = room  # a bundle is made only when a driver can start it over at least this many minutes
 
     def plain(self, order: dict[str, Any], desk: "Desk") -> bool:
         """A car that may share a gig: one car, no deadline warning yet, and no private address."""
@@ -39,6 +41,18 @@ class Bundles(Part):
         """The open gig that the order's car joins, with the joined stops and audience; None when it goes alone."""
         if not self.plain(order, desk):
             return None
+        return self.search(order, stops, audience, desk, desk.orders)
+
+    def fits(self, request: dict[str, Any], desk: "Desk") -> bool:
+        """Whether the request's car, once won, could join a gig that is open now."""
+        legs = request["legs"]
+        if len(legs) != 1 or not (self.private or not (legs[0]["pickup"]["privateAddress"] or legs[0]["delivery"]["privateAddress"])):
+            return False
+        order = {"id": request["id"], "legs": legs, "deadline": max(option["deadline"] for option in request["options"])}
+        stops = [{"orderId": order["id"], "leg": 0, "kind": kind} for kind in ("pickup", "delivery")]
+        return self.search(order, stops, {}, desk, desk.orders | {order["id"]: order}) is not None
+
+    def search(self, order: dict[str, Any], stops: list[dict[str, Any]], audience: dict[str, bool], desk: "Desk", orders: dict[str, Any]) -> Optional[tuple[str, list[dict[str, Any]], dict[str, bool]]]:
         best: Optional[tuple[tuple[int, int], str, list[dict[str, Any]], dict[str, bool]]] = None
         for gig_id, action in desk.posts.items():
             members = orders_in(action["stops"])
@@ -47,20 +61,22 @@ class Bundles(Part):
             if not all(member in desk.orders and desk.gigs_of(member) == [gig_id] and self.plain(desk.orders[member], desk) for member in members):
                 continue
             for joined in (action["stops"] + stops, stops + action["stops"]):
-                found = self.route(joined, desk)
-                if found is None or found[1] - desk.now < self.slack:
+                found = self.route(joined, desk, orders)
+                if found is None or found[1] - desk.now < self.slack or found[2] < self.room:
                     continue
-                score = (found[0], desk.ctx.minutes(place(joined[-1], desk), place(joined[0], desk)) if place(joined[-1], desk) != place(joined[0], desk) else 0)
+                score = (found[0], drive(joined[-1], joined[0], desk, orders))
                 if best is None or score < best[0]:
                     best = (score, gig_id, joined, {key: audience[key] or action["audience"][key] for key in audience})
         return best[1:] if best else None
 
-    def route(self, stops: list[dict[str, Any]], desk: "Desk") -> Optional[tuple[int, int]]:
-        """The minutes driven without a car, and the last minute a driver can start the first stop and reach
-        every stop inside its window while its site is open. None when the stops do not fit in one gig."""
+    def route(self, stops: list[dict[str, Any]], desk: "Desk", orders: Optional[dict[str, Any]] = None) -> Optional[tuple[int, int, int]]:
+        """The minutes driven without a car, the last minute a driver can start the first stop and reach every
+        stop inside its window while its site is open, and for how many minutes such a start exists. None
+        when the stops do not fit in one gig."""
+        orders = desk.orders if orders is None else orders
         dead = total = 0
         for a, b in zip(stops, stops[1:]):
-            minutes = desk.ctx.minutes(place(a, desk), place(b, desk)) if place(a, desk) != place(b, desk) else 0
+            minutes = drive(a, b, desk, orders)
             total += minutes
             if a["kind"] == "delivery":
                 if minutes > self.dead:
@@ -68,28 +84,30 @@ class Bundles(Part):
                 dead += minutes
         if total > self.drive:
             return None
-        first = max(desk.now, window(stops[0], desk)["from"])
-        last = min(window(stop, desk)["to"] for stop in stops)
-        for start in range(last - last % 15, first - 1, -15):
-            if self.reaches(stops, start, desk):
-                return dead, start
-        return None
+        first = max(desk.now, window(stops[0], orders)["from"])
+        last = min(window(stop, orders)["to"] for stop in stops)
+        starts = [start for start in range(last - last % 15, first - 1, -15) if self.reaches(stops, start, desk, orders)]
+        return (dead, starts[0], 15 * len(starts)) if starts else None
 
-    def reaches(self, stops: list[dict[str, Any]], start: int, desk: "Desk") -> bool:
+    def reaches(self, stops: list[dict[str, Any]], start: int, desk: "Desk", orders: dict[str, Any]) -> bool:
         at = start
         for i, stop in enumerate(stops):
             if i:
-                at += desk.ctx.minutes(place(stops[i - 1], desk), place(stop, desk)) if place(stops[i - 1], desk) != place(stop, desk) else 0
-            span = window(stop, desk)
-            if not (span["from"] <= at <= span["to"] and is_open(side(stop, desk)["hours"], at)):
+                at += drive(stops[i - 1], stop, desk, orders)
+            span = window(stop, orders)
+            if not (span["from"] <= at <= span["to"] and is_open(side(stop, orders)["hours"], at)):
                 return False
             at += 30 * bool(stop.get("withPlates")) + 40 * bool(stop.get("withCharging"))
         return True
 
-    def last_start(self, stops: list[dict[str, Any]], desk: "Desk") -> int:
-        """The last minute a driver can start the bundle; now when it no longer fits."""
+    def split_at(self, stops: list[dict[str, Any]], desk: "Desk") -> int:
+        """When a bundle that still has no driver gives up: `split` before its last possible start, or
+        after `patience` minutes of the drivers' day in the app. Now, when it no longer fits."""
         found = self.route(stops, desk)
-        return found[1] if found else desk.now
+        last = found[1] - self.split if found else desk.now
+        fees = desk.parts.fees
+        waited = (fees.after(desk.now, self.patience) if hasattr(fees, "after") else desk.now + self.patience) if self.patience else last
+        return min(last, waited)
 
     def fees(self, schedules: list[list[dict[str, int]]], now: int) -> list[dict[str, int]]:
         """A bundle's fee schedule: at each minute, the sum of what its cars' own schedules pay then, less the discount."""
@@ -113,20 +131,22 @@ def resume(schedule: list[dict[str, int]], now: int) -> list[dict[str, int]]:
     return [{"at": now, "feeCents": fee_at(schedule, now)}] + [step for step in schedule if step["at"] > now]
 
 
-def side(stop: dict[str, Any], desk: "Desk") -> dict[str, Any]:
-    return desk.orders[stop["orderId"]]["legs"][stop["leg"]][stop["kind"]]
+def side(stop: dict[str, Any], orders: dict[str, Any]) -> dict[str, Any]:
+    return orders[stop["orderId"]]["legs"][stop["leg"]][stop["kind"]]
 
 
-def place(stop: dict[str, Any], desk: "Desk") -> str:
-    return side(stop, desk)["placeId"]
+def drive(a: dict[str, Any], b: dict[str, Any], desk: "Desk", orders: dict[str, Any]) -> int:
+    """The road minutes from one stop to the next."""
+    start, end = side(a, orders)["placeId"], side(b, orders)["placeId"]
+    return desk.ctx.minutes(start, end) if start != end else 0
 
 
-def window(stop: dict[str, Any], desk: "Desk") -> dict[str, int]:
+def window(stop: dict[str, Any], orders: dict[str, Any]) -> dict[str, int]:
     """The stop's own window, or the order's: the pickup window, and for a delivery up to the deadline."""
     if "window" in stop:
         return stop["window"]
-    order = desk.orders[stop["orderId"]]
-    span = side(stop, desk)["window"]
+    order = orders[stop["orderId"]]
+    span = side(stop, orders)["window"]
     return span if stop["kind"] == "pickup" else {"from": span["from"], "to": max(span["from"], order["deadline"])}
 
 

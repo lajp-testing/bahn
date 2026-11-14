@@ -45,8 +45,9 @@ class ProfitQuoter(Part):
                  queue: float = 0.3, limit: int = 15, low: float = 0.9, high: float = 2.6, car: float = 0.0, late: float = 0.0,
                  trust: float = 0.0, invest: float = 0.0, share: float = 0.25, lag: float = 0.15, dealer: float = 0.0,
                  towns: float = 0.0, same: float = 0.0, kind_offset: float = 0.0, shape: str = "logistic", shape_scale: float = 1.0,
-                 lanes: float = 0.0):
+                 lanes: float = 0.0, pair: float = 0.0):
         self.level, self.spread, self.step, self.boost = start, spread, step, boost
+        self.pair = pair  # the share of its expected fee that a car saves when it can join a gig that is open now
         self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
         # `car` > 0: the cost is `car` times the fee the fees part expects for this car, instead of `cost` times the typical fee.
         # `late`: what a late order costs, as a share of its price (the refund and the dealer's trust), times this car's risk of being late.
@@ -126,6 +127,8 @@ class ProfitQuoter(Part):
         fees = desk.parts.fees
         fee = self.car * fees.expected(request, desk) if self.car and hasattr(fees, "expected") else self.cost * request["referenceFeeCents"]
         risk = self.late * fees.late_risk(request, desk) if self.late and hasattr(fees, "late_risk") else 0.0
+        if self.pair and desk.parts.bundles and desk.parts.bundles.fits(request, desk):
+            fee *= 1 - self.pair  # a car that can share a gig with one we hold costs less to move
         dealer = request["dealerId"]
         factor, gain = self.factor(dealer), 0.0
         if self.invest:

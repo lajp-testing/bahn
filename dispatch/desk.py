@@ -251,7 +251,7 @@ class Desk:
             self.leg_gigs.setdefault(stop["orderId"], {})[stop["leg"]] = gig_id
         self.posts[gig_id] = action
         if len(orders_in(action["stops"])) > 1 and self.parts.bundles:
-            self.split_at[gig_id] = self.parts.bundles.last_start(action["stops"], self) - self.parts.bundles.split
+            self.split_at[gig_id] = self.parts.bundles.split_at(action["stops"], self)
             self.wake(self.split_at[gig_id])
 
     def withdraw(self, order_id: str) -> bool:
