@@ -35,9 +35,13 @@ class ReachIntake(Intake):
                  batch_slots: bool = False, noted_slots: bool = False, private_slots: bool = False,
                  trade_ins: bool = False, no_private: bool = False, no_trade_ins: bool = False, thin_drivers: int = 0,
                  thin_both: bool = False, long_max: int = 600, long_markup: float = 1.0, expand_brake: float = 0.06,
-                 long_same_day: bool = True):
+                 long_same_day: bool = True, today_days: int = 0, today_hours: float = 6.0, today_drive: int = 150):
         self.long_max, self.long_markup, self.expand_brake = long_max, long_markup, expand_brake
         self.long_same_day = long_same_day
+        # today_days: on the first so many days of the week, quote `same_day` on a car that is ready today too, when
+        # its drive is at most `today_drive` minutes and its deadline leaves `today_hours` hours beyond the drive
+        # (track 2: on Monday such gigs book at the typical fee and none of 79 was late; later in the week they are).
+        self.today_days, self.today_hours, self.today_drive = today_days, today_hours, today_drive
         self.no_private, self.no_trade_ins, self.thin_drivers, self.thin_both = no_private, no_trade_ins, thin_drivers, thin_both
         self.max_drive, self.min_drivers, self.near_km, self.same_day = max_drive, min_drivers, near_km, same_day
         # future_same_day: a `same_day` option on a car that is ready a day or more after the request is not an
@@ -87,6 +91,13 @@ class ReachIntake(Intake):
         leg = request["legs"][0]
         return (len(request["legs"]) == 1 and not leg["pickup"]["privateAddress"] and not leg["delivery"]["privateAddress"]
                 and all(o["kind"] == "same_day" and o["deadline"] - request["respondBy"] >= 1440 for o in request["options"]))
+
+    def today(self, request: dict[str, Any], desk: "Desk") -> bool:
+        leg = request["legs"][0]
+        drive = desk.ctx.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"])
+        return (desk.now // 1440 < self.today_days and len(request["legs"]) == 1 and drive <= self.today_drive
+                and not leg["pickup"]["privateAddress"] and not leg["delivery"]["privateAddress"]
+                and all(o["deadline"] - desk.now - drive >= self.today_hours * 60 for o in request["options"] if o["kind"] == "same_day"))
 
     def drivers_near(self, place_id: str, desk: "Desk") -> int:
         if place_id not in self._near:
@@ -204,7 +215,7 @@ class ReachIntake(Intake):
             desk.ctx.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) <= max_drive
             and self.drivers_near(leg["pickup"]["placeId"], desk) >= min_drivers
             for leg in request["legs"])
-        same_day = not brake and (self.same_day or (self.future_same_day and self.future_ready(request)))
+        same_day = not brake and (self.same_day or (self.future_same_day and self.future_ready(request)) or self.today(request, desk))
         kept = {kind: cents for kind, cents in prices.items() if same_day or kind != "same_day"} if reachable else {}
         legs = request["legs"]
         # no_private / no_trade_ins: these classes earn about nothing at the quoter's prices but are late

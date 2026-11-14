@@ -705,3 +705,59 @@ def test_the_brake_raises_the_cost_in_a_week_of_warnings_and_lowers_it_in_a_calm
     quoter.observe({"kind": "ledger", "line": {"kind": "late_refund", "orderId": "O0", "cents": -100}}, desk, False)  # warned and late: one order
     assert len(quoter.strained) == 20 and quoter.cost(NEXT_DAY, desk) > usual
     assert reach_desk(quoter="dial").parts.quoter.strain() == 0
+
+
+def test_list_gain_learns_that_this_weeks_dealers_pay_more_for_a_dear_car():
+    desk = reach_desk(quoter="dial", list_gain=0.02)
+    quoter = desk.parts.quoter
+    cheap = {**NEXT_DAY, "id": "C", "options": [{**NEXT_DAY["options"][0], "listPriceCents": 3000}]}
+    gap = quoter.effect(NEXT_DAY) - quoter.effect(cheap)
+    for i in range(10):
+        quoted(desk, {**NEXT_DAY, "id": f"W{i}"})  # list €150: dearer than the usual €60
+        quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"W{i}"}}, desk, False)
+    assert quoter.list_dial > 0 and quoter.effect(NEXT_DAY) - quoter.effect(cheap) > gap
+
+
+def test_the_ladder_prices_a_cheap_car_of_a_busy_dealer_lower_and_only_on_a_short_drive():
+    def markup(**params):
+        desk = reach_desk(quoter="dial", **params)
+        for i in range(30):
+            quoted(desk, {**NEXT_DAY, "id": f"A{i}"})  # a busy dealer of cars at list €150
+        cheap = {**NEXT_DAY, "id": "C", "options": [{**NEXT_DAY["options"][0], "listPriceCents": 3000}]}
+        return quoted(desk, cheap)["next_day"] / 3000
+
+    drive = reach_desk(quoter="dial").ctx.minutes("helsinki", "tampere")
+    assert markup(ladder=0.01) < markup()
+    assert markup(ladder=0.01, ladder_drive=drive) == markup(ladder=0.01)
+    assert markup(ladder=0.01, ladder_drive=drive - 1) == markup()
+
+
+def test_today_days_quotes_same_day_on_a_car_ready_today_early_in_the_week_with_hours_to_spare():
+    request = {**REQUEST, "note": None}  # asked at 10:00 on Monday, due at 20:00, a drive of 106 minutes
+    assert set(quoted(reach_desk(), request)) == {"next_day"}
+    assert set(quoted(reach_desk(today_days=1), request)) == {"same_day", "next_day"}
+    assert set(quoted(reach_desk(today_days=1, today_hours=8.5), request)) == {"next_day"}  # 8.2 hours beyond the drive
+    assert set(quoted(reach_desk(today_days=1, today_drive=100), request)) == {"next_day"}
+    tuesday = reach_desk(today_days=1)
+    tuesday.now = 1440 + 600
+    later = {**request, "options": [{**option, "deadline": option["deadline"] + 1440} for option in request["options"]]}
+    assert set(quoted(tuesday, later)) == {"next_day"}
+    alone = {**request, "options": request["options"][:1]}
+    plain, dearer = quoted(reach_desk(quoter="dial", today_days=1), alone), quoted(reach_desk(quoter="dial", today_days=1, same_up=0.1), alone)
+    assert dearer["same_day"] == round(plain["same_day"] * 1.1)  # due today: the premium, with no later option beside it
+
+
+def test_crowd_raises_the_cost_of_an_order_due_on_a_day_with_more_orders_than_the_drivers_have_room_for():
+    desk = reach_desk(quoter="dial", crowd=0.1, room=20)  # 25 drivers: room for 5 orders a day
+    quoter = desk.parts.quoter
+    usual, price = quoter.cost(NEXT_DAY, desk), quoted(desk, {**NEXT_DAY, "id": "Q0"})["next_day"]
+    for i in range(8):
+        quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"O{i}", "deadline": 2640}}, desk, False)
+    assert math.isclose(quoter.cost(NEXT_DAY, desk), usual + 0.1 * 3 * 10000)  # 8 due on Tuesday, 3 beyond the room
+    assert quoted(desk, {**NEXT_DAY, "id": "Q1"})["next_day"] > price
+    other_day = {**NEXT_DAY, "options": [{**NEXT_DAY["options"][0], "deadline": 2640 + 1440}]}
+    assert quoter.cost(other_day, desk) == usual
+    for i in range(3):
+        quoter.observe({"kind": "order_cancelled", "orderId": f"O{i}"}, desk, False)
+    assert quoter.cost(NEXT_DAY, desk) == usual
+    assert reach_desk(quoter="dial").parts.quoter.cost(NEXT_DAY, desk) == usual  # off by default

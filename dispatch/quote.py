@@ -55,6 +55,10 @@ class DialQuoter(Quoter):
     or a delivery place with many drivers living near. `brake` reads how scarce this week's drivers
     are from the orders themselves: the cost rises by `brake` typical fees for each unit that the share of won
     orders with a deadline warning or a late delivery lies above a usual week's (`STRAIN`), and falls below it.
+    `crowd` reads it a day earlier, from the deadlines: the drivers of a week deliver about `room` orders a day for
+    each 100 of them on time, and of the orders beyond that more than half are late (50 practice weeks: 3% late on a
+    day with under 0.10 orders due for each driver, 7% up to 0.15, 21% above). So each order already due on the
+    request's day beyond the room adds `crowd` typical fees to its cost.
 
     The quoter asks for the markup `m` that makes `(m x list - cost + ladder) x chance(m)` largest. The ladder
     is what one more on-time order is worth in the dealer's later prices (`ladder_value`). After each answer
@@ -76,8 +80,10 @@ class DialQuoter(Quoter):
     (a variance): each morning it returns to the mean of the days so far and doubts by the day factor, and each
     answer moves it by `doubt / scale` times the surprise, at least `gain`, and takes away the doubt that the
     answer settled. So the first answers of a day move the dial far, and the later ones little.
+    `list_gain` learns how much more this week's dealers accept for a dearer car than `by_list` says: the slope by
+    list price differs between worlds (0.01 to 0.25 around 0.12 in the practice weeks).
 
-    With `same_up`, a `same_day` option beside a later one costs that share more: a dealer who values the speed
+    With `same_up`, a `same_day` option beside a later one, or one that is due today, costs that share more: a dealer who values the speed
     pays for it, and another takes the later option, which leaves the gig longer to find its driver.
 
     `only_same` is the limit of a request whose only option is `same_day`, for a car that is ready on a later day:
@@ -88,7 +94,7 @@ class DialQuoter(Quoter):
                  cost_next: float = 1.13, cost_same: float = 1.01, ladder: float = 0.0, patience: int = 5 * HOUR,
                  floor: float = 1.1, ceiling: float = 2.4, war: float = 0.0, detail: float = 0.0, day_sd: float = 0.0,
                  same_up: float = 0.0, place_gain: float = 0.0, brake: float = 0.0, lanes: float = 0.0, only_same: float = 0.0,
-                 admit: Optional[Callable[[dict[str, Any], dict[str, int], "Desk"], dict[str, int]]] = None):
+                 list_gain: float = 0.0, ladder_drive: int = 0, crowd: float = 0.0, room: float = 13.0, admit: Optional[Callable[[dict[str, Any], dict[str, int], "Desk"], dict[str, int]]] = None):
         super().__init__(options="all")
         self.dial, self.scale, self.gain, self.dealer_gain = math.log(level), scale, gain, dealer_gain
         self.no_same_day, self.by_list, self.by_trust = no_same_day, by_list, by_trust
@@ -101,11 +107,17 @@ class DialQuoter(Quoter):
         self.day, self.at_war, self.war_over = -1, 0.0, False  # the day of the last quote, and the war's probability on it
         self.doubt, self.closes = 2 * day_sd ** 2, []  # the dial's variance, and the dial at the end of each usual day
         self.dealer_dial: dict[str, float] = {}  # dealer id -> its own offset to the dial
+        self.list_gain, self.list_dial = list_gain, 0.0  # what this week adds to `by_list`
+        self.ladder_drive = ladder_drive
+        self.crowd, self.room = crowd, room
+        self.due: dict[int, int] = {}  # day -> the orders won whose deadline is on it
+        self.due_on: dict[str, int] = {}  # order id -> the day of its deadline
         self.asked: dict[str, int] = {}  # dealer id -> its requests so far
+        self.listed: dict[str, int] = {}  # dealer id -> the list prices of its requests so far, in cents
         self.trust: dict[str, int] = {}  # dealer id -> on-time orders, halved by a late one, at most 25
         self.coming: dict[str, int] = {}  # dealer id -> orders won and not yet delivered
-        # request id -> (markup, effect without the dealer's and the place's offsets, dealer, prices, day, pickup place)
-        self.quoted: dict[str, tuple[float, float, str, dict[str, int], int, str]] = {}
+        # request id -> (markup, effect without the learned offsets, dealer, prices, day, pickup place, size)
+        self.quoted: dict[str, tuple[float, float, str, dict[str, int], int, str, float]] = {}
         self.dealer_of: dict[str, str] = {}  # order id -> dealer id
         self.on_time: set[str] = set()  # the delivered orders counted as on time
         self.late: set[str] = set()
@@ -119,10 +131,10 @@ class DialQuoter(Quoter):
         lane = PICKUP.get(leg["pickup"]["placeId"], 0.0) + DELIVERY.get(leg["delivery"]["placeId"], 0.0)
         options = self.only_same if kinds == ["same_day"] else 0.0 if "same_day" in kinds else self.no_same_day
         return (options + self.by_list * math.log(basis(request)["listPriceCents"] / 6000) + self.lanes * lane
-                + self.by_trust * math.log(1 + self.trust.get(dealer, 0) / 100) + self.offsets(dealer, pickup(request)))
+                + self.by_trust * math.log(1 + self.trust.get(dealer, 0) / 100) + self.offsets(dealer, pickup(request), list_log(request)))
 
-    def offsets(self, dealer: str, place: str) -> float:
-        return self.dealer_dial.get(dealer, 0.0) + self.place_dial.get(place, 0.0)
+    def offsets(self, dealer: str, place: str, size: float) -> float:
+        return self.dealer_dial.get(dealer, 0.0) + self.place_dial.get(place, 0.0) + self.list_dial * size
 
     def chance(self, markup: float, effect: float) -> float:
         plain, low = self.chances(markup, effect)
@@ -155,6 +167,7 @@ class DialQuoter(Quoter):
         same_day = any(option["kind"] == "same_day" for option in request["options"])
         typical = request["referenceFeeCents"] * len(request["legs"])
         factor = (self.cost_same if same_day else self.cost_next) + self.brake * self.strain()
+        factor += self.crowd * self.crowded(basis(request)["deadline"] // DAY, desk)
         if self.detail:
             first = request["legs"][0]
             start, end = first["pickup"]["placeId"], first["delivery"]["placeId"]
@@ -166,22 +179,34 @@ class DialQuoter(Quoter):
             factor += self.detail * sum(more * (value - mean) for (more, mean), value in zip(DETAIL, shown))
         return typical * factor
 
+    def crowded(self, day: int, desk: "Desk") -> float:
+        """The orders already won that are due on `day`, above the day's room: `room` orders for each 100 drivers
+        of the week. Only a working day of this week is crowded: an order due on Monday has the weekend."""
+        return max(0.0, self.due.get(day, 0) - self.room * len(desk.ctx.roster) / 100) if day < 5 else 0.0
+
     def strain(self) -> float:
         """The share of the week's orders with a deadline warning or a late delivery, above a usual week's. The
         week starts as a usual one, with 40 orders' weight."""
         return (len(self.strained) + 40 * STRAIN) / (self.won + 40) - STRAIN
 
-    def ladder_value(self, request: dict[str, Any], desk: "Desk", revenue: float) -> float:
-        """What one more on-time order for this dealer is worth, in cents. A counted order lets each later request
-        of the dealer take a price 1% higher at the same chance, so it is worth `ladder` (0.01) of the revenue
-        that those requests should bring: `revenue` each, for as many as the dealer's rate so far promises from
-        the day after, when the order counts. `patience` minutes stand in for the hours not yet seen, so a
-        dealer's first requests promise little. Nothing once the dealer's counted and coming orders reach 25."""
-        dealer = request["dealerId"]
-        if not self.ladder or self.trust.get(dealer, 0) + self.coming.get(dealer, 0) >= 25:
+    def ladder_value(self, request: dict[str, Any], desk: "Desk", markup: float, chance: float) -> float:
+        """What one more on-time order for this dealer is worth, in cents. A counted order lets each later order
+        of the dealer take a price 1% higher at the same chance, so it is worth `ladder` (0.01) of the price of
+        each order that it lifts: the dealer's mean list price so far, at this quote's markup. The count is of
+        orders, not of euros, so a cheap car climbs as far as a dear one. The orders lifted are those that the
+        dealer's rate so far promises from the day after, when this one counts, at this quote's chance; `patience`
+        minutes stand in for the hours not yet seen, so a dealer's first requests promise little. And they are no
+        more than the dealer's count lacks to 25, with the orders that are coming: the count gets there without
+        this order too, only one order later. A late order halves the count, so with `ladder_drive` only a drive
+        of at most that many minutes climbs: the practice weeks' late orders are nearly all on longer lanes."""
+        dealer, leg = request["dealerId"], request["legs"][0]
+        short = 25 - self.trust.get(dealer, 0) - self.coming.get(dealer, 0)
+        if not self.ladder or short <= 0:
             return 0.0
-        later = self.asked.get(dealer, 0) * (worked(5 * DAY) - worked(desk.now + DAY)) / (worked(desk.now) + self.patience)
-        return self.ladder * later * revenue
+        if self.ladder_drive and desk.ctx.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) > self.ladder_drive:
+            return 0.0
+        later = self.asked[dealer] * (worked(5 * DAY) - worked(desk.now + DAY)) / (worked(desk.now) + self.patience)
+        return self.ladder * min(later * chance, short) * markup * self.listed[dealer] / self.asked[dealer]
 
     def best_markup(self, request: dict[str, Any], desk: "Desk") -> float:
         effect, cost, list_price = self.effect(request), self.cost(request, desk), basis(request)["listPriceCents"]
@@ -191,7 +216,7 @@ class DialQuoter(Quoter):
             return max(steps, key=lambda step: (step / 100 * list_price - cost + extra) * self.chance(step / 100, effect)) / 100
 
         plain = best(0.0)
-        extra = self.ladder_value(request, desk, plain * list_price * self.chance(plain, effect))
+        extra = self.ladder_value(request, desk, plain, self.chance(plain, effect))
         # A request that costs more than the ceiling pays: quote above the cost anyway, and lose it.
         return max(best(extra) if extra else plain, 1.05 * (cost - extra) / list_price)
 
@@ -202,21 +227,23 @@ class DialQuoter(Quoter):
             self.morning(desk.now)
             dealer = request["dealerId"]
             self.asked[dealer] = self.asked.get(dealer, 0) + 1
+            self.listed[dealer] = self.listed.get(dealer, 0) + basis(request)["listPriceCents"]
             markup = self.best_markup(request, desk)
-            dearer = 1 + self.same_up if len(request["options"]) > 1 else 1.0
+            today = any(o["kind"] == "same_day" and o["deadline"] // DAY == desk.now // DAY for o in request["options"])
+            dearer = 1 + self.same_up if len(request["options"]) > 1 or today else 1.0
             prices = {option["kind"]: round(option["listPriceCents"] * markup * (dearer if option["kind"] == "same_day" else 1.0))
                       for option in request["options"]}
             sent = self.admit(request, prices, desk) if self.admit else prices
             learns = any(sent.get(kind) == cents for kind, cents in prices.items())
             place = pickup(request)
-            self.quoted[request["id"]] = (markup if learns else 0.0, self.effect(request) - self.offsets(dealer, place), dealer, prices, self.day, place)
+            self.quoted[request["id"]] = (markup if learns else 0.0, self.effect(request) - self.offsets(dealer, place, list_log(request)), dealer, prices, self.day, place, list_log(request))
         return self.quoted[request["id"]][3]
 
     def learn(self, request_id: str, won: bool) -> None:
-        markup, effect, dealer, _, day, place = self.quoted.get(request_id, (0.0, 0.0, "", {}, 0, ""))
+        markup, effect, dealer, _, day, place, size = self.quoted.get(request_id, (0.0, 0.0, "", {}, 0, "", 0.0))
         if markup <= 0:
             return
-        plain, low = self.chances(markup, effect + self.offsets(dealer, place))
+        plain, low = self.chances(markup, effect + self.offsets(dealer, place, size))
         if self.at_war and day == self.day:  # Bayes: which of the two days explains this answer better?
             war, usual = self.at_war * (low if won else 1 - low), (1 - self.at_war) * (plain if won else 1 - plain)
             self.at_war = min(max(war / (war + usual), 0.001), 0.999)
@@ -228,6 +255,7 @@ class DialQuoter(Quoter):
             self.dealer_dial[dealer] = self.dealer_dial.get(dealer, 0.0) + self.dealer_gain * surprise
         if self.place_gain:
             self.place_dial[place] = self.place_dial.get(place, 0.0) + self.place_gain * surprise
+        self.list_dial += self.list_gain * size * surprise
 
     def observe(self, event: dict[str, Any], desk: "Desk", replay: bool) -> None:
         kind = event["kind"]
@@ -236,12 +264,16 @@ class DialQuoter(Quoter):
         elif kind == "order_won":
             dealer = self.dealer_of[event["order"]["id"]] = event["order"]["dealerId"]
             self.coming[dealer] = self.coming.get(dealer, 0) + 1
+            day = self.due_on[event["order"]["id"]] = event["order"].get("deadline", 0) // DAY
+            self.due[day] = self.due.get(day, 0) + 1
             self.won += 1
             self.learn(event["order"]["id"], True)
         elif kind == "order_lost":
             self.learn(event["requestId"], False)
         elif kind == "order_cancelled":
             self.arrived(event["orderId"])
+            if event["orderId"] in self.due_on:
+                self.due[self.due_on.pop(event["orderId"])] -= 1
         elif kind == "deadline_close":
             self.strained.add(event["orderId"])
         elif kind == "ledger" and event["line"].get("orderId") in self.dealer_of:
@@ -280,3 +312,8 @@ def pickup(request: dict[str, Any]) -> str:
 def basis(request: dict[str, Any]) -> dict[str, Any]:
     """The option whose list price the quoter reasons with: the first that is not `same_day`."""
     return next((option for option in request["options"] if option["kind"] != "same_day"), request["options"][0])
+
+
+def list_log(request: dict[str, Any]) -> float:
+    """The log of the request's list price against a usual one (60 euros)."""
+    return math.log(basis(request)["listPriceCents"] / 6000)
