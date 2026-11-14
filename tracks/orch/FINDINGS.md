@@ -171,3 +171,15 @@ From the test-final analysis (`tracks/orch/finals/testfinal-20261114-1800/ANALYS
 Lower floors alone only cut costs; with short lanes quoted at 0.85 instead of 1.1 the cheaper cars are won too. Adopted: `fee_flat_floor=0.75`, `fee_flat_short=0.95`, `car_short=0.85` are the defaults; `main` reproduces b68 dev-01 to the cent (`b72-main-check`, €12,348.31).
 
 Tried tonight and not adopted (30 weeks against b52 unless noted): car 1.0 (+€5,168, 403 orders, lowest 92.6), car 1.05 (−€1,612), queue 0.1 (−€2,811), limits 45/55 + safe 100 (+€2,602), same_day 360 (+€9,209 but dev-10 91.1), slack 540 (+€235), bundle leads (−€840), chain offers at post time (10 dev, −€1,466; 21 of 3,253 offers taken), quoter step 0.1 / boost 5 (10 dev, −€3,835 / −€1,335), kind_offset −0.15 / same +0.15 (10 dev, −€3,258 / −€1,459), invest 0.25 / 0.1 (10 dev, −€1,164 / +€135), view raise on lanes ≥300 km (13 weeks, −€2,727).
+
+## 21:30 cost model 5 (retrained on the floor-0.75 weeks)
+
+`fee_model=5` (`dispatch/learned3.py`, `tracks/ml/FINDINGS.md` "Retrain on the floor-0.75 weeks"): model 4's recipe on 1.9 million orders, 256,000 of them from weeks under the 0.75 floors, where model 4 overpredicted fees by 0.076 of the typical fee. Against `b68-floor075-short095-carshort085` (`b84-fee5`):
+
+| seeds | weeks | margin change | ahead | orders/wk | €/car | lowest weeks |
+|---|---|---|---|---|---|---|
+| dev + rob | 30 | +€14,342 | 20 | 392 | 44.43 | rob-06 95.7, rob-04 96.1 (rob-18 94.9, was 92.1) |
+| holdout | 10 | +€102 | 5 | 378 | 44.25 | hold-10 93.8, hold-01 94.7 |
+| **all** | **40** | **+€14,444** | **25** | 389 | 44.38 | hold-10 93.8 |
+
+The holdout is flat, but the weak weeks rise everywhere (rob-18 92.1 → 94.9; lowest dev/rob week 93.7 → 95.7). Adopted as the default; `main` reproduces b84 dev-01 to the cent (`b86-main-check`, €11,809.15).
