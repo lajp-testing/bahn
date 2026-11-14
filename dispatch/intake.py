@@ -23,9 +23,11 @@ class Intake(Part):
 class LimitedIntake(Intake):
     """Limit unbooked orders, including quotes awaiting a dealer decision."""
 
-    def __init__(self, limit: int = 15, private: bool = False, slack: int = 0, queue_price: bool = False, win_price: bool = False, same_day_slack: int = -1, same_day_drivers: int = 0, morning_limit: int = 0):
+    def __init__(self, limit: int = 15, private: bool = False, slack: int = 0, queue_price: bool = False, win_price: bool = False, same_day_slack: int = -1, same_day_drivers: int = 0, morning_limit: int = 0, shortage_warnings: int = 0):
         self.limit, self.private, self.slack = limit, private, slack  # `private`: take requests with a private address
         self.morning_limit = morning_limit
+        self.shortage_warnings = shortage_warnings
+        self.warnings: list[int] = []
         self.same_day_slack = same_day_slack
         self.same_day_drivers = same_day_drivers
         self.queue_price = queue_price
@@ -57,6 +59,10 @@ class LimitedIntake(Intake):
                          or (o["kind"] == "same_day" and self.same_day_slack >= 0
                              and nearby >= self.same_day_drivers
                              and notes.latest_delivery(request, o["deadline"]) - start - drive >= self.same_day_slack))}
+        if self.shortage_warnings and sum(at > desk.now - 360 for at in self.warnings) >= self.shortage_warnings:
+            later = {kind: price for kind, price in later.items() if kind != "same_day"}
+            if any(leg[side]["privateAddress"] for leg in request["legs"] for side in ("pickup", "delivery")):
+                return decline(request)
         if not self.private and any(leg[side]["privateAddress"] for leg in request["legs"] for side in ("pickup", "delivery")):
             return decline(request)
         limit = self.morning_limit if self.morning_limit and desk.now % 1440 < 12 * 60 else self.limit
@@ -76,6 +82,8 @@ class LimitedIntake(Intake):
             self.quoted.add(action["requestId"])
 
     def observe(self, event: dict[str, Any], desk: "Desk", replay: bool) -> None:
+        if event["kind"] == "deadline_close":
+            self.warnings.append(event["at"])
         if event["kind"] not in ("order_won", "order_lost"):
             return
         rid = event["order"]["id"] if event["kind"] == "order_won" else event["requestId"]

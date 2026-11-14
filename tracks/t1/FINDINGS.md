@@ -121,3 +121,18 @@ Among baseline orders, 100 had negative allocated margin, totaling −€1,349.2
 `t1s4-morning25` sets the morning limit to 25 on same360-80: €86,852.03, 2,257 orders, 97.3% on time, worst 95.7%, 10/10 ranked. It gains €13,356.83 over baseline and €2,603.83 over morning20, with 7 higher, 1 lower, 2 identical weeks. It is the highest-margin qualifying combination. Morning30 is in progress to check whether further increases help.
 
 `t1s4-morning30` made €84,313.41, 2,228 orders, 96.9% on time, worst 92.6%, 10/10 ranked. Rejected: below the 93% floor and €2,539 below morning25. The best command is `SPREAD_TRACK=t1 bin/vps python3 -m harness.run --policy main --seeds dev --label t1s4-morning25 --set slack=720 --set same_day_slack=360 --set same_day_drivers=80 --set morning_limit=25`. The 25 threshold is a dev-set selection, not independent validation; the orchestrator should check holdouts. Next test rules using driver supply and time rather than a fixed morning limit, and assess robustness on independent study weeks. No ranking or holdout worlds were played.
+
+## Fifth stint: shortage governor (in progress)
+
+The five lowest `b9-same-rob` seeds are rob-18 90.1%, rob-17 92.4%, rob-14 93.2%, rob-11 96.2%, rob-10 96.5%. On Friday these first three have respectively 34, 30 and 18 `deadline_close` events and 12, 15 and 8 `gig_expired` events; rob-04, at 98.9%, has three warnings and one expiration on Friday. Warnings can repeat for an order and are symptoms, not independent late orders. The Thursday win cohort can already be exposed before Friday warnings. Flu and outage are unannounced, so this does not establish their cause; rob-18's snow forecast was for Tuesday, not Friday. The outage concerns competitor availability, not driver availability.
+
+Started paired `t1s5-base` and `t1s5-warn3` on the 10 dev and five seeds above. The latter opts into declining private and same-day options after three deadline warnings in the preceding six hours. Results pending. Offline suite: 22 passed.
+
+Completed paired results, margins in euros. The five on-time shares are rob-18, rob-17, rob-14, rob-11, rob-10 in that order.
+
+| Label | Dev margin | Five margin | Worst of 15 | Five shares |
+|---|---:|---:|---:|---|
+| `t1s5-base` | 102,227.33 | 40,888.01 | 90.06% | 90.06, 92.43, 93.22, 96.20, 96.53% |
+| `t1s5-warn3` | 99,912.81 | 39,373.81 | 92.24% | 93.99, 92.77, 92.24, 96.58, 96.53% |
+
+The warning rule fails the 94% floor and the exploratory 92.5% tolerance on rob-14, despite helping rob-18. `t1s5-warn2` tests an earlier threshold; `t1s5-best-rob` checks the three-warning rule on all 20 rob seeds. Both are running.
