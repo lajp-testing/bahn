@@ -78,8 +78,8 @@ class ProfitQuoter(Part):
         self.offsets: dict[str, dict[str, float]] = {}  # request -> option kind -> the level offset used when we quoted
         self.owners: dict[str, str] = {}         # request -> the dealer, needed for a loss
         # `outage` > 0: on one working day the competitor is down around one town, and dealers there pay about 30% more.
-        # While the day's requests picked up within 80 km of a request have won far more often than their prices
-        # explain (`outage_z` standard deviations over at least `outage_n` decided requests), its level is this much higher.
+        # While the day's requests picked up within 80 km of a request have won far more often for their prices than the
+        # rest of the country's (`outage_z` standard errors, at least `outage_n` decided requests on each side), its level is this much higher.
         self.outage, self.outage_z, self.outage_n = outage, outage_z, outage_n
         self.heard_day, self.heard = -1, {}      # today, and pickup place -> [wins minus expected, variance, requests decided] today
         self.near: dict[str, list[str]] = {}     # place -> the places within 80 km
@@ -120,8 +120,14 @@ class ProfitQuoter(Part):
         place = request["legs"][0]["pickup"]["placeId"]
         if place not in self.near:
             self.near[place] = [other for other in desk.ctx.places if desk.ctx.straight_km(place, other) <= 80]
-        more, variance, decided = (sum(self.heard[p][i] for p in self.near[place] if p in self.heard) for i in range(3))
-        return 1 + self.outage if decided >= self.outage_n and more >= self.outage_z * math.sqrt(variance) else 1.0
+        # The level itself follows the day's wins, so the test is the region against the rest of the country today.
+        inside = [sum(self.heard[p][i] for p in self.near[place] if p in self.heard) for i in range(3)]
+        outside = [sum(heard[i] for heard in self.heard.values()) - inside[i] for i in range(3)]
+        if min(inside[2], outside[2]) < self.outage_n:
+            return 1.0
+        more = inside[0] / inside[2] - outside[0] / outside[2]
+        error = math.sqrt(inside[1] / inside[2] ** 2 + outside[1] / outside[2] ** 2)
+        return 1 + self.outage if more >= self.outage_z * error else 1.0
 
     def factor(self, dealer: str) -> float:
         """How much higher than a new dealer's this dealer's level is."""
