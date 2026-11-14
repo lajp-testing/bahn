@@ -86,6 +86,7 @@ def play_live(world: World, level: int, world_map: dict[str, Any], build: Callab
     events: "queue.Queue[Any]" = queue.Queue()
     stop = threading.Event()
     threading.Thread(target=read_stream, args=(world, history[-1]["seq"] if history else -1, events, stop), daemon=True).start()
+    slowest = 0.0
     try:
         while desk.now < snapshot["endsAt"]:
             day = desk.now // DAY
@@ -100,6 +101,7 @@ def play_live(world: World, level: int, world_map: dict[str, Any], build: Callab
                     break
             if not batch:
                 desk.now = max(desk.now, clock())
+            started = time.perf_counter()
             ended = False
             for event in batch:
                 if isinstance(event, StopIteration):  # the stream ended: answer what came before it, then stop
@@ -112,12 +114,14 @@ def play_live(world: World, level: int, world_map: dict[str, Any], build: Callab
                     log.write(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n")
                 desk.handle(event)
             desk.tick()
+            slowest = max(slowest, time.perf_counter() - started)
             desk.send()
             if ended:
                 return
             if desk.now // DAY > day:
                 report(WEEKDAYS[day % 7], world.score())
     finally:
+        print(f"Slowest desk batch: {slowest:.6f} seconds (excluding final send).", flush=True)
         stop.set()
 
 
@@ -125,6 +129,7 @@ def main() -> None:
     from harness import config  # the key, the data folder and the map
 
     parser = argparse.ArgumentParser(description="Plays the team's copy of the final from the live stream.")
+    parser.add_argument("--world", help="non-ranking practice world for rehearsal")
     parser.add_argument("--policy", default="base", help="a module of dispatch/policies")
     parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE", help="a parameter of the policy; repeat for more")
     args = parser.parse_args()
@@ -139,13 +144,21 @@ def main() -> None:
         while True:
             try:
                 if world is None:
-                    world = next_final(client)
-                    level = next((w["level"] for w in client.worlds() if w["worldId"] == world.id), 8)
-                    folder = os.path.join(config.DATA, "final", world.id)
+                    if args.world:
+                        entry = next((w for w in client.worlds() if w["worldId"] == args.world), None)
+                        if not entry or entry["kind"] != "practice" or entry.get("boardRun") is not None or entry.get("season") is not None:
+                            raise SystemExit("--world requires a non-ranking practice world")
+                        world = client.world(args.world)
+                        level = entry["level"]
+                    else:
+                        world = next_final(client)
+                        level = next((w["level"] for w in client.worlds() if w["worldId"] == world.id), 8)
+                    folder = os.path.join(config.DATA, "rehearsal" if args.world else "final", world.id)
                     os.makedirs(folder, exist_ok=True)
                     log = gzip.open(os.path.join(folder, f"events-{int(time.time())}.jsonl.gz"), "wt", encoding="utf-8")
                     print(f"Final world {world.id}, level {level}, policy {args.policy} {params}.", flush=True)
-                play_live(world, level, world_map, lambda ctx: build(ctx, **params), log)
+                play_live(world, level, world_map, lambda ctx: build(ctx, **params), log,
+                          clock=(lambda: world.snapshot()["now"]) if args.world else None)
                 break
             except Unreachable as error:  # the server restarts, or the network broke: rebuild from the world
                 print(f"spread: {error}. Rebuilding in 5 seconds.", file=sys.stderr, flush=True)
