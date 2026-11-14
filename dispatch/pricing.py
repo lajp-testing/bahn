@@ -26,6 +26,7 @@ time raises every later price to that dealer, it is worth more than its own marg
 import math
 from typing import TYPE_CHECKING, Any
 
+from .lanes import leftover
 from .parts import Part
 from .shape import survival
 from .towns import DELIVERY
@@ -43,7 +44,8 @@ class ProfitQuoter(Part):
     def __init__(self, start: float = 1.4, spread: float = 0.2, step: float = 0.06, boost: float = 3.0, cost: float = 1.2,
                  queue: float = 0.3, limit: int = 15, low: float = 0.9, high: float = 2.6, car: float = 0.0, late: float = 0.0,
                  trust: float = 0.0, invest: float = 0.0, share: float = 0.25, lag: float = 0.15, dealer: float = 0.0,
-                 towns: float = 0.0, same: float = 0.0, kind_offset: float = 0.0, shape: str = "logistic", shape_scale: float = 1.0):
+                 towns: float = 0.0, same: float = 0.0, kind_offset: float = 0.0, shape: str = "logistic", shape_scale: float = 1.0,
+                 lanes: float = 0.0):
         self.level, self.spread, self.step, self.boost = start, spread, step, boost
         self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
         # `car` > 0: the cost is `car` times the fee the fees part expects for this car, instead of `cost` times the typical fee.
@@ -68,6 +70,9 @@ class ProfitQuoter(Part):
         # `kind_offset`: the same for a within_3_days option. `shape`: "logistic", or "table" for the
         # measured curve (dispatch/shape.py), which `shape_scale` > 1 widens along its z axis.
         self.same, self.kind_offset = same, kind_offset
+        # `lanes` > 0: the level also moves by the lane model's leftover for this option
+        # (dispatch/lanes.py), scaled by this: the part of the spread the request's own features predict.
+        self.lanes = lanes
         self.shape, self.shape_scale = shape, shape_scale
         self.offsets: dict[str, dict[str, float]] = {}  # request -> option kind -> the level offset used when we quoted
         self.owners: dict[str, str] = {}         # request -> the dealer, needed for a loss
@@ -84,6 +89,13 @@ class ProfitQuoter(Part):
         if kind == "within_3_days":
             return self.kind_offset
         return 0.0
+
+    def lane_off(self, request: dict[str, Any], kind: str, desk: "Desk") -> float:
+        """How much this option's level moves by the lane model (dispatch/lanes.py), scaled by `lanes`."""
+        if not self.lanes:
+            return 0.0
+        option = next((o for o in request["options"] if o["kind"] == kind), None)
+        return self.lanes * leftover(request, option, desk.ctx) if option is not None else 0.0
 
     def chance(self, ratio: float, offset: float = 0.0) -> float:
         """The chance that a dealer takes a price of `ratio` times the list price."""
@@ -127,7 +139,7 @@ class ProfitQuoter(Part):
             cost = (fee - gain) / option["listPriceCents"] + charge  # in list prices
             # A late order gives back part of its price: the expected loss grows with the price itself.
             floor = max(cost, 0.5 * fee / option["listPriceCents"])
-            off = offset + self.kind_off(option["kind"])
+            off = offset + self.kind_off(option["kind"]) + self.lane_off(request, option["kind"], desk)
             best = max((floor + 0.02 + 0.01 * i for i in range(260)), key=lambda ratio: (ratio * (1 - risk) - cost) * self.chance(ratio / factor, off))
             prices[option["kind"]] = round(option["listPriceCents"] * best)
         return prices
@@ -139,7 +151,8 @@ class ProfitQuoter(Part):
             lists = {option["kind"]: option["listPriceCents"] for option in request["options"]}
             self.sent[request["id"]] = {kind: cents / lists[kind] for kind, cents in action["prices"].items() if kind in lists}
             self.factors[request["id"]] = self.factor(request["dealerId"])
-            self.offsets[request["id"]] = {kind: self.offset(request) + self.kind_off(kind) for kind in self.sent[request["id"]]}
+            self.offsets[request["id"]] = {kind: self.offset(request) + self.kind_off(kind) + self.lane_off(request, kind, desk)
+                                           for kind in self.sent[request["id"]]}
             self.owners[request["id"]] = request["dealerId"]
 
     def observe(self, event: dict[str, Any], desk: "Desk", replay: bool) -> None:

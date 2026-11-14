@@ -231,3 +231,101 @@ On the old mainline towns=1.5 gained +1,568 (stint 5); on the same-day test bed 
 - Reject: the measured curve at its natural scale (`shape=table`, −6,509 — the table is measured around the true day mean, but the live level's own error widens the effective curve), `same` at 0.1 and 0.3, every combination with `towns=1.5`.
 - Code kept, all default-off: `same`, `kind_offset` (re-added through one `kind_off` path), `shape`, `shape_scale` in `ProfitQuoter`; `PROFIT` passes them through. 22 offline tests pass.
 - 10 of 16 runs used.
+
+## Stint 7: the lane model — how much of the within-day spread the request itself explains
+
+`tracks/t2/predict.py` (numpy, offline): 6,139 first-option requests from the six scans (one option per request; `switch_high=0` rows skipped), target y = switching ratio minus its world-and-day mean (y stdev 0.2124). Driver-proximity features (drivers living within 30 km of pickup/delivery) are **skipped**: the scan worlds' rosters were not saved and no saved week shares a scan seed. Everything else known at arrival is in.
+
+### 1. Single features, leave-one-world-out R2 (fit on five scans, predict the sixth, pooled)
+
+| feature | LOWO R2 | | feature | LOWO R2 |
+|---|---:|---|---|---:|
+| delivery town | +0.127 | | has_note | -0.000 |
+| fee ratio (typical fee / list) | +0.008 | | n_legs | -0.001 |
+| dealer (D01-D06/other) | +0.007 | | minutes | -0.001 |
+| log typical fee | +0.004 | | batch | -0.001 |
+| number of options | +0.003 | | private delivery | -0.001 |
+| option kind | +0.001 | | arrival hour | -0.001 |
+| log list price | +0.000 | | note language | -0.002 |
+| lane km | +0.000 | | pickup town | -0.023 |
+| lead hours | -0.000 | | | |
+
+### 2. Ridge (standardised, unpenalised intercept), leave-one-world-out
+
+| model | penalty | LOWO R2 | in-sample R2 |
+|---|---:|---:|---:|
+| full (66 columns) | 1 | +0.130 | +0.228 |
+| full (66 columns) | 10 | +0.130 | +0.227 |
+| full (66 columns) | 100 | **+0.131** | +0.226 |
+| small (8 features, 34 columns) | 100 | **+0.132** | +0.197 |
+
+The small model (the 8 best singles: delivery town, fee ratio, dealer, log typical fee, number of options, kind, log list price, km) matches the full model out of sample. **The delivery town is nearly the whole predictable part** (0.127 of the 0.132); everything the request says beyond its delivery town adds about 0.005. Out of sample the request's features explain about 13% of the within-day variance (y stdev 0.21, prediction stdev 0.09); the other 87% is noise we cannot see. This is above the 0.05 bar, so the model goes into the quoter.
+
+### 3. Small model coefficients (plain units, penalty 100, refit on all six scans)
+
+| feature | coefficient | | feature | coefficient |
+|---|---:|---|---|---:|
+| intercept | +0.326 | | delivery:hyvinkaa | -0.228 |
+| fee ratio | +0.038 / unit | | delivery:vantaa | -0.206 |
+| log typical fee | -0.002 / log-cent | delivery:espoo | -0.163 |
+| log list price | -0.027 / log-cent | delivery:helsinki | -0.143 |
+| number of options | -0.013 / option | delivery:porvoo | -0.084 |
+| lane km | -0.00001 / km | delivery:ylivieska | +0.107 |
+| dealer:D01 | +0.027 | delivery:rovaniemi | +0.063 |
+| dealer:D02 | +0.026 | delivery:kuopio | +0.054 |
+| dealer:other | -0.036 | kind:within_3_days | +0.140 |
+| | | kind:same_day/next_day | ~0 |
+
+Prediction stdev 0.0917, mean 0 over the scans. The delivery-town coefficients are the towns table again (corr with the stint-4 `DELIVERY` table is high; magnitudes differ because this ridge shrinks jointly); the dealer column repeats stint 5's D01/D02 finding; the `within_3_days` +0.140 rests on 131 rows and is the least trustworthy number in the model. `dispatch/lanes.py` (`leftover`) reproduces the fit exactly (verified on all 6,139 rows: stdev 0.0917, in-sample R2 0.197).
+
+### 3a. The dealer puzzle, scans side (no trust)
+
+Mean leftover y by dealer, and the mean residual after a small model fitted **without** dealer columns:
+
+| dealer | n | mean y | residual after no-dealer model |
+|---|---:|---:|---:|
+| D01 | 1,931 | +0.028 | +0.027 (se 0.005) |
+| D02 | 740 | +0.021 | +0.028 (se 0.007) |
+| D03 | 481 | +0.006 | +0.010 (se 0.008) |
+| D04 | 373 | -0.006 | +0.002 (se 0.010) |
+| D05 | 253 | -0.022 | -0.028 (se 0.012) |
+| D06 | 210 | +0.015 | +0.011 (se 0.013) |
+| other | 2,151 | -0.032 | -0.034 (se 0.004) |
+
+**Yes: in the scans D01's leftover is different** — +0.027 above the model's non-dealer part (5-6 se), and D02 is the same; the small dealers sit below. So the dealer level offset is real in the scans, the model carries it (D01 +0.027, D02 +0.026), and the stint-5 failure of *learned* dealer offsets is not because the offset does not exist. The scans cannot say why learning it live fails; the played weeks (3b) can.
+
+### Step 2 runs: the lane model in the quoter (`lanes`, default off)
+
+`ProfitQuoter` gained `lanes` (default 0): each option's level offset also gets `lanes * leftover(request, option, ctx)` through the same per-option offset path as `same` (the stored offset that `observe` learns with is the one the price was made with). `PROFIT` passes `lanes` through. 22 offline tests pass. `leftover` is centred (mean 0 over the scans), so `lanes` is a pure scale on the model.
+
+| label | change | margin EUR | orders | on time | worst | ranked | weeks better than base |
+|---|---|---:|---:|---:|---:|---|---:|
+| `t2s7-base` | none | 105,898 | 2,709 | 96.6% | 93.4% | 10/10 | — |
+| `t2s7-lanes025` | lanes=0.25 | 105,573 | 2,716 | 96.6% | 93.0% | 10/10 | 3/10 |
+| `t2s7-lanes05` | lanes=0.5 | **106,818** | 2,720 | 96.6% | 91.7% | 10/10 | 6/10 |
+| `t2s7-lanes1` | lanes=1 | 105,846 | 2,741 | 96.5% | 94.1% | 10/10 | 4/10 |
+| `t2s7-lanes15` | lanes=1.5 | 100,199 | 2,706 | 96.4% | 92.4% | 10/10 | 3/10 |
+| `t2s7-trust15` | trust=1.5 | 104,583 | 2,677 | 96.4% | 93.0% | 10/10 | 5/10 |
+| `t2s7-trust2` | trust=2 | 103,481 | 2,626 | 96.5% | 92.4% | 10/10 | 3/10 |
+
+The `lanes` hill peaks low: 0.25 loses 325 (3/10), 0.5 gains +920 (6/10 weeks, but the worst week falls to 91.7% vs the base's 93.4%, and dev-07 alone drops 93.7%→91.7%, breaking the 1-point on-time guard), 1.0 is a wash (−51, 4/10), 1.5 loses 5,699. The model's delivery-town part is the stint-4/5 towns table again, and the mainline already refused that table at this operating point (stint 6: towns=1.5 lost 1,240 on the same-day test bed); at 0.5 the shrunken coefficients win a little volume without giving the negative towns away. **+920 with 6/10 weeks and a worst week 1.7 points under the base's is under the noise bar and fails the on-time guard: a lead, not a finding.** `lanes` stays default-off unless the orchestrator wants the lead held out.
+
+### 3b. The dealer puzzle, played-weeks side: the trust bands
+
+`tracks/t2/trust.py` on the `t2s7-base` weeks (8,456 really-quoted requests; effective ratio = lowest quoted price / list, divided by the dealer's factor 1 + 0.01 x count; win share by count band inside ratio bands):
+
+| group | count 0 | 1-9 | 10-24 | 25 |
+|---|---:|---:|---:|---:|
+| D01, all ratio bands | 0.30 (439) | 0.31 (471) | 0.43 (817) | 0.53 (755) |
+| D01, ratio 1.2-1.4 | 0.42 (118) | 0.44 (110) | 0.52 (327) | 0.60 (282) |
+| others, all ratio bands | 0.27 (2,735) | 0.28 (2,602) | 0.40 (563) | 0.49 (74) |
+
+At the same effective ratio the win share rises with the count band — if each order were worth exactly 1% the effective ratio would already correct for it and the shares would be flat. A naive logistic reading says 1.5-1.7% per order. But the causal test says no: **trust=1.5 loses 1,315 and trust=2 loses 2,416** (both also lose orders, 2,677 / 2,626 vs 2,709). The band rise is a time-of-week confound: counts accumulate late in the week, exactly when the true day level is high (Thursday/Friday means 1.5-1.6) and the quoter's learned level lags it, so late-week requests are cheap in effective terms for every dealer. **The 1% rule is right; `trust` stays at 1.**
+
+### Stint 7 bottom line
+
+- The request's own features explain about 13% of the within-day spread out of sample (LOWO R2 0.132, small ridge model), and nearly all of that is the delivery town; the dealer part is real in the scans (D01 +0.027) but small.
+- Nothing passes the evidence rules. Best lead: `lanes=0.5`, +920 (6/10 weeks), a lead not a finding; `lanes=1` is a wash, `lanes=1.5` and both trust raises lose clearly.
+- The dealer puzzle: D01's offset exists in the scans, but the played weeks show the trust step is 1% (raising it loses monotonically); the stint-5 learned per-dealer offsets failed for the reasons given there (learning noise paid on every quote, and the competitor's per-dealer answer), not because the offset is absent.
+- Driver-proximity features could not be tested: the scan worlds' rosters were not saved. If a future scan saves its roster, `near pickup` and `near delivery` are the first features to add.
+- 7 of 12 runs used.
