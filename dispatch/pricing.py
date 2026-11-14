@@ -46,7 +46,8 @@ class ProfitQuoter(Part):
                  trust: float = 0.0, invest: float = 0.0, share: float = 0.25, lag: float = 0.15, dealer: float = 0.0,
                  towns: float = 0.0, same: float = 0.0, kind_offset: float = 0.0, shape: str = "logistic", shape_scale: float = 1.0,
                  lanes: float = 0.0, pair: float = 0.0, outage: float = 0.0, outage_z: float = 3.5, outage_n: int = 8,
-                 target: float = 0.0, margin: float = 1.15, barrier: float = 0.0, allowance: float = 0.06, crowd: float = 0.5, floor_orders: int = 100):
+                 target: float = 0.0, margin: float = 1.15, barrier: float = 0.0, allowance: float = 0.06, crowd: float = 0.5, floor_orders: int = 100,
+                 end_car: float = 0.0):
         self.level, self.spread, self.step, self.boost = start, spread, step, boost
         self.pair = pair  # the share of its expected fee that a car saves when it can join a gig that is open now
         self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
@@ -94,6 +95,7 @@ class ProfitQuoter(Part):
         # expected late among those still open, over at least `floor_orders`; and each car without a driver costs a new
         # car `crowd` euros, because it competes with it for the same drivers. Stateless: read from the desk's orders.
         self.barrier, self.allowance, self.crowd, self.floor_orders = barrier, allowance, crowd, floor_orders
+        self.end_car = end_car  # the fee multiplier for an option due on Friday; 0 for the same as `car`
         self.risks: dict[str, float] = {}  # order -> its late risk when won (a cache; recomputed after a restart)
 
     def offset(self, request: dict[str, Any]) -> float:
@@ -197,7 +199,10 @@ class ProfitQuoter(Part):
         prices = {}
         offset = self.offset(request)
         for option in request["options"]:
-            cost = (fee - gain + room) / option["listPriceCents"] + charge  # in list prices
+            due_fee = fee
+            if self.end_car and self.car and min(option["deadline"] // 1440, 7) == 4:
+                due_fee = fee * self.end_car / self.car  # a car due Friday has no working day after it to recover a drop
+            cost = (due_fee - gain + room) / option["listPriceCents"] + charge  # in list prices
             # A late order gives back part of its price: the expected loss grows with the price itself.
             floor = max(cost, 0.5 * fee / option["listPriceCents"])
             off = offset + self.kind_off(option["kind"]) + self.lane_off(request, option["kind"], desk)

@@ -292,3 +292,38 @@ The intake's hard limit goes up to `barrier_limit` (120, morning too), so the pr
 **Reading.** The idea of a price for room is sound, but the price must be per unit of risk, not per car: a car should pay `room_price × its own late_risk`, so that a short lane with no private address (risk about 2%) pays almost nothing and a lane of 500 km with a private address pays its full share. That is the same split the `safe_limit` rule makes by hand, written as a price. The allowance share should count realised lateness only (or the open orders' risk discounted heavily), because the risk model is a prior, not a forecast for this week.
 
 **Next.** (1) Scale the allowance price by the car's own `late_risk` (one line in `ProfitQuoter.room`: return the barrier part separately and multiply it by `risk / mean_risk`), and count only realised late plus open orders past their warning. Screen `barrier=150` and `barrier=400` against `t1s13-safe80q-car95`. (2) If that still fails to beat `safe80q-car95`, keep the hand rule: it reads the week through the queue and the lane, and it wins.
+
+## The bad week, 14 Nov
+
+Stint of 30 minutes. Question: why did `t1s13-safe80q-car95` lose two rob weeks, and what rule would have kept them ranked? Script: `python3 tracks/t1/badweek.py <seed> <label> ...` (new; per seed: late cars by lane, private address, option, day won, unbooked queue at the win, late cause, due day, queue at 12:00 and 18:00).
+
+**The bad weeks.** **rob-18**: 83.6% on time, 269 orders, 44 late (base `t1s11-base`: 95.1%, 184 orders, 9 late). **rob-17**: 90.7%, 355 orders, 33 late (base 94.9%, 293, 15 late).
+
+**What broke them: Friday, not the safe room.**
+
+- **The queue never passed 35** in either week (the most unbooked cars at any win was 34). The safe cars past the limit did not cause it. The extra volume came from the cheaper price (`car=0.95`), on every day.
+- **41 of 44 late cars in rob-18 were due on Friday** (rob-17: 28 of 33). Short lanes went late too (under 100 km: 24 of 92 late), so lane length and private address do not explain it (6 private cars, 2 late).
+- **A wave of drops at Friday 00:00 to 02:00.** In rob-18, 20 Friday gigs booked on Thursday afternoon and evening were given back between 00:02 and 00:50 (base: 10). rob-17: 20 (base 19); rob-14 also shows a wave (11; base 8). The rest of the week sees 0 to 3 night drops. No forecast announces it, and the drivers do not book other gigs (it is not a better offer, and the dropped gigs' fees, 0.95 times typical, are like the kept ones). No driver reads the re-posted gig before 07:00, so a car due Friday loses half its last day. Late causes in rob-18: dropped 24, no driver until the warning 18, driven late 2.
+- **Why the base survives:** it holds fewer Friday cars overnight (74 due Friday against 98), so the same wave hits fewer of them.
+
+**Rules screened** (on top of `t1s13-safe80q-car95`; rob-17, rob-18 and the 10 dev seeds):
+
+| label | rule | dev margin | dev orders | dev on time | rob-18 | rob-17 |
+|---|---|---|---|---|---|---|
+| `t1s13-safe80q-car95` | (reference) | €128,473.04 | 3,640 | 95.5% | 83.6%, €7,373 **unranked** | 90.7%, €10,766 |
+| `t1s15-day70` | `day_limit=70` (existing switch, first play) | €125,862.82 | 3,595 | 95.7% | 83.6%, €7,373 (never binds) | 92.2%, €10,333 |
+| `t1s15-day55` | `day_limit=55` (rob only) | | | | 88.6%, €7,236 | 93.6%, €10,224 |
+| `t1s15-end110` | **`end_car=1.1`** | €126,099.65 | 3,522 | 96.0% | **93.5%, €8,024** | 92.0%, €11,693 |
+| `t1s15-end102` | `end_car=1.02` | €125,619.32 | 3,572 | 95.5% | 90.7%, €8,391 | 92.7%, €12,026 |
+
+`t1s15-off` (switch off, dev-01): €8,764.79, 246 orders, 97.6%, the same as `t1s11-base`. All dev weeks are ranked in every row.
+
+**New switch `end_car=<x>`** (off by default; `ProfitQuoter.prices` in `dispatch/pricing.py`, `PROFIT` in `main.py`). An option due on Friday is priced with fee multiplier `end_car` instead of `car`. Reason in one sentence: *a car due Friday has no working day after it to recover a drop, and Friday is when the drops come.* Prices for other days stay at `car=0.95`, so the volume stays (3,522 against 3,640 orders on dev).
+
+**Reading.**
+
+- A per-day cap (`day_limit`) is the wrong tool. No fixed count separates the weeks (rob-18 peaks at 68 undelivered orders due on one day at 84%, rob-03 at 68 at 99%), and 55 removed only 5 orders from rob-18 yet moved it 5 points: **the week is fragile**, decided by which gigs the drivers hold overnight before the wave.
+- `end_car=1.1` keeps both bad weeks ranked and earns more on them (+€651, +€927). On the dev weeks it costs €2,373 (−1.8%). The 12-week total is €795 lower, for an unranked week turned into a ranked one.
+- **Caution: the dev differences are within noise.** `end102` sits closer to the reference than `end110` but loses more on dev (−€2,854). A re-priced week replays differently, so ±€2.5k over 10 weeks is not a finding. The gain on rob-18 and rob-17 is two weeks: a lead.
+
+**Next.** (1) Play `end_car=1.1` on the other 18 rob seeds against `t1s13-safe80q-car95` (30 weeks in all, about 9 minutes on two slots). Adopt it only if no week drops out and the 30-week total stays within about €1.5k. (2) A cheaper fix belongs to fees and the desk, not intake: from Thursday evening, book Friday gigs with drivers of few drops, or re-raise dropped Friday gigs at 07:00 sharp, so that the morning's first look sees a fee that books. (3) The risk-weighted room price was not built: the bad week's late cars were short, safe lanes, so a price per unit of lane risk would not have caught them.
