@@ -35,10 +35,11 @@ from .play import run_week
 # dial's limit with dealer trust as log(1 + trust/100) (t2-quoter 4f287d9); and crowd=0.1, room=8: each order already due on
 # a deadline day beyond 8 per 100 drivers adds 0.1 typical fees to the cost of a quote for that day (t2-quoter 95326e6);
 # and today_days=3, today_hours=8, same_up=0.15: Monday to Wednesday, same_day on a car ready today for one public leg of
-# at most 150 drive minutes with 8 hours to spare beyond the drive, at 15% above (t2-quoter 95326e6).
+# at most 150 drive minutes with 8 hours to spare beyond the drive, at 15% above (t2-quoter 95326e6); and long lanes at
+# long_markup=1.05 instead of 1.15 (gap thread: they won 8-14% at about 1.9 x list).
 POLICY, PARAMS, LEVEL = "reach", {"open": 0.85, "future_same_day": True, "quoter": "dial", "cost_next": 1.3, "cost_same": 1.1,
                            "night": True, "sleep": 19, "wake": 6, "notes": "read",
-                           "long_lanes": True, "long_markup": 1.15, "thin_both": True, "thin_drivers": 20, "long_same_day": False,
+                           "long_lanes": True, "long_markup": 1.05, "thin_both": True, "thin_drivers": 20, "long_same_day": False,
                            "lanes": 1, "crowd": 0.1, "room": 8, "today_days": 3, "today_hours": 8, "same_up": 0.15}, 8
 TRACK = "orch"
 # Helsinki times when practice falls to 20 requests a second (test finals) or the final is set.
