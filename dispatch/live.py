@@ -17,6 +17,7 @@ import gzip
 import json
 import os
 import queue
+import signal
 import sys
 import threading
 import time
@@ -72,7 +73,7 @@ def read_stream(world: World, after: int, events: "queue.Queue[Any]", stop: thre
 
 
 def play_live(world: World, level: int, world_map: dict[str, Any], build: Callable[[Context], Parts], log: Optional[Any] = None,
-              clock: Optional[Callable[[], int]] = None) -> None:
+              clock: Optional[Callable[[], int]] = None, journal_path: Optional[str] = None) -> None:
     """Rebuilds the books, then answers events until the world ends. Raises `Unreachable` when the server is gone."""
     history = world.events()
     snapshot = world.snapshot()
@@ -80,13 +81,37 @@ def play_live(world: World, level: int, world_map: dict[str, Any], build: Callab
         return
     ctx = Context.build(level, world_map, world.roster())
     desk = Desk(world, ctx, build(ctx), snapshot["now"])
-    desk.rejoin(snapshot, history)
+    journal = []
+    if journal_path and os.path.exists(journal_path):
+        with open(journal_path, encoding="utf-8") as file:
+            journal = [json.loads(line) for line in file if line.strip()]
+    if journal_path:
+        def record(actions: list[Any], results: list[Any], at: int) -> None:
+            with open(journal_path, "a", encoding="utf-8") as file:
+                for action, result in zip(actions, results):
+                    file.write(json.dumps({"at": at, "action": action, "result": result}, separators=(",", ":")) + "\n")
+                file.flush()
+        desk.journal = record
+    desk.rejoin(snapshot, history, journal)
     desk.send()
     clock = clock or (lambda: world.client.final()["now"])
     events: "queue.Queue[Any]" = queue.Queue()
     stop = threading.Event()
     threading.Thread(target=read_stream, args=(world, history[-1]["seq"] if history else -1, events, stop), daemon=True).start()
     slowest = 0.0
+    slowest_roundtrip = 0.0
+    send_time = 0.0
+    act = world.act
+    def timed_act(actions: list[Any]) -> Any:
+        nonlocal send_time, slowest_roundtrip
+        start = time.perf_counter()
+        try:
+            return act(actions)
+        finally:
+            elapsed = time.perf_counter() - start
+            send_time += elapsed
+            slowest_roundtrip = max(slowest_roundtrip, elapsed)
+    world.act = timed_act
     try:
         while desk.now < snapshot["endsAt"]:
             day = desk.now // DAY
@@ -102,6 +127,7 @@ def play_live(world: World, level: int, world_map: dict[str, Any], build: Callab
             if not batch:
                 desk.now = max(desk.now, clock())
             started = time.perf_counter()
+            send_before = send_time
             ended = False
             for event in batch:
                 if isinstance(event, StopIteration):  # the stream ended: answer what came before it, then stop
@@ -114,7 +140,7 @@ def play_live(world: World, level: int, world_map: dict[str, Any], build: Callab
                     log.write(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n")
                 desk.handle(event)
             desk.tick()
-            slowest = max(slowest, time.perf_counter() - started)
+            slowest = max(slowest, time.perf_counter() - started - (send_time - send_before))
             desk.send()
             if ended:
                 return
@@ -122,10 +148,16 @@ def play_live(world: World, level: int, world_map: dict[str, Any], build: Callab
                 report(WEEKDAYS[day % 7], world.score())
     finally:
         print(f"Slowest desk batch: {slowest:.6f} seconds (excluding final send).", flush=True)
+        print(f"Slowest send round trip: {slowest_roundtrip:.6f} seconds.", flush=True)
+        world.act = act
         stop.set()
 
 
 def main() -> None:
+    def stop_on_signal(signum: int, frame: Any) -> None:
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, stop_on_signal)
+    signal.signal(signal.SIGINT, stop_on_signal)
     from harness import config  # the key, the data folder and the map
 
     parser = argparse.ArgumentParser(description="Plays the team's copy of the final from the live stream.")
@@ -158,7 +190,8 @@ def main() -> None:
                     log = gzip.open(os.path.join(folder, f"events-{int(time.time())}.jsonl.gz"), "wt", encoding="utf-8")
                     print(f"Final world {world.id}, level {level}, policy {args.policy} {params}.", flush=True)
                 play_live(world, level, world_map, lambda ctx: build(ctx, **params), log,
-                          clock=(lambda: world.snapshot()["now"]) if args.world else None)
+                          clock=(lambda: world.snapshot()["now"]) if args.world else None,
+                          journal_path=os.path.join(folder, "journal.jsonl"))
                 break
             except Unreachable as error:  # the server restarts, or the network broke: rebuild from the world
                 print(f"spread: {error}. Rebuilding in 5 seconds.", file=sys.stderr, flush=True)
