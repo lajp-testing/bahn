@@ -358,3 +358,26 @@ Over the 30 dev and rob weeks of `b37-fee3`: 358 late cars, 103 of them dropped 
 **The other 18 rob seeds** (same label `t1s16-drop2`): all ranked. Paired with `b37-fee3` on the 29 weeks both labels hold (10 dev and 19 rob; one rob seed is missing from `b37-fee3`'s index): **+€2,462.11 (€432,598.79 against €430,136.68), 18 of 29 weeks ahead, 392.4 against 391.5 orders/week**. The rob weeks alone come to −€225.72. The 3 lowest weeks: `b37-fee3` rob-18 92.0%, dev-01 94.0%, rob-04 94.7%; `t1s16-drop2` rob-18 91.5%, dev-01 94.4%, rob-04 94.7%.
 
 **Verdict: neutral.** About +€85 a week, which is noise; no change in volume; the floor did not move. Not recommended for the mainline. Keep the switch for the next step: on a last-day drop, start the urgent ladder at once (`raise_fees` at the drop) instead of one flat step, since 79 to 90 looks per dropped late car say the fee is far below what that driver pool takes.
+
+## Stronger answers to a last-day drop, 14 Nov (t1s17)
+
+Stint of 30 minutes on `b37-fee3`. Two more values of the same switch (`fee_flat_drop`, off by default; `Desk.last_day_drop`, plus a few lines in `Desk.raise_fees` so the later deadline warning never lowers a fee a drop already set: a small desk change):
+
+- **A, `fee_flat_drop=2`**: a car dropped in its last 24 h gets the urgent ladder at once (1.5× typical, +0.25× every 30 min, up to 2.5×), the ladder the deadline warning would give it 3 h before its last pickup.
+- **B, `fee_flat_drop=3`**: one fee on the urgent ladder's range, set by the time left: 1.5× typical with 24 h left, up to 2.5× at the last pickup.
+
+**Off check.** `main[fee_flat_drop=0]@d7b9ffa` dev-01 €9,956.48, 352 orders, 94.0%: the same as `b37-fee3` to the cent.
+
+**Screen**, 10 dev seeds plus rob-04, rob-17 and rob-18, paired with `b37-fee3`:
+
+| label | margin (13 weeks) | Δ vs b37-fee3 | weeks ahead | orders/week | 3 lowest weeks | late cars dropped in last day |
+|---|---|---|---|---|---|---|
+| `b37-fee3` | €179,916 | – | – | 377.2 | rob-18 92.0%, dev-01 94.0%, rob-04 94.7% | 57 (181 late in all) |
+| `main[fee_flat_drop=2]@d7b9ffa` (A) | €173,944 | **−€5,973** | 3/13 | 378.5 | rob-18 93.4%, dev-01 93.8%, rob-04 94.7% | 42 (177) |
+| `main[fee_flat_drop=3]@d7b9ffa` (B) | €175,030 | **−€4,887** | 2/13 | 379.2 | rob-18 93.0%, dev-01 94.0%, dev-10 94.6% | 51 (174) |
+
+All weeks ranked. Views per late last-day-drop car: 91 (b37-fee3), 77 (A), 79 (B).
+
+**Reading.** A higher fee for a last-day drop works in the expected direction: A cuts the late dropped cars by a quarter (57 → 42) and lifts the lowest week, rob-18, from 92.0% to 93.4%. But it costs more than it earns. About €450 a week goes on the fees of the roughly 30 dropped cars a week that would have booked anyway (on-time last-day drops are 28 a week), and saving about one late car a week returns far less. B is cheaper on the fees but saves fewer late cars. Neither moved total late cars by much (181 → 177 / 174), because the drop cars that A saves are partly replaced by others.
+
+**Verdict: neither is recommended.** The floor rises by 1 to 1.5 points only on rob-18 and costs €375 to €460 a week. A last-day drop is better left to the deadline warning under the mainline. Variant 1 (one flat step, t1s16) is still the only even-money version. A next step, if any: raise only the drops that drivers keep passing on (for example after N views without a booking), not every last-day drop. The view count tells late cars (87 views) from on-time cars (12) apart.
