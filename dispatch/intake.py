@@ -23,10 +23,13 @@ class Intake(Part):
 class LimitedIntake(Intake):
     """Limit unbooked orders, including quotes awaiting a dealer decision."""
 
-    def __init__(self, limit: int = 15, private: bool = False, slack: int = 0, queue_price: bool = False, win_price: bool = False, same_day_slack: int = -1, same_day_drivers: int = 0, morning_limit: int = 0, shortage_warnings: int = 0):
+    def __init__(self, limit: int = 15, private: bool = False, slack: int = 0, queue_price: bool = False, win_price: bool = False, same_day_slack: int = -1, same_day_drivers: int = 0, morning_limit: int = 0, shortage_warnings: int = 0, shortage_drops: int = 0, late_floor: float = 0):
         self.limit, self.private, self.slack = limit, private, slack  # `private`: take requests with a private address
         self.morning_limit = morning_limit
         self.shortage_warnings = shortage_warnings
+        self.shortage_drops = shortage_drops
+        self.late_floor = late_floor
+        self.drops: list[int] = []
         self.warnings: list[int] = []
         self.same_day_slack = same_day_slack
         self.same_day_drivers = same_day_drivers
@@ -59,7 +62,12 @@ class LimitedIntake(Intake):
                          or (o["kind"] == "same_day" and self.same_day_slack >= 0
                              and nearby >= self.same_day_drivers
                              and notes.latest_delivery(request, o["deadline"]) - start - drive >= self.same_day_slack))}
-        if self.shortage_warnings and sum(at > desk.now - 360 for at in self.warnings) >= self.shortage_warnings:
+        late = sum(any(at is not None and at > order["deadline"] for at in order["deliveredAt"])
+                   or (desk.now > order["deadline"] and any(at is None for at in order["deliveredAt"]))
+                   for order in desk.orders.values())
+        if ((self.late_floor and len(desk.orders) >= 30 and late / len(desk.orders) >= self.late_floor)
+                or (self.shortage_warnings and sum(at > desk.now - 360 for at in self.warnings) >= self.shortage_warnings)
+                or (self.shortage_drops and sum(at > desk.now - 360 for at in self.drops) >= self.shortage_drops)):
             later = {kind: price for kind, price in later.items() if kind != "same_day"}
             if any(leg[side]["privateAddress"] for leg in request["legs"] for side in ("pickup", "delivery")):
                 return decline(request)
@@ -82,6 +90,8 @@ class LimitedIntake(Intake):
             self.quoted.add(action["requestId"])
 
     def observe(self, event: dict[str, Any], desk: "Desk", replay: bool) -> None:
+        if event["kind"] == "gig_dropped":
+            self.drops.append(event["at"])
         if event["kind"] == "deadline_close":
             self.warnings.append(event["at"])
         if event["kind"] not in ("order_won", "order_lost"):

@@ -136,3 +136,12 @@ Completed paired results, margins in euros. The five on-time shares are rob-18, 
 | `t1s5-warn3` | 99,912.81 | 39,373.81 | 92.24% | 93.99, 92.77, 92.24, 96.58, 96.53% |
 
 The warning rule fails the 94% floor and the exploratory 92.5% tolerance on rob-14, despite helping rob-18. `t1s5-warn2` tests an earlier threshold; `t1s5-best-rob` checks the three-warning rule on all 20 rob seeds. Both are running.
+
+Further tests in progress: `t1s5-warn2` reaches only 89.0% on rob-17 (not ranked), despite 94.0% on rob-18. `t1s5-drop3` uses three `gig_dropped` events in six hours instead of warnings, with the same restrictions; it reproduces rob-18 at 90.1% and thus fails there. Both still need complete paired totals. These deterministic changes alter subsequent driver decisions; the apparent threshold response is not monotonic.
+
+| Label | Dev margin | Five margin | Worst of 15 | rob-18, rob-17, rob-14, rob-11, rob-10 |
+|---|---:|---:|---:|---|
+| `t1s5-warn2` | 97,221.91 | 39,446.78 | 88.98% | 93.99, 88.98, 93.10, 96.54, 97.67% |
+| `t1s5-drop3` | 101,227.69 | 40,135.54 | 90.06% | 90.06, 94.26, 91.91, 96.65, 96.24% |
+
+Both rejected: warn2 does not rank rob-17; drop3 misses the floor on rob-18 and rob-14. `t1s5-late5` is in progress: after 30 orders, use a 5% observed late share, including orders past deadline, to trigger the same restrictions. Offline checks 22 passed.
