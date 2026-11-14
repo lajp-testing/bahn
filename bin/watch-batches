@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""Wait for a group of VPS batches; connection failures never mean completion."""
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import time
+
+
+def probe(ssh, names):
+    command = '\n'.join(
+        f'if systemctl is-active --quiet bahn-{n}; then echo {n}:running; '
+        f'elif test -f bahn/data/logs/{n}.log && tail -n 1 bahn/data/logs/{n}.log | grep -qx "batch done"; '
+        f'then echo {n}:done; else echo {n}:unknown; fi' for n in names)
+    try:
+        result = subprocess.run(ssh + [command], capture_output=True, text=True, timeout=45)
+        if result.returncode:
+            return set()
+        states = dict(line.split(':', 1) for line in result.stdout.splitlines())
+        return {n for n in names if states.get(n) == 'done'}
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return set()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('batches', nargs='+')
+    parser.add_argument('--minimum', type=int, default=2)
+    parser.add_argument('--interval', type=int, default=30)
+    parser.add_argument('--ready', required=True)
+    args = parser.parse_args()
+    names = list(dict.fromkeys(args.batches))
+    if any(not re.fullmatch(r'[a-zA-Z0-9_-]+', n) for n in names):
+        parser.error('invalid batch name')
+    if args.minimum < 1 or args.interval < 1:
+        parser.error('minimum and interval must be positive')
+    root = Path(__file__).resolve().parents[1]
+    values = dict(line.split('=', 1) for line in (root / '.env').read_text().splitlines()
+                  if line.startswith(('SPREAD_VPS=', 'SPREAD_VPS_KEY=')))
+    ssh = ['ssh', '-i', values['SPREAD_VPS_KEY'], '-o', 'BatchMode=yes',
+           '-o', 'ConnectTimeout=10', '-o', 'ServerAliveInterval=10',
+           '-o', 'ServerAliveCountMax=2', values['SPREAD_VPS']]
+    while True:
+        done = probe(ssh, names)
+        if len(done) >= min(args.minimum, len(names)):
+            target = Path(args.ready)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary = target.with_suffix('.tmp')
+            temporary.write_text(json.dumps({'completed': sorted(done), 'pending': sorted(set(names)-done)}))
+            os.replace(temporary, target)
+            print('Ready: ' + ', '.join(sorted(done)), flush=True)
+            return
+        time.sleep(args.interval)
+
+
+if __name__ == '__main__':
+    main()
