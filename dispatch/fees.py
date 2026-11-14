@@ -63,11 +63,31 @@ class MeasuredFees(Fees):
     """Density-based opening with a configurable early rise."""
 
     def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
-                 cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, hold_until: int = 0, rescue_fraction: float = 0, **kwargs: Any):
+                 cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, hold_until: int = 0, rescue_fraction: float = 0,
+                 quiet_from: int = 0, quiet_to: int = 7 * HOUR, **kwargs: Any):
         super().__init__(**kwargs)
+        # `quiet_from` > 0: the fee does not rise from this minute of the day until `quiet_to` the next morning.
+        # Few drivers look at the app at night, so a raise then pays the morning's first driver more for nothing.
+        self.quiet_from, self.quiet_to = int(quiet_from), int(quiet_to)
         self.buffer, self.rise, self.interval, self.cap = buffer, rise, interval, cap
         self.deadline_margin, self.max_raises, self.hold_until = deadline_margin, max_raises, hold_until
         self.rescue_fraction = rescue_fraction
+
+    def after(self, start: int, minutes: int) -> int:
+        """The minute that is `minutes` of the drivers' day after `start`: the quiet hours do not count."""
+        if not self.quiet_from:
+            return start + minutes
+        at = start
+        while minutes > 0:
+            minute = at % (24 * HOUR)
+            if minute >= self.quiet_from:
+                at += 24 * HOUR - minute + self.quiet_to
+            elif minute < self.quiet_to:
+                at += self.quiet_to - minute
+            else:
+                step = min(minutes, self.quiet_from - minute)
+                at, minutes = at + step, minutes - step
+        return at
 
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
         if urgent:
@@ -88,4 +108,4 @@ class MeasuredFees(Fees):
         interval = self.interval
         if self.deadline_margin and count:
             interval = max(1, min(interval, (order["lastPickupAt"] - desk.now - self.deadline_margin) // count))
-        return [{"at": desk.now + (max(0, order["lastPickupAt"] - desk.now - self.hold_until) if k and self.hold_until else 0) + k * interval, "feeCents": max(1, int(typical * min(self.cap, first + k * self.rise) + 0.5))} for k in range(1 if desk.level == 1 else count + 1)]
+        return [{"at": self.after(desk.now + (max(0, order["lastPickupAt"] - desk.now - self.hold_until) if k and self.hold_until else 0), k * interval), "feeCents": max(1, int(typical * min(self.cap, first + k * self.rise) + 0.5))} for k in range(1 if desk.level == 1 else count + 1)]
