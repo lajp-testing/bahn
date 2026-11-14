@@ -381,3 +381,28 @@ All weeks ranked. Views per late last-day-drop car: 91 (b37-fee3), 77 (A), 79 (B
 **Reading.** A higher fee for a last-day drop works in the expected direction: A cuts the late dropped cars by a quarter (57 → 42) and lifts the lowest week, rob-18, from 92.0% to 93.4%. But it costs more than it earns. About €450 a week goes on the fees of the roughly 30 dropped cars a week that would have booked anyway (on-time last-day drops are 28 a week), and saving about one late car a week returns far less. B is cheaper on the fees but saves fewer late cars. Neither moved total late cars by much (181 → 177 / 174), because the drop cars that A saves are partly replaced by others.
 
 **Verdict: neither is recommended.** The floor rises by 1 to 1.5 points only on rob-18 and costs €375 to €460 a week. A last-day drop is better left to the deadline warning under the mainline. Variant 1 (one flat step, t1s16) is still the only even-money version. A next step, if any: raise only the drops that drivers keep passing on (for example after N views without a booking), not every last-day drop. The view count tells late cars (87 views) from on-time cars (12) apart.
+
+## Raise only the gigs drivers pass on, 14 Nov (t1s18)
+
+**Views are live.** Each view is a `gig_viewed` event with the gig and the driver (HANDBOOK, events table), so the desk can count them during the week; the reveal only adds the fee each viewer saw.
+
+**Rule `fee_flat_views=N`** (off by default; `Desk.viewed` on `gig_viewed`, `flat_views`/`flat_views_steps` in `MeasuredFees`, `FEES` in `main.py`; about 28 lines of `desk.py`, a small desk change): a single car without a driver, not yet urgent, inside its last `flat_last` minutes (24 h), that has drawn N views since its post, its last drop or booking, or its last such raise, goes `flat_views_steps` flat steps (0.15× typical each) up at once, within the cap (1.5×). The count then starts again. Reason in one sentence: *drivers who look and pass say the fee is too low, so only those gigs pay more.* The clock does not stop on views: they are counted at the next stop (in the final the desk runs about once a second).
+
+**Off check.** `main[fee_flat_views=0]@7f1bcd2` dev-01 €9,956.48, 352 orders, 94.0%: the same as `b37-fee3` to the cent.
+
+**Screen** `main[fee_flat_views=25]@7f1bcd2`, 10 dev + rob-04, rob-17, rob-18, paired with `b37-fee3`:
+
+| label | margin (13 weeks) | Δ | weeks ahead | orders/week | 3 lowest weeks | late cars (late last-day drops) |
+|---|---|---|---|---|---|---|
+| `b37-fee3` | €179,916 | – | – | 377.2 | rob-18 92.0%, dev-01 94.0%, rob-04 94.7% | 181 (57) |
+| `main[fee_flat_drop=2]@d7b9ffa` (t1s17 A) | €173,944 | −€5,973 | 3/13 | 378.5 | rob-18 93.4%, dev-01 93.8%, rob-04 94.7% | 177 (42) |
+| `main[fee_flat_drop=3]@d7b9ffa` (t1s17 B) | €175,030 | −€4,887 | 2/13 | 379.2 | rob-18 93.0%, dev-01 94.0%, dev-10 94.6% | 174 (51) |
+| **`main[fee_flat_views=25]@7f1bcd2`** | **€182,554** | **+€2,638** | **8/13** | **380.9** | rob-18 93.4%, dev-01 95.5%, dev-10 95.5% | **159 (60)** |
+
+Dev only: +€2,720 (10 weeks, 6 ahead). All 13 weeks ranked; on time 96.3% → 96.8%. Every one of the three lowest weeks rose (rob-18 +1.4, dev-01 +1.5, rob-04 +1.9 points). Behind: rob-18 −€797 (fewer orders, 257 vs 263), dev-06 −€482, dev-04 −€322 (98.3% → 97.3%).
+
+**Reading.** The first version of this family that earns money *and* lifts the floor. Late cars fall by 22 (−12%), but not through the drops: late last-day drops stay at 57 → 60. The gain comes from ordinary last-day gigs that drivers keep passing on, which the old flat schedule left at the same fee until the warning. Unlike `fee_flat_drop`, it pays more only where drivers said no, so the ~28 drops a week that book anyway keep their fee.
+
+**Caution.** 13 weeks, +€200 a week: a lead, inside the ±€2.5k noise band seen in t1s13. The floor gain is more consistent (all three low weeks up). Only N=25, one step, was played (the waiter for the run hung on its own `pgrep` match, which cost the second variant).
+
+**Next.** (1) The other 17 rob seeds with N=25 against `b37-fee3`. (2) N=15 and N=40, and `fee_flat_views_steps=2`, on the same 13 weeks. (3) Since late last-day drops did not move, a dropped gig's views may need a lower N (it draws 87 views); try N counted only after a drop.
