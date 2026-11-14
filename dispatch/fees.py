@@ -60,19 +60,26 @@ class Fees(Part):
                 desk.ctx.km(pickup, delivery) >= 500, near(pickup) < 30, near(delivery) < 10)
 
     def learned(self, request: dict[str, Any], desk: "Desk") -> list[float]:
-        """Model 3's inputs for the request (dispatch/features.py), computed once for each request and minute:
-        the quoter asks for the expected fee and the late risk one after the other."""
+        """The learned models' inputs for the request (dispatch/features.py), computed once for each request
+        and minute: the quoter asks for the expected fee and the late risk one after the other."""
         key = (request["id"], desk.now)
         if getattr(self, "_learned", (None,))[0] != key:
             from .features import features
             self._learned = (key, features(request, desk))
         return self._learned[1]
 
+    def _book(self):
+        """The learned cost module of the current model: 3 = dispatch/learned.py, 4 = dispatch/learned2.py."""
+        if getattr(self, "model", 1) == 4:
+            from . import learned2
+            return learned2
+        from . import learned
+        return learned
+
     def expected(self, request: dict[str, Any], desk: "Desk") -> int:
         """Expected total driver fees, as a share of the typical fee."""
-        if getattr(self, "model", 1) == 3:  # the learned model (tracks/ml, dispatch/learned.py)
-            from . import learned
-            return max(1, round(request["referenceFeeCents"] * learned.fee(self.learned(request, desk))))
+        if getattr(self, "model", 1) in (3, 4):  # the learned cost models (tracks/ml)
+            return max(1, round(request["referenceFeeCents"] * self._book().fee(self.learned(request, desk))))
         if getattr(self, "model", 1) == 2:
             multiple = MODEL2_EXPECTED[0] + sum(c for c, active in zip(MODEL2_EXPECTED[1:], self._model2_features(request, desk)) if active)
             return max(1, round(request["referenceFeeCents"] * multiple))
@@ -82,14 +89,14 @@ class Fees(Part):
 
     def late_risk(self, request: dict[str, Any], desk: "Desk") -> float:
         """Empirical late share; clipped additive group model."""
-        if getattr(self, "model", 1) == 3:
-            from . import learned
-            return min(1.0, max(0.0, learned.late(self.learned(request, desk))))
+        if getattr(self, "model", 1) in (3, 4):
+            return min(1.0, max(0.0, self._book().late(self.learned(request, desk))))
         if getattr(self, "model", 1) == 2:
             risk = MODEL2_LATE[0] + sum(c for c, active in zip(MODEL2_LATE[1:], self._model2_features(request, desk)) if active)
             return min(1.0, max(0.0, risk))
         features = self._cost_features(request, desk)
         return min(1.0, max(0.0, -0.0017 + sum(c for c, active in zip((0.0269, -0.0130, 0.0855, 0.1676), features) if active)))
+
 
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
         """The schedule for `cars` of the order's cars, starting at `desk.now`."""

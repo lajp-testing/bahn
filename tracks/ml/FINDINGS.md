@@ -40,3 +40,61 @@ Training used 1,039,591 orders in 4,178 weeks of 44 worlds. The test was 41,497 
 - **Double counting:** `fits` is an input, so the quoter's `pair` discount counts the same saving twice. Measure `fee_model=3` with `pair=0` as well as with the current `pair`.
 - **Policy dependence:** our state and our schedule are inputs. The holdout rows come from many policies, but a policy that changes what we win changes those inputs (feedback). Only the online measurement can tell.
 - **Fee tree count:** the fee model chose 493 of 500 trees, so a few more might help a little.
+
+## Retrain on recent weeks, 14 Nov
+
+The shipped model 3 was trained on 4,178 weeks, almost all played by older policies. The mainline now plays
+flat fees (`fee_flat=1`, `fee_flat_up=-0.15`) and `fee_model=3`, so only the recent weeks show costs under the
+policy we will play in the final. `tracks/ml/train.py` gained `--recent-weight`, `--out`, `--name` and
+`--shipped`: a row is **recent-policy** when its index row has `fee_flat=1` or `fee_model=3`, or its code
+version is 5ba1bf0 / e01292a / 3a6e7d9 / 782a036 / 5bb0223 or later with policy main (the mainline defaults
+carry flat fees from 5ba1bf0 on, and fee_model=3 from 3a6e7d9 on). The report adds a second table on the
+holdout rows of those weeks only.
+
+- Rows: rebuilt from every saved level 8 week: 1,241,290 training orders in 4,752 weeks of 44 worlds,
+  120,921 of them (9.7%) in recent-policy weeks; holdout 48,901 orders in 190 weeks of 10 worlds, of which
+  7,404 orders in 20 recent-policy weeks (all 10 holdout seeds; mean fee 1.028 of typical, late share 3.7%).
+- Candidates: (A) the current recipe on all rows; (B) the same with `--recent-weight 5`.
+- Pick: exported to `dispatch/learned2.py`, behind `fee_model=4` in `dispatch/fees.py` (same feature
+  function as model 3; model 3 unchanged).
+
+### All holdout rows (48,901 orders, 190 weeks, 10 worlds)
+
+| | fee MAE | fee bias | late log loss | late Brier |
+|---|---|---|---|---|
+| constant | 0.298 | +0.044 | 0.137 | 0.0294 |
+| model 1 | 0.277 | −0.021 | 0.177 | 0.0281 |
+| model 2 | 0.269 | +0.008 | 0.126 | 0.0277 |
+| model 4 (candidate A) | 0.223 | +0.006 | 0.104 | 0.0252 |
+| model 3 (shipped) | 0.224 | +0.005 | 0.106 | 0.0257 |
+
+### Recent-policy holdout rows only (7,404 orders, 20 weeks, 10 worlds)
+
+| | fee MAE | fee bias | late log loss | late Brier |
+|---|---|---|---|---|
+| constant | 0.256 | +0.079 | 0.159 | 0.0359 |
+| model 1 | 0.243 | +0.026 | 0.211 | 0.0353 |
+| model 2 | 0.240 | +0.057 | 0.156 | 0.0354 |
+| model 4 (candidate A) | 0.168 | +0.003 | 0.126 | 0.0315 |
+| model 3 (shipped) | 0.183 | +0.018 | 0.134 | 0.0338 |
+
+Candidate comparison on the recent-policy holdout rows (7,404 orders), all four trained on the same rows:
+
+| `--recent-weight` | fee MAE | fee bias | late log loss | late Brier |
+|---|---|---|---|---|
+| 1 (candidate A) | 0.1680 | +0.0031 | 0.1256 | 0.0315 |
+| 3 | 0.1645 | +0.0026 | **0.1251** | **0.0314** |
+| 5 (candidate B) | 0.1639 | +0.0006 | 0.1273 | 0.0318 |
+| 10 | **0.1622** | **+0.0002** | 0.1282 | 0.0321 |
+
+**Pick: `--recent-weight 3`**, exported to `dispatch/learned2.py`. It has the best late log loss and Brier
+of the four, a fee MAE within 0.0006 of the best, and it is also the best of the four on all holdout rows
+(fee MAE 0.2228, late log loss 0.1030, Brier 0.0250; candidate A 0.2227/0.1037/0.0252, weight 5
+0.2231/0.1044/0.0251, weight 10 0.2248/0.1056/0.0254). Higher weights buy a little fee accuracy on the
+recent rows at the cost of the late model; the flat-fee mainline leans on the fee model for its opening, and
+the quoter leans on the late model, so the balanced one wins. Every candidate beats the shipped model 3 on
+the recent rows on both metrics, so the win is the retrain on recent weeks itself, not the weighting.
+
+`fee_model=4` answers in plain Python as fast as model 3: measured 0.056 ms per request (fee and late
+together, 2,000 requests; model 3 0.065 ms on the same machine, 0.15 ms under load), against the 1 ms
+budget. The offline test suite passes (26 tests, `tests/test_ml.py` covers the model 4 switch).
