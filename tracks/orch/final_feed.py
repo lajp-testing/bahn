@@ -12,12 +12,14 @@ Revenue per order against margin per order separates teams that win by price fro
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 
 
 def frames(path: str) -> list[dict]:
     out, last = [], None
-    for line in open(path, encoding="utf-8", errors="replace"):
+    opener = gzip.open if path.endswith(".gz") else open
+    for line in opener(path, "rt", encoding="utf-8", errors="replace"):
         if not line.startswith("data:"):
             continue
         try:
