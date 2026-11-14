@@ -114,7 +114,8 @@ class MeasuredFees(Fees):
         self.flat, self.flat_up, self.flat_step = int(flat), float(flat_up), float(flat_step)
         self.flat_wait, self.flat_last = int(flat_wait), int(flat_last)
         # `flat_drop` = 1: a car dropped inside its last `flat_last` minutes comes back at the top of a fresh flat schedule,
-        # not at the fee it was booked at (Desk.after_drop)
+        # not at the fee it was booked at (Desk.last_day_drop); 2: the urgent ladder at once; 3: one fee on the urgent
+        # ladder's range, higher the less time is left
         self.flat_drop = int(flat_drop)
         # `early` > 0: an order without a driver goes to the urgent fees when this many minutes of the drivers' day are
         # left before its last pickup. The world's own warning comes 3 hours before, which is late for a driver to get there.
