@@ -73,6 +73,7 @@ class Desk:
             for part in self.parts.all():
                 part.observe(event, self, replay=True)
         self.now = snapshot["now"]
+        self.orders = {o["id"]: o for o in snapshot["orders"] if o["id"] in self.requests and o["status"] != "cancelled"}
         posted: dict[str, list[Gig]] = {}  # order id -> its gigs, oldest first
         self.booked = {gig["id"] for gig in snapshot["gigs"] if gig["status"] in ("booked", "working", "done")}
         for gig in snapshot["gigs"]:
@@ -81,7 +82,6 @@ class Desk:
             if gig["status"] in ("open", "booked", "working"):
                 self.carry({"type": "post", "stops": gig["stops"], "audience": gig["audience"], "schedule": gig["schedule"]}, gig["id"])
         self.urgent = {e["orderId"] for e in history if e["kind"] == "deadline_close"}
-        self.orders = {o["id"]: o for o in snapshot["orders"] if o["id"] in self.requests and o["status"] != "cancelled"}
         for order in self.orders.values():
             if order["status"] == "waiting" and not self.gigs_of(order["id"]):
                 self.post(order, undelivered(order))
@@ -210,7 +210,7 @@ class Desk:
                 self.outbox.append({"type": "withdraw", "gigId": gig_id})
                 for member in orders_in(self.posts[gig_id]["stops"]):  # so that no second car joins the gig that is leaving
                     self.leg_gigs.pop(member, None)
-                schedule = bundles.fees([self.clock[member] for member in orders_in(stops)], self.now)
+                schedule = bundles.fees([self.clock.get(member) or self.fees_for(self.orders[member], 1) for member in orders_in(stops)], self.now)
         self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": schedule})
         if len(legs) == 1:
             return
