@@ -38,6 +38,7 @@ class Desk:
         self.clock: dict[str, list[Any]] = {}  # order id -> the fee schedule of its car alone, which a bundle and a split keep to
         self.booked_fee: dict[str, int] = {}  # gig id -> the fee its last driver booked it at
         self.drop_fees: dict[str, list[Any]] = {}  # gig id -> the schedule a last-day drop gave it (fee_flat_drop 2 and 3)
+        self.views: dict[str, int] = {}  # gig id -> views since its post, its last drop or booking, or its last view raise (fee_flat_views)
         self.late_posted: set[str] = set()  # orders posted again without windows after their last pickup minute
         self.urgent_gigs: set[str] = set()  # gigs that already carry an urgent fee schedule
         self.schedules: dict[str, list[Any]] = {}  # gig id -> its fee schedule in the app now (its post, or its last reprice)
@@ -171,13 +172,17 @@ class Desk:
             self.repost(event["gigId"])
         elif kind == "deadline_close":  # it comes again when a driver drops the car after the first warning
             self.raise_fees(event["orderId"])
+        elif kind == "gig_viewed" and getattr(self.parts.fees, "flat_views", 0):
+            self.viewed(event["gigId"])
         elif kind == "gig_booked":
+            self.views.pop(event["gigId"], None)
             self.booked.add(event["gigId"])
             self.booked_fee[event["gigId"]] = event["feeCents"]
         elif kind == "offer_answered" and event["answer"] == "accepted":  # a direct offer booked the driver (dispatch/offers.py)
             self.booked.add(event["gigId"])
         elif kind in ("gig_dropped", "no_show"):  # after a no-show the gig is open again; a late driver still comes
             self.booked.discard(event["gigId"])
+            self.views.pop(event["gigId"], None)
             if "drops" in self.parts.repairs and kind == "gig_dropped":
                 self.after_drop(event["gigId"])
             elif getattr(self.parts.fees, "flat_drop", 0) and kind == "gig_dropped":
@@ -398,6 +403,29 @@ class Desk:
         schedule[0] = {"at": self.now, "feeCents": schedule[0]["feeCents"]}
         self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": schedule})
         self.drop_fees[gig_id] = schedule
+
+    def viewed(self, gig_id: str) -> None:
+        """A single car in its last `flat_last` minutes that `flat_views` drivers have looked at and passed on goes
+        `flat_views_steps` flat steps up at once, within the cap (t1s18)."""
+        self.views[gig_id] = self.views.get(gig_id, 0) + 1
+        fees, action = self.parts.fees, self.posts.get(gig_id)
+        if self.views[gig_id] < fees.flat_views or gig_id in self.booked or action is None:
+            return
+        members = orders_in(action["stops"])
+        if len(members) != 1 or members[0] not in self.orders or members[0] in self.urgent:
+            return
+        order = self.orders[members[0]]
+        if not 0 < order["lastPickupAt"] - self.now < fees.flat_last:
+            return
+        steps = self.schedules.get(gig_id) or action["schedule"]
+        now_fee = max([step["feeCents"] for step in steps if step["at"] <= self.now], default=steps[0]["feeCents"])
+        typical = self.requests[order["id"]]["referenceFeeCents"] * pickups(action) / len(order["legs"])
+        fee = min(int(typical * fees.cap + 0.5), now_fee + int(typical * fees.flat_step * fees.flat_views_steps + 0.5))
+        self.views[gig_id] = 0
+        if fee > now_fee:
+            schedule = [{"at": self.now, "feeCents": fee}] + [step for step in steps if step["at"] > self.now and step["feeCents"] > fee]
+            self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": schedule})
+            self.schedules[gig_id] = schedule
 
     def cut(self, stops: list[Any]) -> list[Any]:
         """The stops without the windows that have ended. With the "windows" repair a window that ends this minute
