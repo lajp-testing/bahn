@@ -1,7 +1,7 @@
 """Plays the final, or a test final, from the live stream. The clock moves by itself.
 
-    python -m dispatch.live --policy base
-    python -m dispatch.live --policy base --set markup=1.3
+    python -m dispatch.live                      # the mainline, policy main
+    python -m dispatch.live --set limit=30
 
 It waits for the organisers to set a final, rebuilds the books from the world, then answers events
 as they come. Stop it and start it again at any time: it rejoins the same week. When the server
@@ -162,7 +162,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Plays the team's copy of the final from the live stream.")
     parser.add_argument("--world", help="non-ranking practice world for rehearsal")
-    parser.add_argument("--policy", default="base", help="a module of dispatch/policies")
+    parser.add_argument("--policy", default="main", help="a module of dispatch/policies")
     parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE", help="a parameter of the policy; repeat for more")
     args = parser.parse_args()
     params = parse_params(args.set)
