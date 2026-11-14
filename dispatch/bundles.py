@@ -21,7 +21,7 @@ HOUR, DAY = 60, 24 * 60
 
 
 class Bundles(Part):
-    def __init__(self, cars: int = 2, dead: int = 30, slack: int = 6 * HOUR, split: int = 4 * HOUR, discount: float = 0.85, drive: int = 11 * HOUR, private: bool = False, patience: int = 0, room: int = 0):
+    def __init__(self, cars: int = 2, dead: int = 30, slack: int = 6 * HOUR, split: int = 4 * HOUR, discount: float = 0.85, drive: int = 11 * HOUR, private: bool = False, patience: int = 0, room: int = 0, plan: int = 0, reach: int = 60):
         self.cars = cars  # the most cars in one gig
         self.dead = dead  # the longest drive without a car between two cars, in minutes
         self.slack = slack  # a bundle is made only when its last possible start is at least this far away
@@ -31,6 +31,9 @@ class Bundles(Part):
         self.private = private  # whether a car at a private address may join a bundle
         self.patience = patience  # a bundle without a driver after this many minutes of the drivers' day goes back to one gig per car; 0: no limit
         self.room = room  # a bundle is made only when a driver can start it over at least this many minutes
+        self.plan = plan  # every this many minutes, the open cars are rebuilt into chains (`chains`); 0: never
+        self.reach = reach  # the longest drive without a car between two cars of a planned chain, in minutes
+        self.planned_at = -1
 
     def plain(self, order: dict[str, Any], desk: "Desk") -> bool:
         """A car that may share a gig: one car, no deadline warning yet, and no private address."""
@@ -73,7 +76,77 @@ class Bundles(Part):
                     best = (score, gig_id, joined, {key: audience[key] or action["audience"][key] for key in audience})
         return best[1:] if best else None
 
-    def route(self, stops: list[dict[str, Any]], desk: "Desk", orders: Optional[dict[str, Any]] = None) -> Optional[tuple[int, int, int]]:
+    def tick(self, desk: "Desk") -> None:
+        if self.plan and desk.now >= self.planned_at + self.plan:
+            self.planned_at = desk.now - desk.now % self.plan
+            desk.wake(self.planned_at + self.plan)
+            self.chains(desk)
+
+    def chains(self, desk: "Desk") -> None:
+        """The chain planner: one driver's day holds four times the work we give it, so every `plan` minutes the
+        cars whose gig no driver holds are rebuilt greedily into chains that one driver can do, earliest last
+        pickup first, each next car the one nearest to the chain's last delivery. Changed chains are posted
+        again as one gig; a gig whose cars stay together is left alone."""
+        desk.send()
+        gigs: dict[str, list[str]] = {}  # open gig id -> its cars, for the gigs that the planner may rebuild
+        for gig_id, action in desk.posts.items():
+            members = orders_in(action["stops"])
+            if (gig_id in desk.booked or gig_id in desk.urgent_gigs
+                    or not all(m in desk.orders and desk.gigs_of(m) == [gig_id] and self.plain(desk.orders[m], desk) and m not in desk.late_posted for m in members)):
+                continue
+            gigs[gig_id] = members
+        cars = {m: [s for s in desk.posts[g]["stops"] if s["orderId"] == m] for g, members in gigs.items() for m in members}
+        audience = {m: desk.posts[g]["audience"] for g, members in gigs.items() for m in members}
+        left = sorted(cars, key=lambda m: desk.orders[m]["lastPickupAt"])
+        chains: list[list[str]] = []
+        while left:
+            chain = [left.pop(0)]
+            stops = list(cars[chain[0]])
+            while len(chain) < self.cars:
+                best = None
+                for m in left:
+                    gap = drive(stops[-1], cars[m][0], desk, desk.orders)
+                    if gap > self.reach or (best and gap >= best[0]):
+                        continue
+                    found = self.route(stops + cars[m], desk, reach=self.reach)
+                    if found and found[1] - desk.now >= self.slack and found[2] >= self.room:
+                        best = (gap, m)
+                if best is None:
+                    break
+                chain.append(best[1])
+                left.remove(best[1])
+                stops += cars[best[1]]
+            chains.append(chain)
+        old = {tuple(members): g for g, members in gigs.items()}
+        changed = [chain for chain in chains if tuple(chain) not in old]
+        if not changed:
+            return
+        for chain in changed:  # withdraw first, so that a car a driver booked meanwhile stays where it is
+            for m in chain:
+                gig_id = desk.leg_gigs.get(m, {}).get(0)
+                if gig_id in gigs:
+                    desk.outbox.append({"type": "withdraw", "gigId": gig_id})
+                    desk.split_at.pop(gig_id, None)
+                    for member in gigs.pop(gig_id):
+                        desk.leg_gigs.pop(member, None)
+        desk.send()
+        for chain in changed:
+            free = [m for m in chain if not desk.gigs_of(m)]
+            stops = [s for m in free for s in cars[m]]
+            if len(free) > 1 and self.route(stops, desk, reach=self.reach):
+                look = {key: any(audience[m][key] for m in free) for key in audience[free[0]]}
+                schedule = self.fees([desk.clock.get(m) or desk.fees_for(desk.orders[m], 1) for m in free], desk.now)
+                desk.outbox.append({"type": "post", "stops": desk.cut(stops), "audience": look, "schedule": schedule})
+            else:
+                for m in free:
+                    desk.alone(desk.orders[m])
+        # cars of a withdrawn gig that no changed chain holds (its partner went elsewhere) go alone
+        held = {m for chain in changed for m in chain}
+        for m in cars:
+            if m not in held and not desk.gigs_of(m) and not any(m in orders_in(a["stops"]) for a in desk.outbox if a["type"] == "post"):
+                desk.alone(desk.orders[m])
+
+    def route(self, stops: list[dict[str, Any]], desk: "Desk", orders: Optional[dict[str, Any]] = None, reach: Optional[int] = None) -> Optional[tuple[int, int, int]]:
         """The minutes driven without a car, the last minute a driver can start the first stop and reach every
         stop inside its window while its site is open, and for how many minutes such a start exists. None
         when the stops do not fit in one gig."""
@@ -83,7 +156,7 @@ class Bundles(Part):
             minutes = drive(a, b, desk, orders)
             total += minutes
             if a["kind"] == "delivery":
-                if minutes > self.dead:
+                if minutes > (self.dead if reach is None else reach):
                     return None
                 dead += minutes
         if total > self.drive:

@@ -295,3 +295,23 @@ Where: `MeasuredFees.rescue`, `rescue_from`, `rescuing` and a one-step schedule 
 
 On dev-07 the rule sent 16 rescue reprices. +€259 and the same 17 late orders: a lead at most, not a finding. Next: 30 weeks paired with `t1s11-base`, `fee_rescue=240` (and 360 if there is time):
 `export SPREAD_TRACK=t3; bin/vps python3 -m harness.run --policy main --set fee_rescue=240 --seeds dev $(for i in $(seq -w 1 20); do printf -- '--seed rob-%s ' $i; done) --label t3s12-rescue240`, then `python3 -m harness.compare t1s11-base t3s12-rescue240` (all 30 weeks).
+
+## A chain planner, 14 Nov
+
+**Rule.** Every `bundle_plan` minutes, the cars whose gig no driver holds (one car, not urgent, no private address, not reposted late) are rebuilt greedily into chains: earliest last pickup first, then the open car whose pickup is nearest to the chain's last delivery, up to `bundle_reach` minutes of empty driving, while `Bundles.route` still finds a start (windows, opening hours, 11 hours of driving, the 6-hour `slack`) and up to `bundle` cars. A chain whose cars already form one gig is left alone; the others are withdrawn first and posted as one gig at the bundle fee (0.85 times the sum of the cars' own schedules). A car whose withdrawal failed (a driver booked it meanwhile) stays where it is. Code: `Bundles.tick` and `Bundles.chains` in `dispatch/bundles.py`; `route` takes a `reach` override. Off by default (`bundle_plan=0`). The plan comes from the desk's books, so it adds no state that `rejoin` has to rebuild.
+
+**Off check.** `t3s13-off` dev-01: €8,764.79, 246 orders, 97.6%: equal to `t1s11-base`.
+
+**Screen on dev-01..10** (a screen, not a finding). "In a gig with others" means delivered cars whose gig carried more than one car (`report_dev.py`, which is `tracks/t5/report.py` limited to the dev seeds).
+
+| label | settings | margin € | orders | on time | lowest 3 weeks (on time) | cars with others |
+|---|---|---|---|---|---|---|
+| `t1s11-base` | | 126,922 | 2,879 | 96.8% | dev-07 93.7%, dev-10 95.3%, dev-08 96.0% | 877 / 2,877 = 30.5% |
+| `t3s13-plan60` | plan 60, reach 60 | 126,158 (−763) | 2,883 | 96.8% | dev-07 91.5%, dev-03 95.2%, dev-09 96.0% | 927 / 2,881 = 32.2% |
+| `t3s13-plan90` | plan 60, reach 90 | 127,005 (+83) | 2,883 | 96.4% | dev-07 91.3%, dev-08 94.7%, dev-01 95.9% | 906 / 2,881 = 31.4% |
+
+Bundles by size (posted, kept a driver, delivered): base 2: 688/310/615, 3: 152/88/262; plan60 2: 1,141/307/611, 3: 330/107/316; plan90 2: 1,309/285/564, 3: 449/115/342. Single-car gigs posted: 2,782 base, 3,479 plan60, 4,043 plan90.
+
+**What it shows.** The planner posts many more bundles, but about as many are booked: the share of cars in a shared gig moves from 30.5% to only 31 to 32%. Margin is flat (±€800 over 10 weeks, with week-to-week swings of ±€1,800), and dev-07 drops to 91.3–91.5%, close to the 90% line. The reason: a single car is booked in a median of about an hour, so when the planner runs, few cars are open, and those are mostly cars nobody wants. Rebuilding them reshuffles the leftovers and makes more posts and withdrawals (more single-car posts, because chains that lose a member fall back to one gig per car), not more cars per driver. Pooling the cars that are open at one moment cannot raise the share much: the chain has to exist before a driver takes the first car.
+
+**Next.** (1) Hold a newly won car back for part of the plan interval (when its last pickup is far away) so the planner sees a larger pool. This trades booking speed for chain length, and the 6-hour slack keeps it safe. (2) Offer a chain to the driver who just booked its first car (a direct offer of the follow-on gig, as the t2 rides-home idea did), rather than reposting to everyone. (3) Count the driver-days used, not only the share.
