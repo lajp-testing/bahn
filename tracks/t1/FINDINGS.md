@@ -121,3 +121,57 @@ Among baseline orders, 100 had negative allocated margin, totaling −€1,349.2
 `t1s4-morning25` sets the morning limit to 25 on same360-80: €86,852.03, 2,257 orders, 97.3% on time, worst 95.7%, 10/10 ranked. It gains €13,356.83 over baseline and €2,603.83 over morning20, with 7 higher, 1 lower, 2 identical weeks. It is the highest-margin qualifying combination. Morning30 is in progress to check whether further increases help.
 
 `t1s4-morning30` made €84,313.41, 2,228 orders, 96.9% on time, worst 92.6%, 10/10 ranked. Rejected: below the 93% floor and €2,539 below morning25. The best command is `SPREAD_TRACK=t1 bin/vps python3 -m harness.run --policy main --seeds dev --label t1s4-morning25 --set slack=720 --set same_day_slack=360 --set same_day_drivers=80 --set morning_limit=25`. The 25 threshold is a dev-set selection, not independent validation; the orchestrator should check holdouts. Next test rules using driver supply and time rather than a fixed morning limit, and assess robustness on independent study weeks. No ranking or holdout worlds were played.
+
+## Fifth stint: shortage governor (in progress)
+
+The five lowest `b9-same-rob` seeds are rob-18 90.1%, rob-17 92.4%, rob-14 93.2%, rob-11 96.2%, rob-10 96.5%. On Friday these first three have respectively 34, 30 and 18 `deadline_close` events and 12, 15 and 8 `gig_expired` events; rob-04, at 98.9%, has three warnings and one expiration on Friday. Warnings can repeat for an order and are symptoms, not independent late orders. The Thursday win cohort can already be exposed before Friday warnings. Flu and outage are unannounced, so this does not establish their cause; rob-18's snow forecast was for Tuesday, not Friday. The outage concerns competitor availability, not driver availability.
+
+Started paired `t1s5-base` and `t1s5-warn3` on the 10 dev and five seeds above. The latter opts into declining private and same-day options after three deadline warnings in the preceding six hours. Results pending. Offline suite: 22 passed.
+
+Completed paired results, margins in euros. The five on-time shares are rob-18, rob-17, rob-14, rob-11, rob-10 in that order.
+
+| Label | Dev margin | Five margin | Worst of 15 | Five shares |
+|---|---:|---:|---:|---|
+| `t1s5-base` | 102,227.33 | 40,888.01 | 90.06% | 90.06, 92.43, 93.22, 96.20, 96.53% |
+| `t1s5-warn3` | 99,912.81 | 39,373.81 | 92.24% | 93.99, 92.77, 92.24, 96.58, 96.53% |
+
+The warning rule fails the 94% floor and the exploratory 92.5% tolerance on rob-14, despite helping rob-18. `t1s5-warn2` tests an earlier threshold; `t1s5-best-rob` checks the three-warning rule on all 20 rob seeds. Both are running.
+
+Further tests in progress: `t1s5-warn2` reaches only 89.0% on rob-17 (not ranked), despite 94.0% on rob-18. `t1s5-drop3` uses three `gig_dropped` events in six hours instead of warnings, with the same restrictions; it reproduces rob-18 at 90.1% and thus fails there. Both still need complete paired totals. These deterministic changes alter subsequent driver decisions; the apparent threshold response is not monotonic.
+
+| Label | Dev margin | Five margin | Worst of 15 | rob-18, rob-17, rob-14, rob-11, rob-10 |
+|---|---:|---:|---:|---|
+| `t1s5-warn2` | 97,221.91 | 39,446.78 | 88.98% | 93.99, 88.98, 93.10, 96.54, 97.67% |
+| `t1s5-drop3` | 101,227.69 | 40,135.54 | 90.06% | 90.06, 94.26, 91.91, 96.65, 96.24% |
+
+Both rejected: warn2 does not rank rob-17; drop3 misses the floor on rob-18 and rob-14. `t1s5-late5` is in progress: after 30 orders, use a 5% observed late share, including orders past deadline, to trigger the same restrictions. Offline checks 22 passed.
+
+`t1s5-best-rob` (warn3) completed 20 rob weeks: €196,236.83, 5,258 orders, 97.0% aggregate on time, 20/20 ranked. Sorted shares: rob-14 92.24%, rob-17 92.77%, rob-18 93.99%, rob-05 96.25%, rob-10 96.53%, rob-11 96.58%, rob-12 96.76%, rob-08 97.05%, rob-06 97.40%, rob-13 97.40%, rob-20 97.45%, rob-19 97.60%, rob-07 97.62%, rob-09 97.77%, rob-02 97.78%, rob-16 98.26%, rob-15 98.40%, rob-01 98.54%, rob-03 98.68%, rob-04 98.95%. These include the five selected for testing, so the sample is not independent.
+
+`t1s5-afternoon` declines requests after 15:00 when ready within three hours. It reached 94.4% on rob-18 but only 89.5% on rob-17, not ranked; complete totals pending. `t1s5-warn3-limit10` tests a queue limit of 10 while the warning rule is active; in progress.
+
+| Label | Dev margin | Five margin | Worst of 15 | rob-18, rob-17, rob-14, rob-11, rob-10 |
+|---|---:|---:|---:|---|
+| `t1s5-afternoon` | 97,071.36 | 39,028.91 | 89.52% | 94.44, 89.52, 93.78, 97.14, 97.50% |
+
+Rejected: it loses €5,155.97 on dev and fails to rank rob-17.
+
+| Label | Dev margin | Five margin | Worst of 15 | rob-18, rob-17, rob-14, rob-11, rob-10 |
+|---|---:|---:|---:|---|
+| `t1s5-late5` | 102,643.57 | 41,115.72 | 91.98% | 91.98, 92.43, 93.22, 96.20, 96.53% |
+
+The late-share governor adds €416.24 on dev and lifts rob-18, but leaves rob-17 and rob-14 unchanged. It fails the 94% target, as does dev-07 at 93.3%. Its signal often arrives after the vulnerable intake decisions.
+
+| Label | Dev margin | Five margin | Worst of 15 | rob-18, rob-17, rob-14, rob-11, rob-10 |
+|---|---:|---:|---:|---|
+| `t1s5-warn3-limit10` | 91,491.72 | 36,941.40 | 89.47% | 93.59, 89.47, 95.15, 95.91, 98.68% |
+
+Rejected: dev margin falls €10,735.61, and rob-17 does not rank. `t1s5-late3` tests the late-share trigger at 3%; pending.
+
+| Label | Dev margin | Five margin | Worst of 15 | rob-18, rob-17, rob-14, rob-11, rob-10 |
+|---|---:|---:|---:|---|
+| `t1s5-late3` | 101,970.80 | 40,901.20 | 92.43% | 93.05, 92.43, 93.22, 96.20, 96.53% |
+
+The 3% late-share rule has the highest minimum of the completed candidates but misses 94%; dev margin is €256.53 below baseline. Its late count uses the order deadline and timestamps, not ledger refunds, so private booked-hour deadlines may be missed. The 20-week check `t1s5-late3-rob` was started after this result, later than planned; the earlier `t1s5-best-rob` checked the then-leading warning rule.
+
+`t1s5-late3-rob`: €199,499.83, 5,309 orders, 96.8% aggregate, 20/20 ranked. Sorted: rob-17 92.43%, rob-18 93.05%, rob-14 93.22%, rob-05 95.40%, rob-11 96.20%, rob-10 96.53%, rob-08 96.74%, rob-09 97.12%, rob-12 97.25%, rob-03 97.39%, rob-20 97.41%, rob-13 97.47%, rob-19 97.61%, rob-07 97.62%, rob-16 97.74%, rob-06 97.81%, rob-01 98.13%, rob-02 98.14%, rob-15 98.14%, rob-04 98.95%. The five shaped-on weeks are included; no candidate meets 94%. Next measure posting-to-booking delay and unbooked gig age before the Thursday cohort's decisions, and reconstruct late share from ledger refunds including private deadlines. No inference of flu or outage cause is established.
