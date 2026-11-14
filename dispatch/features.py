@@ -59,11 +59,16 @@ def schedule_features(request: dict[str, Any], desk: "Desk") -> tuple[float, flo
     desk.requests.setdefault(request["id"], request)
     if getattr(fees, "_in_features", False):  # a flat fee asks the learned model, which asks for the schedule: break the loop
         return 1.0, 1.0
+    flat = fees.flat if getattr(fees, "ladder_features", 0) else None
+    if flat is not None:
+        fees.flat = 0  # read the ladder, not the flat fee that is itself set from this model
     fees._in_features = True
     try:
         schedule = fees.schedule(order, 1, False, desk)
     finally:
         fees._in_features = False
+        if flat is not None:
+            fees.flat = flat
         if not known:
             desk.requests.pop(request["id"], None)
     typical = request["referenceFeeCents"] / len(legs)
