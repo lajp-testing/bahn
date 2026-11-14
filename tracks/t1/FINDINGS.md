@@ -257,3 +257,38 @@ Stint of 30 minutes. Question: is our limit our delivery or our caution? Make th
 (Group totals from `ceiling.py` differ a little from the runner's totals, because `harness.orders` drops cancelled orders.)
 
 **Next.** (1) Play `safe80q` on the 20 rob seeds against `t1s11-base` before anyone adopts it. (2) Volume is still about 300 a week: the brake is price (car 1.1 plus the queue charge), not room. The next lever is pricing safe cars like the flood (car 0.8 to 0.95 for safe cars only) and quoting long lanes and private addresses higher (or not at all) once the queue holds 35. That keeps the flood's short-lane volume (95% on time) without its 72% long lanes. (3) Over 500 km is 88% on time even in the baseline, with €13 of refunds per order. A separate stricter limit for those lanes is worth a screen.
+
+## Pricing the late allowance, 14 Nov
+
+Stint of 30 minutes. Question: can prices, not a hard queue limit, decide how much work to take?
+
+**Rule** (`barrier=<euros>`, off by default; `ProfitQuoter.room` in `dispatch/pricing.py`, wired in `dispatch/policies/main.py`). Reason in one sentence: *a car should pay for the room it uses under the 90% on-time minimum and for the drivers it takes from the cars already waiting.* With the switch on, a car's cost in the quoter is its expected fee, plus its own late cost (`late * late_risk`, as before), plus two prices that replace the queue charge `queue * waiting²`:
+
+- the **late allowance**: `barrier * (late_share / allowance)^4` euros. `late_share` = (orders late so far + the expected late among the open orders, from `fees.late_risk`) / max(orders, `floor_orders` = 100); `allowance` = 6%. It costs nothing while the week is far below the line and climbs steeply near it: at a 3% share it is 1/16 of `barrier`, at 6% the whole `barrier`.
+- the **crowd**: `crowd` (€0.50) times the number of orders without a booked driver. This is the marginal harm of one more car when the total harm grows with the square of the queue, like the old charge, but in euros, not as a fraction of the list price, and with no cap.
+
+The intake's hard limit goes up to `barrier_limit` (120, morning too), so the prices decide volume and the limit only stops a runaway. The rule keeps no state of its own: it reads the desk's orders after a restart (late risks are cached only to save time).
+
+**Screens** (10 dev weeks, level 8):
+
+| label | settings | orders/week | €/car | margin | on time | ranked | lowest weeks |
+|---|---|---|---|---|---|---|---|
+| `t1s11-base` | mainline | 288 | 44.1 | €126,921.82 | 96.8% | 10/10 | dev-07 93.7%, dev-10 95.3%, dev-08 96.0% |
+| `t1s13-safe80q-car95` | safe_limit 80, car 0.95 | 364 | 35.3 | €128,473.04 | 95.5% | 10/10 | dev-08 93.3%, dev-10 93.6%, dev-07 93.9% |
+| `t1s14-b150` | barrier 150, crowd 0.5 | 256 | 48.0 | €122,869.13 | 96.7% | 10/10 | dev-07 **90.8%**, dev-10 95.2%, dev-08 95.5% |
+| `t1s14-b300` | barrier 300, crowd 0.5 | 220 | 49.7 | €109,619.64 | 96.1% | **9/10** | dev-07 **89.4%**, dev-10 94.7%, dev-03 95.0% |
+| `t1s14-b150-c02` | barrier 150, crowd 0.2 | 271 | 45.6 | €123,479.65 | 96.6% | 10/10 | dev-07 94.3%, dev-08 95.0%, dev-10 95.9% |
+
+`t1s14-off` (switch off, dev-01): €8,764.79, 246 orders, 97.6%, the same as the baseline to the cent.
+
+**Result: worse on every count. Prices built this way take less work, not more.** All three settings win fewer orders than the base (256, 220 and 271 a week against 288) at a higher margin per car, and lose €3.4k to €17.3k in total. A higher barrier cuts volume further and still does not protect dev-07 (89.4%, unranked at 300).
+
+**Why** (groups from `ceiling.py`, `b150` against the base):
+
+- **The flat price falls on the wrong cars.** Lanes under 100 km lose 223 of 1,031 orders (−€1.8k); lanes of 300 km and more hold (650 → 645) and get later (over 500 km 88.2% → 84.2%). A price in euros per car is a large share of a cheap short car's price and a small share of a long one's, which is the opposite of what the ceiling screen found: short lanes are the safe volume.
+- **The allowance price, not the crowd, binds.** Lowering `crowd` from 0.5 to 0.2 adds only 15 orders a week (dev-01: 220 → 219). The late share counts every open order at its `late_risk`, and that sum sits near the 6% allowance for much of the week, so the price is often near its full value long before any real lateness.
+- **It reacts too late where it matters.** On dev-07 the week's lateness shows only once deadlines pass, by which time the cars are sold. A price on the realised share cannot protect a week whose pool runs out on Thursday.
+
+**Reading.** The idea of a price for room is sound, but the price must be per unit of risk, not per car: a car should pay `room_price × its own late_risk`, so that a short lane with no private address (risk about 2%) pays almost nothing and a lane of 500 km with a private address pays its full share. That is the same split the `safe_limit` rule makes by hand, written as a price. The allowance share should count realised lateness only (or the open orders' risk discounted heavily), because the risk model is a prior, not a forecast for this week.
+
+**Next.** (1) Scale the allowance price by the car's own `late_risk` (one line in `ProfitQuoter.room`: return the barrier part separately and multiply it by `risk / mean_risk`), and count only realised late plus open orders past their warning. Screen `barrier=150` and `barrier=400` against `t1s13-safe80q-car95`. (2) If that still fails to beat `safe80q-car95`, keep the hand rule: it reads the week through the queue and the lane, and it wins.
