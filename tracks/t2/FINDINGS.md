@@ -689,3 +689,22 @@ Conclusions:
 - **The remaining losses are next_day mid lanes and the long bands the change itself gave back.** The largest absolute pool is 100-200 km (5,296 lost under b68, 39% win) on `next_day`; the worst regression vs b52 is 300-500 km (35%→31%) and 500+ (21%→18%), whose quotes rose 0.11-0.15 list with the level. Monday (37% win, quote 1.71) and Friday (33%, quote 1.99) are the weakest days.
 - **A graduated `car` tilt plausibly wins them without losing margin:** keep 0.85 under 100 km, add ~0.95 for 100-200 km, and pull the level back down on 300+ km (where margin per won order is €80-110, the week's best, so volume there adds margin rather than dilutes it). The short-band experiment is the evidence that a lane tilt moves win rate where the fee already sits near typical.
 - The 0.75/0.95 floors should stay as they are: 64% of floor gigs still book, and the floor is what pays for the short-lane wins; the booking share says the next fee-down step would buy slower bookings, not cheaper orders.
+
+## g2 re-quote before respondBy, 14 Nov
+
+**The idea.** The dealer decides at the request's `respondBy`, on our last quote. The desk quoted once, at arrival; between arrival and `respondBy` (15 minutes) other dealers' decisions move the quoter's level and the queue changes.
+
+**Built (default off).** `requote=N` on the main policy (`--set requote=5`): when a request is quoted and `respondBy - now > N + 1`, the desk wakes at `respondBy - N` (`desk.wake`, `dispatch/desk.py` `quote`/`requote_due`, `dispatch/parts.py` `Parts.requote`). At the wake, if the dealer has not decided, the desk prices the request again through the same path (quoter + intake) and sends a new quote only when an option moved by more than 1%. The re-sent prices replace the first quote in the quoter's books (`sent`, `factors`, `offsets` are overwritten in `ProfitQuoter.result`), so the win or loss teaches the level with the prices the dealer actually saw. Off check: `g2-requote-off` (main, dev-01) EUR 12,250.75 = mainline `b87-fee5-limit45` exactly; 37 offline tests pass; an offline FakeWorld check confirms the wake fires, the 1% filter holds the quote when prices stand still, and a moved price re-sends and replaces.
+
+**Screen: `g2-requote5` (requote=5) vs `b89-main`, 10 unseen rob weeks (rob-21..30), `tracks/t2/g2_requote.py`:**
+
+| label | margin EUR | orders/week | on time | worst | ranked | requests/week |
+|---|---:|---:|---:|---:|---|---:|
+| `b89-main` | 182,843.16 | 410.5 | 96.0% | 93.7% (rob-22) | 10/10 | 1,580 |
+| `g2-requote5` | 183,796.17 | 409.5 | 96.0% | 93.3% (rob-29, base 95.8%) | 10/10 | 1,964 |
+
+- Total margin **+953.01 EUR** (+0.5%), but only **4/10 weeks higher** (rob-23 +874, rob-24 +1,041, rob-30 +923, rob-21 +148; down: rob-29 −555, rob-26 −484, rob-22 −426, rob-28 −372, rob-25 −187, rob-27 −10). Orders −10; margin per car 44.9 vs 44.5 EUR.
+- 3 lowest on-time weeks: rob-29 93.3% (base 95.8%), rob-26 94.9% (base 95.8%), rob-22 94.9% (base 93.7%). All ranked; rob-29 is the one real on-time cost.
+- **Re-quotes: 5505 extra quote actions over the 10 weeks, 475-637 per week** (about 53% of the ~1,035 quoted requests per week moved more than 1% within 10 minutes — the level and the queue charge move that much). Requests to the server: +383 per week (+24%), one extra `advance` per wake; in the final the desk ticks about once a second anyway, so only the ~550 extra quote actions count against the 20-a-second action limit — negligible.
+
+**Recommendation.** Leave `requote=0` in the mainline: +953 EUR over 10 unseen weeks is inside the noise (4/10 weeks higher, 6 lower) and the on-time dip on rob-29 (95.8% → 93.3%) eats the safety margin the ranking needs; the mechanism is kept, default off, for a later look at a wider window (the level moves most in the first minutes after a batch of decisions).
