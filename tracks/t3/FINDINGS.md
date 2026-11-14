@@ -295,3 +295,28 @@ Where: `MeasuredFees.rescue`, `rescue_from`, `rescuing` and a one-step schedule 
 
 On dev-07 the rule sent 16 rescue reprices. +€259 and the same 17 late orders: a lead at most, not a finding. Next: 30 weeks paired with `t1s11-base`, `fee_rescue=240` (and 360 if there is time):
 `export SPREAD_TRACK=t3; bin/vps python3 -m harness.run --policy main --set fee_rescue=240 --seeds dev $(for i in $(seq -w 1 20); do printf -- '--seed rob-%s ' $i; done) --label t3s12-rescue240`, then `python3 -m harness.compare t1s11-base t3s12-rescue240` (all 30 weeks).
+
+## Flat fees at high volume, 14 Nov
+
+**The rule.** With `fee_flat=1`, a gig opens at one fee and keeps it. That fee is the fee model's expected multiple of typical plus `fee_flat_up`, kept between 0.85 and the cap (1.5). The floor is 1.15 for a lane under 40 km or a car under 5 hours before its last pickup. The fee goes up one `fee_flat_step` (0.15) after `fee_flat_wait` (6 h of the drivers' day) without a booking, and one step more `fee_flat_last` (24 h) before the last pickup. At the deadline warning it takes the urgent fees, as now. After a drop it gets back the fee it was booked at, with no climb. Why: few raises, so drivers have no next raise to wait for. The schedule is a function of the request and the minute only, so after a restart the desk posts the same schedule. Code: `MeasuredFees.flat_multiple` and `flat_schedule` in `dispatch/fees.py`; `Desk.after_drop` gets a three-line flat branch. Off by default: `t3s14-off` dev-01 is €8,764.79, equal to `t1s11-base`.
+
+Bug found on the way: the two look-again moments can fall on the same minute. The world then refuses the schedule ("Fee steps must be in time order") and the week fails. Fixed by merging equal times. The label `t3s14-flat-wide` mixes two versions of the code: ignore it.
+
+**Screens** (10 dev weeks; on-time over all weeks; fee/typical from `tracks/t5/report.py`, for 1-car gigs and for 2- and 3-car gigs):
+
+| label | orders/wk | €/car | total € | on time | ranked | 3 lowest weeks | fee/typ 1 car | 2-car | 3-car | late, 1-car gigs |
+|---|---|---|---|---|---|---|---|---|---|---|
+| t1s13-wide | 367 | 34.0 | 124,922 | 94.8% | 9/10 | 87.5, 91.6, 94.1 | 1.10 | 0.81 | 0.81 | 7.0% |
+| t3s14-flat2-wide (up 0) | 378 | 30.6 | 115,681 | 95.0% | 9/10 | 89.4, 93.9, 94.2 | 1.11 | 0.96 | 0.96 | 5.8% |
+| **t3s14-flat2-wide-down (up -0.1)** | 375 | **36.6** | **137,402** | 95.4% | 9/10 | 89.2, 93.9, 94.9 | **1.04** | 0.87 | 0.87 | 5.9% |
+| t1s13-flood | 445 | 23.2 | 103,440 | 91.8% | 8/10 | 83.4, 86.6, … | 1.14 | 0.84 | 0.82 | 10.7% |
+| t3s14-flat2-flood (up 0) | 453 | 21.4 | 97,094 | 92.7% | 8/10 | 83.7, 89.1, 92.3 | 1.15 | 0.96 | 0.96 | 8.8% |
+
+What we saw:
+- The flat fee books fast: the median time to a booking drops from 86 minutes to 7–12 for 1-car gigs, and late 1-car gigs drop from 7.0% to about 5.9%.
+- At `fee_flat_up=0` the opening fee (about 1.0–1.1 times typical) is too high. 1-car gigs cost the same as the ladder, and bundles cost more (0.96 against 0.81). Cars book before a bundle can form: 736 two-car gigs against 978. The result is €9.2k lower on wide and €6.3k lower on flood.
+- At `fee_flat_up=-0.1` the 1-car fee drops to 1.04 times typical. Total margin is €12.5k higher than `t1s13-wide`, ahead on 8 of 10 weeks, with on-time up 0.6 points and orders up 2%. dev-07 stays unranked in both (87.5% against 89.2%).
+- The orchestrator's hypothesis (booking before the deadline warning decides being on time) fits: faster bookings cut late singles. I have not yet checked its numbers against our data.
+- Neither flat version fixes flood's on-time. The flood cars' trouble is the drivers they can get, not the timing of fee raises.
+
+Next: sweep `fee_flat_up` at -0.15 and -0.2, and try a lower bundle fee when cars are flat, on wide; then flood with -0.1; then the mainline's normal volume with -0.1.
