@@ -195,6 +195,9 @@ class ReadNotes(Notes):
             car, pickup, delivery = order["legs"][leg]["car"], order["legs"][leg]["pickup"], order["legs"][leg]["delivery"]
             first = leg == 0  # the note is about the car at the dealer
             low_battery = car["electric"] and car["chargePercent"] is not None and car["chargePercent"] < 30
+            if low_battery and "charging" in desk.parts.repairs:  # RULES.md rule 3: only a route over 200 km needs the stop
+                pickup_place, delivery_place = order["legs"][leg]["pickup"]["placeId"], order["legs"][leg]["delivery"]["placeId"]
+                low_battery = pickup_place != delivery_place and desk.ctx.km(pickup_place, delivery_place) > 200
             collect: dict[str, Any] = {"orderId": order["id"], "leg": leg, "kind": "pickup", "withPlates": retry.plates or (first and facts.plates), "withCharging": low_battery}
             deliver: dict[str, Any] = {"orderId": order["id"], "leg": leg, "kind": "delivery"}
             start = max(pickup["window"]["from"], retry.pickup_from, (facts.ready or 0) if first else 0)
