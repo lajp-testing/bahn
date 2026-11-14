@@ -515,6 +515,19 @@ def test_thin_drivers_offers_a_long_leg_from_a_thin_pickup_with_three_days_only(
         assert desk.outbox[-1]["prices"] == expected
 
 
+def test_with_the_note_reader_the_long_lane_gate_takes_a_noted_car_from_its_ready_time():
+    note = {"text": "Not ready before tomorrow 14:00. Key in the car", "language": "en"}
+    wide = {"from": 600, "to": 5520}  # a dealer site's window runs to the latest option's deadline
+    legs = [{**LEG, "pickup": {**LEG["pickup"], "window": wide}, "delivery": {**LEG["delivery"], "window": wide}}]
+    request = {**volume_request(), "note": note, "legs": legs, "options": [
+        {"kind": "next_day", "deadline": 2640, "listPriceCents": 15000},
+        {"kind": "within_3_days", "deadline": 5520, "listPriceCents": 12000}]}
+    for notes, expected in (("starter", {"next_day": 75000}), ("read", {"within_3_days": 18000})):
+        desk = reach_desk(long_lanes=True, notes=notes)
+        desk.ctx.road_minutes[("helsinki", "tampere")] = 360
+        desk.quote(request)  # ready Tue 14:00 plus 6 hours misses Tue 20:00 - 1 h; three days fits
+        assert desk.outbox[-1]["prices"] == expected
+
 NEXT_DAY = {**REQUEST, "note": None, "options": REQUEST["options"][1:]}  # list €150, typical fee €100, D1
 
 

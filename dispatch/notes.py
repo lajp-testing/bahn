@@ -52,6 +52,14 @@ class Notes(Part):
         """How unsure the reader is about this request's note, from 0 (sure) to 1. The intake can decline on it."""
         return 0.0
 
+    def earliest_pickup(self, request: dict[str, Any]) -> int:
+        """The first minute the first car can be collected, as far as this reader knows."""
+        return request["legs"][0]["pickup"]["window"]["from"]
+
+    def latest_delivery(self, request: dict[str, Any], deadline: int) -> int:
+        """The last minute the first car can arrive and be on time, as far as this reader knows."""
+        return deadline
+
     def plan(self, order: dict[str, Any], legs: list[int], request: dict[str, Any], retry: Retry, desk: "Desk") -> tuple[list[dict[str, Any]], dict[str, bool]]:
         """The stops for some of the order's legs, and the drivers who may take the gig."""
         if self.equipment:
@@ -167,6 +175,15 @@ class ReadNotes(Notes):
 
     def risk(self, request: dict[str, Any], desk: "Desk") -> float:
         return 0.0 if self.facts(request).sure else 1.0
+
+    def requirements(self, request: dict[str, Any]) -> tuple[bool, bool]:
+        facts = self.facts(request)
+        return facts.manual, facts.plates
+
+    def expansion_safe(self, request: dict[str, Any]) -> bool:
+        """The reader plans a note's times, licence and plates itself: extra volume needs only a note it is sure of."""
+        facts = self.facts(request)
+        return facts.sure and not facts.summer_tyres
 
     def earliest_pickup(self, request: dict[str, Any]) -> int:
         """The first minute the request's first car can be collected."""
