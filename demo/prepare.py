@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerates demo/data/*.json from the saved 18:00 test final. Run from the repo root:
+"""Regenerates demo/assets/*.json from the saved 18:00 test final. Run from the repo root:
 
     python3 demo/prepare.py
 
@@ -25,7 +25,7 @@ from dispatch.quote import decline
 
 FINAL = ROOT / "tracks/orch/finals/testfinal-20261114-1800"
 DATA = Path("/home/agent/.t3/projects/bahn/data")
-OUT = ROOT / "demo/data"
+OUT = ROOT / "demo/assets"
 EVENTS = FINAL / "events-1794678337.jsonl.gz"
 JOURNAL = FINAL / "journal.jsonl.gz"
 REVEAL = FINAL / "reveal.json.gz"

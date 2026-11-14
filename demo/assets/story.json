@@ -1,0 +1,66 @@
+{
+  "result": {"rank": 5, "of": 75, "marginEur": 17442.75, "orders": 356, "onTime": 0.972, "requests": 1030, "undelivered": 0},
+  "challenge": {
+    "intro": "Each team runs a car-transport desk for one simulated week in Finland. The final is one secret week; the ten ranked teams with the highest margin present to a jury.",
+    "steps": [
+      {"title": "Dealers ask for prices", "text": "From Monday to Friday, car dealers send price requests: one car, or two in a trade-in, to move between towns. Each request offers delivery options — same day, next day, within 3 days — each with a deadline and a public list price. You have 15 minutes to quote."},
+      {"title": "You quote, the dealer chooses", "text": "Every request also goes to a house competitor, priced 26–54% above the list price in the final's level. The dealer compares your price with the competitor's and with the value of speed — and buys from you, or from them. A win is an order with a deadline."},
+      {"title": "Freelance drivers move the cars", "text": "You post gigs in the drivers' app: a fee, a fee schedule, and up to three cars per gig. A driver books when the fee beats their costs — their time, their trips, their evening. They can drop a booking; drivers learn whether waiting brings a higher fee."},
+      {"title": "Margin, minus refunds", "text": "Margin = your prices − driver fees − late refunds. A car up to 2 hours late refunds 10% of its price; more than two business days late refunds all of it. A car nobody delivers costs twice its price."},
+      {"title": "The 90% rule", "text": "A team is ranked only when at least 90% of its orders arrive on time. Winning work is easier than delivering it — the whole game is how much profitable work you can still promise. The final ranks the top 10 by margin; a jury then judges the approach: elegant, clear, creative, robust."}
+    ],
+    "words": [
+      ["Dealer", "a car-dealer site that sends price requests"],
+      ["Request", "one or two cars to move, with delivery options and a response deadline 15 minutes after it arrives"],
+      ["Option", "a delivery promise: same_day, next_day or within_3_days, each with its own deadline and list price"],
+      ["List price", "the public price list by distance — not the competitor's price"],
+      ["Quote", "your price for each option you offer; the dealer decides at the response deadline"],
+      ["Order", "a request you won, with a deadline"],
+      ["Gig", "the job you post in the drivers' app: stops, a window, a fee schedule"],
+      ["Fee", "what you pay the driver; it may rise on a schedule"],
+      ["Typical fee", "the request's reference fee — about what a driver is usually paid for the work"],
+      ["Deadline", "20:00 on a business day; on time means every leg delivered by it"],
+      ["Margin", "prices in, driver fees, refunds and penalties out"]
+    ]
+  },
+  "parts": [
+    {"name": "The desk", "code": "desk.py", "reason": "Keeps the books — requests, orders, gigs, bookings, deliveries — so every decision uses the same account of the week.", "effect": "Practice and the live final run the same desk, so what we measure is what we play."},
+    {"name": "The note reader", "code": "reader.py", "reason": "Turns a dealer's note — in Finnish, Swedish or English — into constraints before a failed visit teaches the same lesson.", "effect": "Reads ready times, release after payment, pickup and delivery hours, deadlines, manual licences, plates, corrections. The world enforces what notes say; its full effect was never isolated."},
+    {"name": "The intake", "code": "intake.py", "reason": "Protects delivery capacity before we promise it away: at most 45 orders without a booked driver (55 before noon), a safe-car allowance to 100, and 12 hours of slack after the first car's drive.", "effect": "The volume step (safe cars + flat fees): +€69,993 (+14.3%) over 40 paired weeks, better in 38 of 40, 364 orders a week instead of 277."},
+    {"name": "The cost model", "code": "learned3.py", "reason": "Gradient-boosted trees on 44 inputs known at quote time — the lane, the hour, the cars, the note, our own books — trained on 1.9 million won orders; prices each car's expected fee (as a multiple of the typical fee) and its late risk.", "effect": "The learned model over the hand-fit one: +€32,271 over 40 paired weeks, and the worst weeks rose (rob-17 90.2% → 95.4%). The final week's model (5) was kept for its safer floor on unseen worlds."},
+    {"name": "The quoter", "code": "pricing.py", "reason": "Learns what dealers will pay: one level per market that rises after wins and falls after losses, plus each dealer's trust (+1% per on-time order, up to 25); quotes the price that maximises (price − cost) × chance to win.", "effect": "Quoting same-day whenever 8 hours of slack remain, with the cost tilt that keeps marginal cars out: +€31,975 over 40 weeks."},
+    {"name": "The fees", "code": "fees.py", "reason": "A gig opens at what the model expects the car to cost, minus 15%, floored at 0.75 of the typical fee (0.95 for the shortest lanes) — and holds it: one step after 6 hours, one more a day before the last pickup, none at night.", "effect": "The evening fix that came out of this very test final: +€31,187 over 40 paired weeks, holdout +€10,243, better in 34 of 40."},
+    {"name": "The bundles", "code": "bundles.py", "reason": "Up to three single-car orders share one gig at 0.85 of the sum of their fees, when the route fits; a bundle still without a driver splits after 120 minutes.", "effect": "The same cars booked for €916 together against €1,068 alone in 11 paired probes — 14% less. Bundles of 4 or 5 lost money."},
+    {"name": "The repairs", "code": "desk.py", "reason": "Keep cars moving and stop paying urgent fees when timeliness is already lost: windows that ended, orphaned cars without a gig, and calm pricing for cars already past their last pickup.", "effect": "calm: +€6,163 over 40 paired weeks, accepted with the honest tradeoff that it touches only cars that are already late."}
+  ],
+  "method": [
+    ["Switches, off by default", "Every idea is a switch; the mainline with the switch off must reproduce the previous adopted label to the cent before a comparison counts."],
+    ["Paired weeks", "Every comparison replays the same worlds — 10 dev, 20 rob, 10 holdout — with both versions; the world is deterministic, so one run per version suffices."],
+    ["Margin and on-time together", "A change is an improvement only when total margin rises and no week drops out of the ranking."],
+    ["The worst-week rule", "A change that drops any week under the 90% rule, or lowers the lowest weeks, is not adopted — however much margin it adds."]
+  ],
+  "adoption": [
+    {"label": "Safe-car intake + flat fees", "gain": 69993, "note": "+14.3%, 38/40 weeks better, 364 vs 277 orders a week"},
+    {"label": "Learned cost model (3)", "gain": 32271, "note": "worst weeks rose: rob-17 90.2% → 95.4%"},
+    {"label": "Same-day at 8 h slack + cost tilt", "gain": 31975, "note": "31/40 better; same-day alone lost a week (89.2%)"},
+    {"label": "Lower fee floors + short-lane tilt", "gain": 31187, "note": "the evening fix after this test final; holdout +€10,243"},
+    {"label": "Retrained model (4) + tilt 1.1", "gain": 18349, "note": "fee error 0.165 vs 0.183 on recent weeks"},
+    {"label": "Model 5 (safer floor)", "gain": 14444, "note": "money-neutral on unseen worlds; kept for the worst weeks: 92.4% vs 91.8%"},
+    {"label": "Higher limits 45/55/100", "gain": 2462, "note": "positive on every set, including unseen worlds"}
+  ],
+  "rejected": [
+    ["Earlier urgent fees", "+€3,166 over 30 weeks", "Worst week 91.67% — breaks the worst-week rule"],
+    ["Same-day quoting without the tilt", "+€25,732 over 30 weeks", "rob-18 at 89.2%, unranked"],
+    ["Holding fees back", "−€65,251 / −€134,674", "Unbooked gigs filled the intake queue"],
+    ["Direct offers to drivers", "−€2,016; 91 of 3,783 accepted", "Drivers decline; the app books anyway"],
+    ["Bundles of 4 or 5 cars", "−€5,653 / −€1,915", "Routes stop fitting; the fee saving does not return"],
+    ["Cheaper cars everywhere (tilt 0.85–1.0)", "bought orders at ≈€75 of margin each", "Volume without margin"],
+    ["Outage detector", "−€2,732, worst 92.1%", "The regional signal is too rare to learn in time"]
+  ],
+  "raceNotes": [
+    ["Wednesday", "the price war: the competitor quoted 20% under its usual prices, and our win rate fell to 23%"],
+    ["Wednesday 12–14", "a dealer group sent 30 cars from one yard in Vantaa (a bulk order); we won 4"],
+    ["Thursday", "dealer trust at work: 48% of requests won against 23% on Wednesday"],
+    ["Monday", "no dealer trust yet — our quotes sat about 0.1 list prices over what dealers accepted"]
+  ]
+}

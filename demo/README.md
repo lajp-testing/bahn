@@ -6,7 +6,7 @@ newcomers, and our system shown on a real week — the organiser's 18:00 test fi
 14 November 2026, which we finished **5th of 75 ranked teams (€17,442.75, 356 orders,
 97.2% on time, nothing undelivered)**.
 
-No build step, no network, no JS libraries. Everything is served from `demo/data/`.
+No build step, no network, no JS libraries. Everything is served from `demo/assets/`.
 
 ## Run it
 
@@ -55,7 +55,7 @@ map at world minute 3720 (Wednesday 14:00).
 
 ## What is exact and what is approximate
 
-The week's ledger in `data/week.json` sums to **€17,442.75 — the official result to the
+The week's ledger in `assets/week.json` sums to **€17,442.75 — the official result to the
 cent** — and the race feed's end state matches the recorded 356 vs 469 orders.
 
 | Number | Status |
@@ -86,14 +86,14 @@ It reads only files on disk — no server, no key:
 
 - `tracks/orch/finals/testfinal-20261114-1800/` — the test final's events, action
   journal, reveal and leaderboard feed (`.jsonl.gz` / `.json.gz` / `.sse.gz`);
-- `/home/agent/.t3/projects/bahn/data/map.json` — the 30 places and 900 roads;
+- `/home/agent/.t3/projects/bahn/assets/map.json` — the 30 places and 900 roads;
 - the most recent saved level-8 `roster.json.gz` under `data/runs/` — the stand-in
   driver list (see the table above);
-- `demo/data/story.json` is hand-written (the explainer, the parts, the measured
+- `demo/assets/story.json` is hand-written (the explainer, the parts, the measured
   effects from `docs/jury.md` and the tracks' findings); `prepare.py` does not
   regenerate it.
 
-and writes `demo/data/{map,week,decisions,race}.json` (about 0.75 MB in total).
+and writes `demo/assets/{map,week,decisions,race}.json` (about 0.75 MB in total).
 
 ## Files
 
@@ -102,12 +102,12 @@ and writes `demo/data/{map,week,decisions,race}.json` (about 0.75 MB in total).
 | `index.html` | the page shell and the five views |
 | `demo.js` | all logic: projection, replay state, scrubbing, views (plain JS) |
 | `style.css` | styling |
-| `prepare.py` | regenerates `data/*.json` from the saved week |
-| `data/map.json` | places, roads, a hand-drawn outline of Finland |
-| `data/week.json` | the week as absolute-time arrays (requests, decisions, gigs, bookings, car moves with road paths, ledger) |
-| `data/decisions.json` | per-request internals from the desk replay |
-| `data/race.json` | the leaderboard race, us vs the top team |
-| `data/story.json` | hand-written explainer and system content |
+| `prepare.py` | regenerates `assets/*.json` from the saved week |
+| `assets/map.json` | places, roads, a hand-drawn outline of Finland |
+| `assets/week.json` | the week as absolute-time arrays (requests, decisions, gigs, bookings, car moves with road paths, ledger) |
+| `assets/decisions.json` | per-request internals from the desk replay |
+| `assets/race.json` | the leaderboard race, us vs the top team |
+| `assets/story.json` | hand-written explainer and system content |
 | `screenshots/` | headless-Chromium captures of the five views |
 
 ## Known limitations

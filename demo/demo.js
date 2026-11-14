@@ -36,7 +36,7 @@ function bisect(arr, t) { // count of rows with row[0] <= t
 
 async function load() {
   [MAP, WEEK, DEC, STORY, RACE] = await Promise.all(
-    ["map", "week", "decisions", "story", "race"].map((n) => fetch(`data/${n}.json`).then((r) => r.json())));
+    ["map", "week", "decisions", "story", "race"].map((n) => fetch(`assets/${n}.json`).then((r) => r.json())));
   WEEK.reqMap = {}; WEEK.requests.forEach((r) => WEEK.reqMap[r.id] = r);
   MAP.places.forEach((p) => nameOf[p.id] = p.name);
   const hash = location.hash.slice(1);
