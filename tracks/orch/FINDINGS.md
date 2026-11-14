@@ -126,3 +126,18 @@ Learned cost model (`fee_model=3`, teammate) on the previous mainline, 30 weeks 
 Keep `pair` at 0 with this model: the model already reads whether a car fits an open gig (feature `fits`), so the `pair` discount would count that saving twice. On the older mainline, the model with `pair=0.2` added €4.6k over 30 weeks but lowered the worst week from 94.2% to 92.9% (`b35`).
 
 Volume I (t3, dev screens on top of the safe + flat setting, before the model): `limit=40` (50 before noon) +€3.3k, ahead 7 of 8, 383 orders, lowest 92.9%; `limit=45` +€2.9k, lowest 91.6%; `safe_limit=100` +€0.4k. `b39` tests the model with `limit=40` on 30 weeks.
+
+## 15:05 margin back: car 1.05 + same_day whenever 8 h of slack remain
+
+Against `b37-fee3` (the learned-model mainline), same seeds:
+
+| label | weeks | margin change | ahead | orders/wk | €/car | lowest weeks |
+|---|---|---|---|---|---|---|
+| b44-car100 (`car=1.0`) | 30 | +€7,395 | 20 | 375 | 40.23 | rob-17 94.2, rob-18 94.7 |
+| b43-car105 (`car=1.05`) | 30 | +€9,074 | 18 | 357 | 42.36 | dev-07 95.2, rob-04 95.3 |
+| b45-sameday480 (`same_day_drivers=0 same_day_slack=480`, t2s17) | 30 | +€25,732 | 25 | 410 | 38.26 | **rob-18 89.2 (unranked)**, rob-17 94.3 |
+| **b46-car105-sameday480** | **40** | **+€31,975** | **31** | 371 | **42.11** | hold-10 93.8, rob-18 94.7, rob-06 94.9 |
+
+t2 found that a request quoted both same_day and next_day is won 67% of the time against 34% for next_day alone, and the 80-drivers-nearby gate dropped our same_day quote on 4,117 dev requests. Quoting same_day whenever 8 h of slack remain wins those, and `car=1.05` (count the model's fee at 105%) keeps the marginal cars out: alone the same_day rule loses rob-18; together the lowest week is 93.8%. Lower prices (`car` 0.9, 0.85) bought orders at about €75 of margin each. Adopted as the default; `main` reproduces b46 dev-01 to the cent (`b49-main-check`, €11,361.54).
+
+`limit=40` on top of the learned model (`b39`, 30 weeks): +€1,071 over b37, same orders: not adopted.
