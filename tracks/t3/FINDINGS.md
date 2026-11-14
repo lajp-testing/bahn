@@ -392,3 +392,20 @@ Pick: **`t3s16-limit40`**: `--set safe_limit=80 --set safe_km=300 --set safe_nea
 Next: (1) the orchestrator checks `t3s16-limit40` on rob and holdout weeks against `t3s15-safe-flat15`. (2) Screen a lower queue charge, or car 0.85 to 0.9 for safe cars only, on `limit40`, the lever that actually moves volume. Watch dev-07 and dev-10, still about 3 points over 90%.
 
 Note on running: two `bin/vps` started in the same second collide in the remote copy (rsync rename error), and the second run never starts. Start them a few seconds apart.
+
+## g3 fee and bundle sweep on the car 1.05 + same_day mainline, 14 Nov
+
+**The question.** The mainline changed today (learned cost model, quotes at car=1.05, same_day quoted whenever 8 h of slack remain). The driver-fee and bundle settings were tuned before that, so do they still hold? Each run changes one setting on `main`, 10 dev weeks, no code change. Baseline: `b46-car105-sameday480`.
+
+| label | change | common seeds | Δ total margin | weeks higher | orders/wk | €/car | 3 lowest on-time weeks (vs base) | ranked |
+|---|---|---|---|---|---|---|---|---|
+| g3-flatup20 | fee_flat_up -0.15 → -0.2 | 10 | **+€4,435** | **8/10** | 379.1 | 42.64 | dev-10 95.7 (95.9), dev-07 95.8 (96.4), dev-05 95.9 (95.7) | 10/10 |
+| g3-patience60 | bundle_patience 120 → 60 | 10 | −€778 | 4/10 | 373.5 | 41.88 | dev-10 94.1 (95.9), dev-04 95.5 (97.1), dev-09 96.2 (97.0) | 10/10 |
+| g3-endcar112 | end_car 1.05 → 1.12 | 10 | +€2,495 | 7/10 | 370.2 | 43.14 | dev-10 95.3 (95.9), dev-04 96.0 (97.1), dev-01 96.5 (96.3) | 10/10 |
+
+What we saw:
+- **`fee_flat_up=-0.2` is the clear winner**: +€4.4k over the 10 dev weeks, ahead on 8 of 10, and no on-time week drops below the baseline's worst (all lowest weeks ≥ 95.3%). On the new cost model the flat fee can open lower than -0.15 and still win.
+- **`bundle_patience=60` hurts**: −€778, behind on 6 of 10 weeks, fewer orders (373.5 vs 379.1) and dev-10 falls to 94.1% (−1.8). The 120-minute patience still pays on this mainline; do not shorten it.
+- **`end_car=1.12` makes money but trims volume**: +€2.5k on 7 of 10 weeks, but 9 fewer orders a week (370.2) and dev-04 drops to 96.0% (−1.1). Pricier Friday options win per car (€43.14) at the cost of some volume.
+
+Pick: **`fee_flat_up=-0.2`** — the only change that is both ahead on most weeks and safe on the 90% line. `end_car=1.12` is a weaker second (+€2.5k but −9 orders/wk); worth a holdout check before adopting. `bundle_patience` stays at 120.
