@@ -174,13 +174,50 @@ def test_the_live_desk_rejoins_and_answers_the_stream():
 def test_a_rejoining_desk_sends_its_quotes_before_its_posts():
     from dispatch.live import play_live
 
+    waiting = {**REQUEST, "id": "R2", "arrivedAt": 595, "respondBy": 610}
+
     class Waiting(FakeLiveWorld):  # a request is open at the restart, beside the order without a gig
         def snapshot(self):
-            return {**super().snapshot(), "openRequests": [{**REQUEST, "id": "R2", "arrivedAt": 595, "respondBy": 610}]}
+            return {**super().snapshot(), "openRequests": [waiting]}
+
+        def events(self, after=-1):
+            return super().events() + [{"seq": 2, "at": 595, "kind": "price_request", "request": waiting}]
+
+        def stream(self, after=None, idle=None):
+            yield {"seq": 3, "at": 1440, "kind": "ledger", "line": {}}
 
     world = Waiting()
     play_live(world, 8, two_towns(), load("base"), clock=lambda: 1440)
     assert [action["type"] for _, action in world.sent][:2] == ["quote", "post"]
+
+
+def test_a_rejoining_desk_leaves_a_request_newer_than_its_history_to_the_stream():
+    # R2 came in the restart gap: it is open in the snapshot but not in the history. Priced at rejoin, it would get
+    # the parts' state before the gap's other events, and every later rebuild, which prices it at its own seq, would
+    # remember a different price. The stream delivers it next, in order, so it is quoted once, from there.
+    from dispatch.live import play_live
+
+    gap = {**REQUEST, "id": "R2", "arrivedAt": 598, "respondBy": 613}
+
+    class Gap(FakeLiveWorld):
+        def snapshot(self):
+            return {**super().snapshot(), "openRequests": [gap]}
+
+        def stream(self, after=None, idle=None):
+            yield {"seq": 2, "at": 598, "kind": "price_request", "request": gap}
+            yield {"seq": 3, "at": 1440, "kind": "ledger", "line": {}}
+
+    seen = []
+
+    def build(context):
+        parts = load("base")(context)
+        parts.quoter.observe = lambda event, desk, replay: seen.append((event["kind"], replay))
+        return parts
+
+    world = Gap()
+    play_live(world, 8, two_towns(), build, clock=lambda: 1440)
+    assert [action["requestId"] for _, action in world.sent if action["type"] == "quote"] == ["R2"]
+    assert ("price_request", False) in seen
 
 
 def test_a_rejoining_desk_replays_its_history_with_the_books_of_that_minute():

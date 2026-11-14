@@ -106,7 +106,8 @@ class Desk:
                 if not any(stop["leg"] == event["leg"] for gig in later for stop in gig["stops"]):
                     self.retry(order["id"], event["leg"], event["reason"])
         for request in snapshot["openRequests"]:
-            self.quote(request)
+            if request["id"] in self.requests:  # one that came after the history comes next in the stream, in order
+                self.quote(request)
         # Quotes first: a request expires within seconds in the final, and a batch holds at most 50 actions.
         self.outbox.sort(key=lambda action: action["type"] != "quote")
 
