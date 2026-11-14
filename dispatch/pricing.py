@@ -46,7 +46,7 @@ class ProfitQuoter(Part):
                  trust: float = 0.0, invest: float = 0.0, share: float = 0.25, lag: float = 0.15, dealer: float = 0.0,
                  towns: float = 0.0, same: float = 0.0, kind_offset: float = 0.0, shape: str = "logistic", shape_scale: float = 1.0,
                  lanes: float = 0.0, pair: float = 0.0, outage: float = 0.0, outage_z: float = 3.5, outage_n: int = 8,
-                 target: float = 0.0, margin: float = 1.15):
+                 target: float = 0.0, margin: float = 1.15, barrier: float = 0.0, allowance: float = 0.06, crowd: float = 0.5, floor_orders: int = 100):
         self.level, self.spread, self.step, self.boost = start, spread, step, boost
         self.pair = pair  # the share of its expected fee that a car saves when it can join a gig that is open now
         self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
@@ -89,6 +89,12 @@ class ProfitQuoter(Part):
         # `target` > 0 (volume first): quote each option at the price whose learned chance to win is `target`, never below
         # `margin` times its expected cost, because the margin-per-quote price wins too few orders when the cost estimate is high.
         self.target, self.margin = target, margin
+        # `barrier` > 0 (euros): the queue charge gives way to two prices. Room under the 90% on-time minimum costs
+        # `barrier` x (late share / `allowance`)^4 per car, where the late share counts the orders late so far plus the
+        # expected late among those still open, over at least `floor_orders`; and each car without a driver costs a new
+        # car `crowd` euros, because it competes with it for the same drivers. Stateless: read from the desk's orders.
+        self.barrier, self.allowance, self.crowd, self.floor_orders = barrier, allowance, crowd, floor_orders
+        self.risks: dict[str, float] = {}  # order -> its late risk when won (a cache; recomputed after a restart)
 
     def offset(self, request: dict[str, Any]) -> float:
         """How much this request's level moves: its dealer's learned offset and its delivery town's lane part."""
@@ -150,8 +156,26 @@ class ProfitQuoter(Part):
         count = unbooked(desk, getattr(self, "queue_hours", 0), getattr(self, "queue_far", 0.0))
         return min(1.0, count / self.limit)
 
+    def room(self, desk: "Desk") -> float:
+        """The price in cents of one more car: what it uses of the late allowance plus what it costs the cars still without a driver."""
+        from .intake import unbooked
+        late = 0.0
+        for order in desk.orders.values():
+            open_ = any(at is None for at in order["deliveredAt"])
+            if any(at is not None and at > order["deadline"] for at in order["deliveredAt"]) or (open_ and desk.now > order["deadline"]):
+                late += 1
+            elif open_ and order["id"] in desk.requests:
+                if order["id"] not in self.risks:
+                    self.risks[order["id"]] = desk.parts.fees.late_risk(desk.requests[order["id"]], desk)
+                late += self.risks[order["id"]]
+        share = late / max(len(desk.orders), self.floor_orders)
+        return 100 * (self.barrier * (share / self.allowance) ** 4 + self.crowd * unbooked(desk))
+
     def prices(self, request: dict[str, Any], desk: "Desk") -> dict[str, int]:
         charge = self.queue * self.waiting(desk) ** 2
+        room = 0.0
+        if self.barrier:
+            charge, room = 0.0, self.room(desk)
         intake = desk.parts.intake
         if getattr(intake, "safe_limit", 0) and intake.safe(request, desk):  # a safe car's queue is the larger one
             charge = self.queue * min(1.0, self.waiting(desk) * self.limit / intake.safe_limit) ** 2
@@ -173,7 +197,7 @@ class ProfitQuoter(Part):
         prices = {}
         offset = self.offset(request)
         for option in request["options"]:
-            cost = (fee - gain) / option["listPriceCents"] + charge  # in list prices
+            cost = (fee - gain + room) / option["listPriceCents"] + charge  # in list prices
             # A late order gives back part of its price: the expected loss grows with the price itself.
             floor = max(cost, 0.5 * fee / option["listPriceCents"])
             off = offset + self.kind_off(option["kind"]) + self.lane_off(request, option["kind"], desk)

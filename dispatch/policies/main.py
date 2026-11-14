@@ -23,7 +23,7 @@ from ..pricing import ProfitQuoter
 from . import t1
 
 
-PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "car", "late", "trust", "invest", "share", "lag", "dealer", "towns", "same", "kind_offset", "shape", "shape_scale", "lanes", "pair", "outage", "outage_z", "outage_n", "target", "margin")
+PROFIT = ("start", "spread", "step", "boost", "cost", "queue", "low", "high", "car", "late", "trust", "invest", "share", "lag", "dealer", "towns", "same", "kind_offset", "shape", "shape_scale", "lanes", "pair", "outage", "outage_z", "outage_n", "target", "margin", "barrier", "allowance", "crowd", "floor_orders")
 FEES = ("fee_model", "fee_buffer", "fee_rise", "fee_cap", "fee_max_raises", "fee_hold_until", "fee_deadline_margin", "fee_quiet_from", "fee_quiet_to", "fee_far_open", "fee_soon_open", "fee_early", "fee_backload", "fee_rescue")  # passed to the fees without the prefix
 
 
@@ -31,11 +31,13 @@ OFFERS = ("offer_n", "offer_up", "offer_near", "offer_fresh", "offer_rounds")  #
 BUNDLES = ("bundle_dead", "bundle_slack", "bundle_split", "bundle_discount", "bundle_drive", "bundle_private", "bundle_patience", "bundle_room", "bundle_plan", "bundle_reach")  # passed to the bundles without the prefix
 
 
-def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans+calm", pending: float = 1.0, queue_hours: float = 0, queue_far: float = 0.0, offers: str = "", day_limit: int = 0, safe_limit: int = 0, safe_km: float = 300, safe_near: int = 30, home: float = 0.0, home_cut: float = 0.2, **params: Any) -> Parts:
+def build(ctx: Context, notes: str = "read", fees: str = "measured", private: bool = True, markup: float = 1.6, price: str = "profit", rise: int = 60, slack: int = 720, limit: int = 35, morning_limit: int = 45, same_day_slack: int = 360, same_day_drivers: int = 80, car: float = 1.1, late: float = 1.0, trust: float = 1.0, bundle: int = 3, repairs: str = "windows+orphans+calm", pending: float = 1.0, queue_hours: float = 0, queue_far: float = 0.0, offers: str = "", day_limit: int = 0, safe_limit: int = 0, safe_km: float = 300, safe_near: int = 30, home: float = 0.0, home_cut: float = 0.2, barrier_limit: int = 120, **params: Any) -> Parts:
     together = {"patience": 120} | {key[7:]: params.pop(key) for key in BUNDLES if key in params}
     offer = {key[6:]: params.pop(key) for key in OFFERS if key in params}
     fee = {key[4:]: params.pop(key) for key in FEES if key in params}
     profit = {"car": car, "late": late, "trust": trust} | {key: params.pop(key) for key in PROFIT if key in params}
+    if params.get("barrier"):  # prices decide volume: the hard limit only guards against a runaway
+        limit = morning_limit = barrier_limit
     parts = t1.build(ctx, markup=markup, slack=slack, limit=limit, morning_limit=morning_limit, same_day_slack=same_day_slack, same_day_drivers=same_day_drivers, **params)
     parts.intake.private = private
     parts.intake.pending_weight = pending  # how much of a place in the queue a quote awaiting its dealer holds
