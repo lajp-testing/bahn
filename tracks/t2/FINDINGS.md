@@ -418,3 +418,26 @@ All 40 weeks ranked.
 **Recommendation.** Not for the final as it stands. If the team wants more volume (for example for the jury story, or because the final's competitor sits lower than dev), `target=0.55` is the cheap step: +390 orders over 10 weeks for −€4,700 and no on-time risk seen. The real lever is cost per car: target pricing pays only when combined with a cheaper delivery (`bundle_*`, pair pricing).
 
 **Next 30 minutes, if any.** (a) 30 weeks of `--set price=target --set target=0.55` against `t1s11-base` on the same seeds, to see whether −4% margin holds. (b) A screen of `target=0.55` with `pair=0.2` (price the partner) to see whether bundles can carry the extra volume at a lower cost.
+
+## Holding a new car for a partner, 14 Nov
+
+**Rule.** A newly won plain car that finds no gig to join waits up to `hold` minutes for a partner, while a driver could still start it at least `bundle_hold_slack` (12 h) plus `hold` minutes from now; a car won in that time searches the held cars too (`Bundles.search`), and the pair goes out as one gig; at the end of the hold the car goes alone at its own schedule (`Desk.alone`, so its fee ladder keeps its clock). Off by default (`hold=0`).
+
+Code: `Bundles.holds` and the release in `Bundles.tick` (dispatch/bundles.py); `Desk.held`, `Desk.post(..., hold=True)` from `win` only, and the orphans repair skips held cars (dispatch/desk.py, small); `hold` in `policies/main.py`. A rejoin calls `post` without `hold`, so a car that has no gig after a restart is posted at once. Off check: `main` dev-01 = €8,764.79 (`t2s14-main-off`) = `t1s11-base`.
+
+Screens, 10 dev weeks, all with `price=target target=0.55 pair=0.2`:
+
+| label | orders/week | margin/car | total margin | on time | three lowest weeks | cars in a gig with others | fee/typical alone |
+|---|---|---|---|---|---|---|---|
+| `t1s11-base` (mainline) | 288 | €44.09 | €126,921.82 | 96.8% | dev-01 8,765, dev-05 9,559, dev-06 10,457 | 32% (30 weeks) | 1.03 |
+| `t2s14-t55-pair20` (no hold) | 351 | €35.81 | €125,586.56 | 96.0% | dev-01 8,860, dev-05 9,148, dev-07 10,544 | 32% | 1.08 |
+| `t2s14-t55-pair20-hold60` | 349 | €35.23 | €122,891.73 | 95.8% | dev-01 8,638, dev-05 9,265, dev-06 10,443 | 39% | 1.10 |
+| `t2s14-t55-pair20-hold120` | 346 | €33.95 | €117,326.87 | 95.9% | dev-05 8,684, dev-01 8,773, dev-07 9,889 | 42% | 1.14 |
+
+All weeks ranked (lowest on-time week: dev-07, 92.7% / 92.7% / 90.9%).
+
+**What it shows.** The hold does what it says: the share of cars that travel with others rises from 32% to 39% (60 min) and 42% (120 min), and a pair still costs 0.80 to 0.81 of typical. But the margin falls, €2,695 at 60 minutes and €8,260 at 120. The cars that are still alone after a hold are the ones no partner came for, and they reach the app an hour or two later: their fee rises from 1.08 to 1.10 and 1.14 of typical, and the late share of single cars rises (5.0% → 5.9% / 5.7%). The saving on the extra pairs (about 0.27 of typical per car on about 250 more cars a week... at ~€40 typical ≈ €2,700/week in theory) does not show up net; the lost booking time on the other cars outweighs it. **Verdict: no.** Keep `hold=0`.
+
+Also from this stint: with `pair=0.2`, `target=0.55` comes within €1,335 (1.1%) of the mainline on 22% more orders (`t2s14-t55-pair20` vs `t1s11-base`), better than `t2s13-target55` without pairing (€122,212).
+
+Leads: hold only at night (a car won after 20:00 is not booked before morning anyway, so the wait costs nothing); or hold only a car whose quote `fits` told us a partner is likely (a busy lane).
