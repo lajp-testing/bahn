@@ -47,13 +47,14 @@ class ProfitQuoter(Part):
                  towns: float = 0.0, same: float = 0.0, kind_offset: float = 0.0, shape: str = "logistic", shape_scale: float = 1.0,
                  lanes: float = 0.0, pair: float = 0.0, outage: float = 0.0, outage_z: float = 3.5, outage_n: int = 8,
                  target: float = 0.0, margin: float = 1.15, barrier: float = 0.0, allowance: float = 0.06, crowd: float = 0.5, floor_orders: int = 100,
-                 end_car: float = 0.0, scarce: float = 0.0, scarce_km: float = 80.0, car_short: float = 0.0, short_km: float = 100.0):
+                 end_car: float = 0.0, scarce: float = 0.0, scarce_km: float = 80.0, car_short: float = 0.0, short_km: float = 100.0, car_long: float = 0.0, long_km: float = 300.0):
         self.level, self.spread, self.step, self.boost = start, spread, step, boost
         self.pair = pair  # the share of its expected fee that a car saves when it can join a gig that is open now
         self.cost, self.queue, self.limit, self.low, self.high = cost, queue, limit, low, high
         # `car` > 0: the cost is `car` times the fee the fees part expects for this car, instead of `cost` times the typical fee.
         # `late`: what a late order costs, as a share of its price (the refund and the dealer's trust), times this car's risk of being late.
         self.car, self.late = car, late
+        self.car_long, self.long_km = car_long, long_km  # `car_long` > 0: the cost tilt for a lane of `long_km` km or more
         self.car_short, self.short_km = car_short, short_km  # `car_short` > 0: the cost tilt for a lane under `short_km` km instead of `car`
         self.sent: dict[str, dict[str, float]] = {}  # request -> option -> the price we sent, as a multiple of the list price
         self.day, self.seen_today = -1, 0
@@ -209,6 +210,10 @@ class ProfitQuoter(Part):
             leg = request["legs"][0]
             if desk.ctx.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) < self.short_km:
                 car = self.car_short
+        if self.car_long and car:  # a long lane has its own cost tilt too: it pays the most per order and loses most to the shared level
+            leg = request["legs"][0]
+            if desk.ctx.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) >= self.long_km:
+                car = self.car_long
         if self.scarce and car:
             scarcity = self.scarcity(request, desk)
             self.scarce_sum, self.scarce_n = self.scarce_sum + scarcity, self.scarce_n + 1
