@@ -171,17 +171,19 @@ class DialQuoter(Quoter):
         week starts as a usual one, with 40 orders' weight."""
         return (len(self.strained) + 40 * STRAIN) / (self.won + 40) - STRAIN
 
-    def ladder_value(self, request: dict[str, Any], desk: "Desk", revenue: float) -> float:
-        """What one more on-time order for this dealer is worth, in cents. A counted order lets each later request
-        of the dealer take a price 1% higher at the same chance, so it is worth `ladder` (0.01) of the revenue
-        that those requests should bring: `revenue` each, for as many as the dealer's rate so far promises from
-        the day after, when the order counts. `patience` minutes stand in for the hours not yet seen, so a
-        dealer's first requests promise little. Nothing once the dealer's counted and coming orders reach 25."""
+    def ladder_value(self, request: dict[str, Any], desk: "Desk", price: float, chance: float) -> float:
+        """What one more on-time order for this dealer is worth, in cents. A counted order lets each later order
+        of the dealer take a price 1% higher at the same chance, so it is worth `ladder` (0.01) of the price of
+        each order that it lifts. Those are the orders that the dealer's rate so far promises from the day after,
+        when this one counts, at this quote's chance; `patience` minutes stand in for the hours not yet seen, so a
+        dealer's first requests promise little. And they are no more than the dealer's count lacks to 25, with the
+        orders that are coming: the count gets there without this order too, only one order later."""
         dealer = request["dealerId"]
-        if not self.ladder or self.trust.get(dealer, 0) + self.coming.get(dealer, 0) >= 25:
+        short = 25 - self.trust.get(dealer, 0) - self.coming.get(dealer, 0)
+        if not self.ladder or short <= 0:
             return 0.0
         later = self.asked.get(dealer, 0) * (worked(5 * DAY) - worked(desk.now + DAY)) / (worked(desk.now) + self.patience)
-        return self.ladder * later * revenue
+        return self.ladder * min(later * chance, short) * price
 
     def best_markup(self, request: dict[str, Any], desk: "Desk") -> float:
         effect, cost, list_price = self.effect(request), self.cost(request, desk), basis(request)["listPriceCents"]
@@ -191,7 +193,7 @@ class DialQuoter(Quoter):
             return max(steps, key=lambda step: (step / 100 * list_price - cost + extra) * self.chance(step / 100, effect)) / 100
 
         plain = best(0.0)
-        extra = self.ladder_value(request, desk, plain * list_price * self.chance(plain, effect))
+        extra = self.ladder_value(request, desk, plain * list_price, self.chance(plain, effect))
         # A request that costs more than the ceiling pays: quote above the cost anyway, and lose it.
         return max(best(extra) if extra else plain, 1.05 * (cost - extra) / list_price)
 
