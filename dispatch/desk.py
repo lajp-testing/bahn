@@ -97,6 +97,8 @@ class Desk:
                     self.retry(order["id"], event["leg"], event["reason"])
         for request in snapshot["openRequests"]:
             self.quote(request)
+        # Quotes first: a request expires within seconds in the final, and a batch holds at most 50 actions.
+        self.outbox.sort(key=lambda action: action["type"] != "quote")
 
     def handle(self, event: DeskEvent) -> None:
         kind = event["kind"]

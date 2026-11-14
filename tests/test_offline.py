@@ -170,6 +170,18 @@ def test_the_live_desk_rejoins_and_answers_the_stream():
     assert seen[:2] == [("price_request", True), ("order_won", True)] and ("deadline_close", False) in seen
 
 
+def test_a_rejoining_desk_sends_its_quotes_before_its_posts():
+    from dispatch.live import play_live
+
+    class Waiting(FakeLiveWorld):  # a request is open at the restart, beside the order without a gig
+        def snapshot(self):
+            return {**super().snapshot(), "openRequests": [{**REQUEST, "id": "R2", "arrivedAt": 595, "respondBy": 610}]}
+
+    world = Waiting()
+    play_live(world, 8, two_towns(), load("base"), clock=lambda: 1440)
+    assert [action["type"] for _, action in world.sent][:2] == ["quote", "post"]
+
+
 def test_reach_quotes_reachable_cars_above_list_and_declines_the_rest():
     context = ctx()  # one driver, living in Tampere; Helsinki to Tampere is 106 road minutes
     world = FakeWorld()
