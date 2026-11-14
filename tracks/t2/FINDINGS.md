@@ -502,3 +502,19 @@ Screens, 10 dev weeks, all ranked (`b37-fee3` €147,171, 389 orders/week, €37
 **Why it fails.** The symmetric version quoted most cars cheaper: the scarcity ratio is right-skewed (most pickups have no waiting car of ours nearby), so most cars sit below the running mean and got up to half the tilt taken off: +64 orders/week at €12 less per car, the same loss as `car=0.85`. The upward-only version keeps €/car (€42.90 vs €42.96) but wins 13 fewer orders a week than the fixed tilt: the extra charge lands where we are already short of drivers, and the learned cost model already counts that (its inputs include `unbooked`, `booked_near`, `pickup_30/80`), so the term charges for scarcity twice.
 
 **Verdict.** Not recommended. A driver-supply tilt on top of the learned cost model does not beat the fixed `car=1.05`; the model already prices supply. Code stays in, off by default (`scarce=0`, reproduces `b37-fee3` to the cent). If a dynamic tilt is wanted, the untested next candidate is the time of week (`end_car` already exists for Friday-due cars).
+
+## g2 bundle sweep B, 14 Nov (t2)
+
+Question: our mainline books 72% of delivered cars alone (0.97x typical fee, 3.8% late) while 2-car gigs cost 0.79x and run 1.0% late — can we bundle more by loosening the bundle gate (`bundle_slack` 360 → 240/180) or by holding a won car for a partner (`hold` 0 → 30)? Parameter sweep only, no code change; 10 dev weeks, mainline defaults plus one `--set`.
+
+Baseline `b46-car105-sameday480` on the same 10 dev seeds: €157,205 total, 372.1 orders/week, €42.25/car, 28% of delivered cars in 2/3-car gigs, lowest on-time weeks dev-05 95.7%, dev-10 95.9%, dev-01 96.3%. All runs below: 10 common seeds, 10/10 weeks ranked.
+
+| label | Δ margin (10 wks) | weeks higher/lower/tie | orders/week | €/car | three lowest on-time weeks | 2/3-car share |
+|---|---|---|---|---|---|---|
+| `g2-bslack240` (`bundle_slack=240`) | **+€2,414** | **7**/2/1 | 375.0 | €42.57 | dev-10 95.4%, dev-07 95.9%, dev-01 96.3% | 29.7% |
+| `g2-bslack180` (`bundle_slack=180`) | +€567 | 4/5/1 | 372.1 | €42.40 | dev-10 95.4%, dev-05 95.5%, dev-03 96.0% | 29.4% |
+| `g2-hold30` (`hold=30`) | −€950 | 4/6/0 | 369.3 | €42.31 | dev-10 94.9%, dev-01 95.7%, dev-05 96.5% | 36.2% |
+
+**What it shows.** Loosening the bundle gate to 240 min is the only clear win: +€241/week, 7 of 10 weeks ahead, on time unchanged (97.0%, no week below 95.4%). Pushing to 180 min throws most of it away (+€57/week, 4/10) — the tighter start window makes bundles that arrive too close to the deadline, and late singles rise to 4.2%. Holding a car 30 min for a partner does bundle more (36% vs 28%) but *loses* money: we win 3 fewer orders a week (a held car that never finds a partner books late and some requests are lost) and the singles left over are booked at 0.99x with 3.9% late; the same failure as before flat fees, now smaller.
+
+**Verdict.** Candidate for the mainline: `bundle_slack=240` (one parameter, no code change). `hold` stays off. The bundle share only moves 28% → 30%, so the big gap to the top team (more multi-car gigs) is not in the gate; it needs faster partner-finding (t5's territory) or pricing that steers dealers toward bundleable requests.
