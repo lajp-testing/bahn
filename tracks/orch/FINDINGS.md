@@ -103,3 +103,18 @@ The practice machine is CPU-bound with bundles (load 4 on 2 vCPUs). The user off
 Rejected this morning (30 weeks, paired with `b26-fix-wo`): direct offers −€2,016 / −€1,236 (track 2); per-due-day limit (track 1, one week −€693); a limit following booking speed (no early signal, track 1); limit 38 −€878; limit 40 −€2,213; patience 180 −€5,226; drops repair +€2,441 (inside noise, lowest 92.3%); charging rule −€3,016; bundle of 4 −€5,653; bundle discount 0.9 +€649; bundle slack 4 h −€3,894; morning limit 55: no change (45 never binds).
 
 Correction (14 Nov, 13:30 UTC): there is no code freeze at 02:00. The final starts at 06:00 UTC on Sunday 15 November; the best measured setting goes live with `bin/vps-live` before it (safety-net task at 05:15 UTC).
+
+## 2026-11-14 13:40 UTC — volume pivot adopted: safe-car limit + flat fees
+
+Default of `main` now: `safe_limit=80 safe_km=300 safe_near=0 car=0.95 fee_flat=1 fee_flat_up=-0.15` on top of the earlier defaults. `--policy main` reproduces `t3s15-safe-flat15` to the cent (dev-01 €9,186.24, dev-07 €15,441.05).
+
+`t3s15-safe-flat15` against the previous mainline (`t1s11-base` / `t3s10-calm`), same seeds:
+
+| weeks | margin vs previous | weeks better | orders a week | lowest on time |
+|---|---|---|---|---|
+| 10 dev | +€15,224 (+12.0%) | 10/10 | 371 vs 288 | 92.7, 93.3 |
+| 20 rob | +€31,966 (+13.1%) | 18/20 | 365 vs 277 | 90.2 (rob-17), 91.1 (rob-18) |
+| 10 holdout | +€22,802 (+19.2%) | 10/10 | 354 vs 267 | 94.4, 94.5 |
+| all 40 | +€69,993 (+14.3%) | 38/40 | 364 vs 277 | 90.2, 91.1, 92.7 |
+
+Learned cost model (`fee_model=3`, teammate) on the previous mainline, 30 weeks (dev + rob) against `t1s11-base`: +€45,013, 28/30 weeks better, 331 orders a week, lowest 94.2%; with `pair=0.2` +€49,587, lowest 92.9%. Not yet measured on top of flat fees. `dispatch/features.py`: a flat fee that asks model 3 no longer recurses (the schedule features read 1.0 inside that call).

@@ -57,9 +57,13 @@ def schedule_features(request: dict[str, Any], desk: "Desk") -> tuple[float, flo
              "priceCents": request["options"][0]["listPriceCents"], "deliveredAt": [None] * len(legs)}
     known = request["id"] in desk.requests
     desk.requests.setdefault(request["id"], request)
+    if getattr(fees, "_in_features", False):  # a flat fee asks the learned model, which asks for the schedule: break the loop
+        return 1.0, 1.0
+    fees._in_features = True
     try:
         schedule = fees.schedule(order, 1, False, desk)
     finally:
+        fees._in_features = False
         if not known:
             desk.requests.pop(request["id"], None)
     typical = request["referenceFeeCents"] / len(legs)
