@@ -550,3 +550,45 @@ Conclusions:
 - Same-day is half-declined outright (327/664 unquoted) and quoted at 2.16× when priced — the biggest single pool of lost orders.
 - Private addresses (137 requests, 13.9% won at 2.56×) are a small but clear loss pool.
 - Money follows the middle anyway: won margin/order rises from €18.53 (Q1) to €90.84 (Q5). Cutting the quote toward ~1.2–1.3× list on short/cheap and same-day requests trades €/order for volume exactly where the top teams' extra 100 orders live; the €/car loss per band is €5–10 against ~2× the win rate at 1.1–1.3× (47.8% vs 29.3% at 1.5–1.7).
+
+## Test final 18:00: queue and price over the week, 14 Nov
+
+Did a full queue price us out of the busy windows? Rebuilt the count of orders without a booked driver at every price_request minute from `final-1800` (order_won minus gig_booked/delivered/cancelled, gig_dropped back in; a leg's gig is its last post, as in the desk's `leg_gigs`), and checked it against the desk's journal in `tracks/orch/finals/testfinal-20261114-1800/`. One correction to the section above: the intake never sends an empty answer — `dispatch/quote.decline` quotes the first option at 5× list, so "declines" hide among the >2.5× quotes (85 of the 1030 requests, 0 won; the journal confirms every one). Script: `tracks/t2/queue_final.py`. waiting = unbooked / the intake's limit (45 before 12:00, 35 after); the quoter's queue charge (0.3 × waiting², `dispatch/pricing.py`) always divides by 35.
+
+Requests by waiting at the minute they arrived (win rate over all requests in the bucket; quote/list on genuine quotes only):
+
+| waiting | requests | won | win rate | mean quote/list | declined (5×) | quoted >2.5× | mean unbooked |
+|---|---|---|---|---|---|---|---|
+| 0–0.25 | 423 | 164 | 38.8% | 1.49 | 32 | 9 | 5.9 |
+| 0.25–0.5 | 382 | 104 | 27.2% | 1.52 | 29 | 11 | 12.3 |
+| 0.5–0.75 | 120 | 63 | 52.5% | 1.71 | 9 | 3 | 21.2 |
+| 0.75–1 | 105 | 31 | 29.5% | 1.83 | 15 | 4 | 29.1 |
+| ≥1 | 0 | — | — | — | — | — | — |
+
+The unbooked queue never reached 35, so the quoter's waiting never hit 1. Per 4 world hours (requests arrive 08:00–18:00):
+
+| window | requests | won | win rate | mean waiting | mean quote/list | declined |
+|---|---|---|---|---|---|---|
+| Mon 08–12h | 68 | 25 | 36.8% | 0.03 | 1.37 | 4 |
+| Mon 12–16h | 99 | 27 | 27.3% | 0.21 | 1.45 | 12 |
+| Mon 16–20h | 49 | 15 | 30.6% | 0.34 | 1.54 | 1 |
+| Tue 08–12h | 58 | 23 | 39.7% | 0.12 | 1.47 | 6 |
+| Tue 12–16h | 87 | 31 | 35.6% | 0.22 | 1.53 | 7 |
+| Tue 16–20h | 57 | 24 | 42.1% | 0.39 | 1.56 | 6 |
+| Wed 08–12h | 58 | 13 | 22.4% | 0.17 | 1.41 | 2 |
+| Wed 12–16h | 110 | 23 | 20.9% | 0.32 | 1.42 | 5 |
+| **Wed 16–20h** | **52** | **13** | **25.0%** | **0.27** | **1.44** | **3** |
+| Thu 08–12h | 68 | 37 | 54.4% | 0.20 | 1.81 | 2 |
+| Thu 12–16h | 61 | 30 | 49.2% | 0.55 | 1.77 | 4 |
+| Thu 16–20h | 73 | 30 | 41.1% | 0.72 | 1.77 | 9 |
+| Fri 08–12h | 60 | 21 | 35.0% | 0.25 | 1.61 | 11 |
+| Fri 12–16h | 88 | 29 | 33.0% | 0.69 | 1.67 | 9 |
+| Fri 16–20h | 31 | 14 | 45.2% | 0.83 | 1.88 | 4 |
+
+Conclusions:
+
+- **The hypothesis fails for Wednesday.** In Wed 16:00–20:00 our queue was nearly empty (mean 10.3 unbooked of 35, waiting 0.27, queue charge 0.02 list units) and our genuine quotes were the cheapest of the week (1.44× list) — and we still won only 25% (13 of 52 requests; 15 orders won in the window by decision time, vs the 22 the leaderboard feed's binning shows). Wednesday's gap is the dealer side, not our queue or price.
+- The queue only filled late Thursday and Friday (waiting 0.7–0.9). There the charge added 0.16–0.25 list units (mean quote 1.77–1.88×) and the intake declined 19 requests — all private or with a ≥300 km first leg, all in Thu 16:32–17:21 and Fri 15:11–16:40 — while 52 safe cars were quoted through the limit. Win rate held at 33–45% there, better than Wednesday's.
+- Win rate does not fall with waiting: the fullest bucket worth quoting (0.5–0.75) is the best of the week (52.5%), and the 0.75–1 bucket's 29.5% sits in Wednesday/Friday mix, not in the charge.
+- The real decline pool is 85 of 1030 requests (8.3%): 66 failed the slack screen (mostly same-day-only requests, all week), 19 the queue limit. The ">2.5× list, 0 won" pool of the section above is these declines plus 27 genuine quotes; genuine >2× quotes number 66 with mean waiting 0.47 vs 0.33 for the rest — the fee model on long/private lanes prices those out, not the queue.
+- So the busy-window volume gap is not the queue charge or the intake limit; it is Wednesday's dealer level and the same-day slack screen.
