@@ -23,7 +23,7 @@ from typing import Any, Callable, Optional
 from dispatch.context import Context
 from dispatch.desk import DAY, Desk
 from dispatch.parts import Parts
-from spread.client import World
+from spread.client import Unreachable, World
 
 from . import config, slots
 
@@ -94,7 +94,7 @@ def play(world: World, ctx: Context, parts: Parts, log: Optional[Log] = None, un
         stop = min(ends_at, midnight, desk.next_timer() or ends_at)
         actions, desk.outbox = desk.outbox, []
         sent_at = desk.now
-        step = world.advance(until=desk.wake_on, max=stop, actions=actions)
+        step = _advance(world, sent_at, until=desk.wake_on, max=stop, actions=actions)
         if log is not None:
             log.sent(sent_at, actions, step["results"])
         desk.read_results(actions, step["results"])
@@ -105,6 +105,29 @@ def play(world: World, ctx: Context, parts: Parts, log: Optional[Log] = None, un
             desk.handle(event)
         desk.tick()
     return desk  # with `until`, the answers to the last step are still in `desk.outbox`
+
+
+def _advance(world: World, sent_at: int, **step: Any) -> Any:
+    """One step. When the server restarts (a 502 from its proxy) the step usually never arrived: wait until the
+    world answers again, and send the step again if its clock has not moved. If it has moved, the step was applied
+    and its answer is lost, so the week cannot go on and the error stands."""
+    for attempt in range(60):
+        try:
+            return world.advance(**step)
+        except Unreachable as error:
+            for _ in range(60):  # up to 5 minutes for the server to come back
+                time.sleep(5)
+                try:
+                    now = world.snapshot()["now"]
+                    break
+                except Unreachable:
+                    continue
+            else:
+                raise
+            if now != sent_at:
+                raise Unreachable(0, f"{error}; the world moved on from minute {sent_at} to {now}") from error
+            print(f"  the server answered again at minute {now}: step sent again (attempt {attempt + 2})", flush=True)
+    return world.advance(**step)
 
 
 def _dump(folder: str, name: str, value: Any) -> None:
