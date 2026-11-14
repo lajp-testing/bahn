@@ -95,3 +95,9 @@ Paired against `b22-baseline` (fee_model=2 bundle=3, limit 25) on the same 40 we
 Ranking round "Saturday 09:00" (played by b22 with the old baseline): €53,610, 97.1% on time, rank 22 of 157; rank 10 €68,719, rank 1 €77,572. Per week we play €10.7k there against €11.4k in practice with the same code: inside the noise of 5 weeks.
 
 The practice machine is CPU-bound with bundles (load 4 on 2 vCPUs). The user offered a Stockholm machine (the game server is AWS eu-north-1).
+
+## 2026-11-14 10:45 UTC — calm becomes the default; ranking round "Saturday 12:00"
+
+`calm` (an urgent car past its last pickup minute goes on the normal ladder; track 3) over 40 weeks paired with `b26-fix-wo`: +€6,163 (dev+rob +€5,347, holdout +€816), higher in 25 of 40; lowest weeks 91.6, 92.3, 93.7 (baseline 93.7, 93.8, 94.0). It only changes the fee of cars that are already late, so the two lower holdout weeks are most likely divergence; accepted as the slightly riskier setting the user asked for on the board. Default now `repairs=windows+orphans+calm`.
+
+Rejected this morning (30 weeks, paired with `b26-fix-wo`): direct offers −€2,016 / −€1,236 (track 2); per-due-day limit (track 1, one week −€693); a limit following booking speed (no early signal, track 1); limit 38 −€878; limit 40 −€2,213; patience 180 −€5,226; drops repair +€2,441 (inside noise, lowest 92.3%); charging rule −€3,016; bundle of 4 −€5,653; bundle discount 0.9 +€649; bundle slack 4 h −€3,894; morning limit 55: no change (45 never binds).
