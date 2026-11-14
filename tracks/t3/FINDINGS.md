@@ -275,3 +275,23 @@ Booked fee / fee at the booking driver's first view, and minutes from that view 
 | after Sun | 29 gigs | 147 gigs | 181 gigs |
 
 Holding the ladder does not teach drivers to book early: they wait longer (Friday 84 → 306 min) and book higher above the fee they first saw (1.11 → 1.18), because when the raise finally comes it comes in a run. **Recommendation:** keep `hold_until=0` and leave `backload` off (default 0, kept in the code as a measured negative). A fee schedule cannot be judged with intake held fixed: anything that keeps gigs open longer costs orders through the queue limit. The next fee experiment should go the other way (book sooner, e.g. a slightly higher opening for gigs with little time) or count a posted, unbooked gig less in the intake's queue while it still has many hours.
+
+## Stint 12: rescue the single-car tail before the 3-hour warning (11:20 to 11:50 UTC, 14 Nov)
+
+Track 1 found that weak weeks lose on single gigs that book only in the last two hours, often after a drop (75% posted more than once, 51% booked with under 4 h left; good weeks 53% and 30%). Holding fees back lost heavily (stint 11), so this rule only ever raises fees, and only on a car near its last pickup.
+
+**Rule** (switch `--set fee_rescue=<minutes>`, off by default): a single-car gig that no driver holds, with fewer than `rescue` minutes of the drivers' day (07:00 to 21:00, as `MeasuredFees.after` counts) left before its `lastPickupAt`, goes at once to the top of its normal ladder (typical × `cap`, 1.5), so it books while a driver can still reach it. It does not touch urgent cars (the world's warning already gave them the urgent ladder) or cars past `lastPickupAt` (those are `calm`'s).
+
+Where: `MeasuredFees.rescue`, `rescue_from`, `rescuing` and a one-step schedule in `MeasuredFees.schedule` (`dispatch/fees.py`, so every new post, repost and retry in the window opens at the top); `Desk.rescue`, called from `Desk.tick`, reprices existing gigs that cross the line or come back after a drop below the top (`dispatch/desk.py`, small: a `schedules` book of each gig's current schedule, filled from posts and accepted reprices and, after a restart, from the snapshot's gigs through `carry`; a wake-up at `rescue_from` on win and change). A drop leaves the gig's schedule as it was, so a dropped gig is repriced only if its fee is below the top. Nothing depends on state outside events, the snapshot and the replayed journal.
+
+**Measured (test final at 12:00, so only two weeks):**
+
+| Label | Seed | Margin | Orders | On time | Late or undelivered |
+|---|---|---:|---:|---:|---:|
+| `t1s11-base` | dev-01 | €8,764.79 | 246 | 97.6% | |
+| `t3s12-off` (switch off) | dev-01 | €8,764.79 | 246 | 97.6% | equal to the cent |
+| `t1s11-base` | dev-07 | €13,048 | 301 | 93.7% | 17 |
+| `t3s12-rescue-smoke` (`fee_rescue=240`) | dev-07 | €13,307.26 | 304 | 93.8% | 17 |
+
+On dev-07 the rule sent 16 rescue reprices. +€259 and the same 17 late orders: a lead at most, not a finding. Next: 30 weeks paired with `t1s11-base`, `fee_rescue=240` (and 360 if there is time):
+`export SPREAD_TRACK=t3; bin/vps python3 -m harness.run --policy main --set fee_rescue=240 --seeds dev $(for i in $(seq -w 1 20); do printf -- '--seed rob-%s ' $i; done) --label t3s12-rescue240`, then `python3 -m harness.compare t1s11-base t3s12-rescue240` (all 30 weeks).

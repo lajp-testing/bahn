@@ -89,7 +89,7 @@ class MeasuredFees(Fees):
 
     def __init__(self, buffer: float = 0.15, rise: float = 0.1, interval: int = 20,
                  cap: float = 1.5, deadline_margin: int = 0, max_raises: int = 47, hold_until: int = 0, rescue_fraction: float = 0,
-                 quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, far_open: float = 0, soon_open: float = 0, early: int = 0, backload: int = 0, **kwargs: Any):
+                 quiet_from: int = 0, quiet_to: int = 7 * HOUR, model: int = 1, far_open: float = 0, soon_open: float = 0, early: int = 0, backload: int = 0, rescue: int = 0, **kwargs: Any):
         super().__init__(**kwargs)
         # `early` > 0: an order without a driver goes to the urgent fees when this many minutes of the drivers' day are
         # left before its last pickup. The world's own warning comes 3 hours before, which is late for a driver to get there.
@@ -97,6 +97,10 @@ class MeasuredFees(Fees):
         # `backload` > 0: the gig waits at its opening fee while it has time, and the ladder starts as late as it can
         # while still reaching the cap `backload` minutes of the drivers' day before the last pickup. Off by default.
         self.backload = int(backload)
+        # `rescue` > 0: a single car still without a driver when fewer than this many minutes of the drivers' day are left
+        # before its last pickup goes at once to the top of its normal ladder (the cap), so it books while a driver can still
+        # reach it. Off by default. Cars past their last pickup are left to the desk's `calm`.
+        self.rescue = int(rescue)
         self.model = model  # 2: the refitted expected fee and late risk (MODEL2 above)
         # `quiet_from` > 0: the fee does not rise from this minute of the day until `quiet_to` the next morning.
         # Few drivers look at the app at night, so a raise then pays the morning's first driver more for nothing.
@@ -124,12 +128,24 @@ class MeasuredFees(Fees):
                 at, minutes = at + step, minutes - step
         return at
 
-    def urgent_from(self, order: dict[str, Any]) -> int:
-        """The minute from which the order is urgent on the desk's own account: `early` minutes of the drivers' day before its last pickup."""
-        at = order["lastPickupAt"] - self.early
-        while self.after(at, self.early) > order["lastPickupAt"]:
+    def before(self, end: int, minutes: int) -> int:
+        """About the minute that is `minutes` of the drivers' day before `end` (in steps of 15 minutes)."""
+        at = end - minutes
+        while self.after(at, minutes) > end:
             at -= 15
         return at
+
+    def urgent_from(self, order: dict[str, Any]) -> int:
+        """The minute from which the order is urgent on the desk's own account: `early` minutes of the drivers' day before its last pickup."""
+        return self.before(order["lastPickupAt"], self.early)
+
+    def rescue_from(self, order: dict[str, Any]) -> int:
+        """The minute from which a single car without a driver goes at the top of its ladder: `rescue` minutes of the drivers' day before its last pickup."""
+        return self.before(order["lastPickupAt"], self.rescue)
+
+    def rescuing(self, order: dict[str, Any], cars: int, now: int) -> bool:
+        """Whether a gig of `cars` of the order's cars, posted or repriced at `now`, goes straight to the top of its ladder."""
+        return bool(self.rescue) and cars == 1 and self.rescue_from(order) <= now < order["lastPickupAt"]
 
     def schedule(self, order: dict[str, Any], cars: int, urgent: bool, desk: "Desk") -> list[dict[str, int]]:
         if urgent:
@@ -162,4 +178,6 @@ class MeasuredFees(Fees):
             while start > desk.now and self.after(start, count * interval) > order["lastPickupAt"] - self.backload:
                 start -= 15
             start = max(desk.now, start)
+        if self.rescuing(order, cars, desk.now):  # little of the drivers' day is left: the top of the ladder at once
+            return [{"at": desk.now, "feeCents": max(1, int(typical * max(self.cap, first) + 0.5))}]
         return [{"at": self.after(start + (max(0, order["lastPickupAt"] - desk.now - self.hold_until) if k and self.hold_until else 0), k * interval), "feeCents": max(1, int(typical * min(self.cap, first + k * self.rise) + 0.5))} for k in range(1 if desk.level == 1 else count + 1)]
