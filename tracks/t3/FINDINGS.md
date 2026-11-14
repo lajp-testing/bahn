@@ -425,3 +425,19 @@ What we saw:
 - Late cars inside bundles stay rare in both runs (2-car 0.7-1.3% vs singles ~4%), so the fee saving is real; the volume of bundleable pairs, not the fee, is the brake.
 
 Pick: **`bundle_private=1`** as the lead worth confirming (a holdout check on the orchestrator's seeds, then a combined `bundle_private=1 bundle_dead=45`-style run). `bundle_dead=60` alone is not worth its on-time risk (dev-10 at 93.3% near the 90% ranking line).
+
+## g3 quoter level speed, 14 Nov
+
+**The question.** In the test final we quoted our cheapest of the week (1.44x list) on Wednesday 16-20h and still won only 25% of requests, while top teams won 2-3x as many there. The quoter (`dispatch/pricing.py`, ProfitQuoter) keeps one price level moved by `step` (default 0.06) after each dealer decision and `boost` (default 3.0) times more for the first decisions of a day — if the level adapts too slowly, it misses cheap days. Each run changes one setting on `main`, 10 dev weeks, no code change. Baseline `b52-fee4-car110` (dev total €163,494, 366.4 orders/wk, €44.62/car). Compare: `tracks/t3/g3_speed_compare.py`.
+
+| label | change | common seeds | Δ total margin | weeks higher | orders/wk | €/car | 3 lowest on-time weeks (vs base) | ranked |
+|---|---|---|---|---|---|---|---|---|
+| g3-step10 | step 0.06 → 0.1 | 10 | −€3,835 | 4/10 | 361.9 | 44.12 | dev-01 94.4% (96.3), dev-02 95.2% (96.8), dev-08 95.4% (97.9) | 10/10 |
+| g3-boost5 | boost 3.0 → 5 | 10 | −€1,335 | 4/10 | 362.9 | 44.68 | dev-07 95.5% (95.3), dev-05 95.5% (96.7), dev-02 95.6% (96.8) | 10/10 |
+
+What we saw:
+- **Speeding the level in either direction loses money on the dev seeds.** A bigger `step` (−€3,835, 4/10) also hurts on-time: dev-01 drops to 94.4% (−1.9) and dev-08 to 95.4% (−2.5), so the faster level swings into prices that lose winnable requests. A bigger day-start `boost` (−€1,335, 4/10) keeps per-car margin (€44.68 vs €44.62) and on-time (worst weeks match or beat base) but loses ~3.5 orders/wk (362.9 vs 366.4): the steeper first-moves overshoot the cheap morning and concede volume.
+- **Neither clears the 7-of-10 bar**, so no stronger run (step=0.15 / boost=8) was played.
+- The Wednesday gap is not explained by slow level adaptation: both faster variants lose on the same seeds. If the cheap-window miss is real, the fix is structural (e.g. a per-day or per-window level), not a bigger step.
+
+Pick: **keep the defaults `step=0.06`, `boost=3.0`.** The single-level quoter's speed is not the brake on cheap days; a structural change (day-aware level) would need its own sweep.
