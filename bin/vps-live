@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Plays the final (or a test final) from the practice machine near the server, as a systemd unit that
+# starts again by itself after a crash: the desk rejoins the same week from the world and its journal.
+#
+#   bin/vps-live start --policy main --set bundle=3    copy this checkout and start; it waits for the final
+#   bin/vps-live                                        state and the end of the log
+#   bin/vps-live stop                                   stop (the world keeps running: start again at once)
+set -euo pipefail
+home="${SPREAD_HOME:-/home/agent/.t3/projects/bahn}"
+vps="$(grep -E '^SPREAD_VPS=' "$home/.env" | cut -d= -f2-)"
+key="$(grep -E '^SPREAD_VPS_KEY=' "$home/.env" | cut -d= -f2-)"
+ssh=(ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o ControlMaster=no -o ControlPath=none -o ConnectTimeout=10 -o LogLevel=ERROR)
+root="$(git rev-parse --show-toplevel)"
+case "${1:-status}" in
+  start)
+    shift
+    rsync -az --delete --exclude .git --exclude data --exclude __pycache__ --exclude .direnv --exclude result --exclude .env \
+      -e "${ssh[*]}" "$root/" "$vps:bahn/trees/live/"
+    "${ssh[@]}" "$vps" "mkdir -p bahn/data/logs && systemd-run --quiet --collect --unit=bahn-live --working-directory=\$HOME/bahn/trees/live \
+      -p Restart=on-failure -p RestartSec=2 \
+      --setenv=HOME=\$HOME --setenv=SPREAD_HOME=\$HOME/bahn --setenv=SPREAD_ON_VPS=1 --setenv=PYTHONUNBUFFERED=1 \
+      bash -c 'exec python3 -m dispatch.live $* >> \$HOME/bahn/data/logs/live.log 2>&1' && systemctl is-active bahn-live"
+    ;;
+  stop)
+    "${ssh[@]}" "$vps" "systemctl stop bahn-live; systemctl is-active bahn-live || true"
+    ;;
+  *)
+    "${ssh[@]}" "$vps" "systemctl is-active bahn-live || true; tail -n ${2:-15} bahn/data/logs/live.log"
+    ;;
+esac
