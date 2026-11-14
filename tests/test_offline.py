@@ -1,6 +1,7 @@
 """Checks the desk, the practice loop and the slot broker without the server."""
 from __future__ import annotations
 
+import math
 import os
 import tempfile
 
@@ -538,3 +539,169 @@ def test_with_the_note_reader_the_long_lane_gate_takes_a_noted_car_from_its_read
         desk.ctx.road_minutes[("helsinki", "tampere")] = 360
         desk.quote(request)  # ready Tue 14:00 plus 6 hours misses Tue 20:00 - 1 h; three days fits
         assert desk.outbox[-1]["prices"] == expected
+
+NEXT_DAY = {**REQUEST, "note": None, "options": REQUEST["options"][1:]}  # list €150, typical fee €100, D1
+
+
+def quoted(desk, request):
+    desk.quote(request)
+    return desk.outbox[-1]["prices"]
+
+
+def test_the_dial_prices_by_cost_and_chance_and_moves_with_the_answers():
+    from dispatch.quote import DialQuoter, Quoter
+
+    assert type(reach_desk().parts.quoter) is Quoter  # the dial is a switch: reach without it quotes 1.5 x list
+    desk = reach_desk(quoter="dial")
+    quoter = desk.parts.quoter
+    assert type(quoter) is DialQuoter
+    first = quoted(desk, NEXT_DAY)["next_day"]
+    assert 1.13 * 10000 < first < 2.4 * 15000  # above the order's cost, inside the price range
+    assert quoted(desk, NEXT_DAY)["next_day"] == first  # the same request again: the same quote
+    assert quoted(reach_desk(quoter="dial", cost_next=1.6), NEXT_DAY)["next_day"] > first  # a dearer order, a higher price
+    both = quoted(desk, {**REQUEST, "id": "R0", "note": None})  # the dealer also offers same_day: a lower limit
+    assert both == {"next_day": both["next_day"]} and both["next_day"] < first
+    quoter.observe({"kind": "order_lost", "requestId": "R1"}, desk, False)
+    after_loss = quoted(desk, {**NEXT_DAY, "id": "R2"})["next_day"]
+    assert after_loss < first
+    quoter.observe({"kind": "order_won", "order": {**ORDER, "id": "R2"}}, desk, False)
+    assert quoted(desk, {**NEXT_DAY, "id": "R3"})["next_day"] > after_loss
+
+
+def test_only_same_raises_the_price_of_a_request_with_same_day_alone():
+    later = {**REQUEST, "note": None, "options": [{"kind": "same_day", "deadline": 2640, "listPriceCents": 20000}]}  # ready on Tuesday
+    plain = quoted(reach_desk(quoter="dial", future_same_day=True), later)["same_day"]
+    assert plain < 100000  # reach takes it
+    assert quoted(reach_desk(quoter="dial", future_same_day=True, only_same=0.17), later)["same_day"] > 1.1 * plain
+    both = {**REQUEST, "id": "R0", "note": None}  # same_day beside next_day: unchanged
+    assert quoted(reach_desk(quoter="dial", only_same=0.17), both) == quoted(reach_desk(quoter="dial"), both)
+    assert quoted(reach_desk(quoter="dial", only_same=0.17), NEXT_DAY) == quoted(reach_desk(quoter="dial"), NEXT_DAY)
+
+
+def test_a_request_that_the_intake_declines_teaches_the_dial_nothing():
+    desk = reach_desk(quoter="dial")
+    quoter = desk.parts.quoter
+    same_day_only = {**REQUEST, "note": None, "options": REQUEST["options"][:1]}
+    assert quoted(desk, same_day_only) == {"same_day": 100000}  # ready today: reach declines same_day
+    dial = quoter.dial
+    quoter.observe({"kind": "order_lost", "requestId": "R1"}, desk, False)
+    assert quoter.dial == dial
+    assert quoter.asked == {"D1": 1}
+
+
+def test_the_dial_counts_a_dealers_trust_from_the_ledger():
+    desk = reach_desk(quoter="dial")
+    quoter = desk.parts.quoter
+    first = quoted(desk, NEXT_DAY)["next_day"]
+
+    def ledger(kind, order_id):
+        quoter.observe({"kind": "ledger", "line": {"kind": kind, "orderId": order_id, "cents": 0}}, desk, False)
+
+    for i in range(5):
+        quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"O{i}"}}, desk, False)  # unknown requests: no lesson
+    assert quoter.coming == {"D1": 5} and quoter.dial == math.log(1.33)
+    for i in range(4):
+        ledger("revenue", f"O{i}")
+    ledger("revenue", "O0")  # a second revenue line of the same order does not count twice
+    assert quoter.trust == {"D1": 4} and quoter.coming == {"D1": 1}
+    assert quoted(desk, {**NEXT_DAY, "id": "R2"})["next_day"] > first  # the dealer accepts more now
+    assert quoted(desk, {**NEXT_DAY, "id": "R3", "dealerId": "D2"})["next_day"] == first  # another dealer does not
+    ledger("revenue", "O4")
+    ledger("late_refund", "O4")  # counted on time at its revenue, then late: the count without it, halved
+    assert quoter.trust == {"D1": 2} and quoter.coming == {"D1": 0}
+    quoter.observe({"kind": "order_won", "order": {**ORDER, "id": "O5"}}, desk, False)
+    quoter.observe({"kind": "order_cancelled", "orderId": "O5"}, desk, False)
+    assert quoter.coming == {"D1": 0}
+
+
+def test_a_price_war_is_a_day_that_the_dial_does_not_follow():
+    plain, war = reach_desk(quoter="dial"), reach_desk(quoter="dial", war=0.3)
+    first = quoted(war, NEXT_DAY)["next_day"]
+    for desk in (plain, war):
+        for i in range(30):  # thirty quotes in a row lose
+            quoted(desk, {**NEXT_DAY, "id": f"L{i}"})
+            desk.parts.quoter.observe({"kind": "order_lost", "requestId": f"L{i}"}, desk, False)
+    assert war.parts.quoter.at_war > 0.9
+    assert quoted(war, {**NEXT_DAY, "id": "W"})["next_day"] < first  # on the war's day it quotes lower, to win
+    assert war.parts.quoter.dial > plain.parts.quoter.dial  # but its dial has not gone all the way down
+    for desk in (plain, war):
+        desk.parts.quoter.morning(1440 + 600)
+    assert war.parts.quoter.at_war == 0 and war.parts.quoter.war_over  # one war a week
+    assert war.parts.quoter.best_markup(NEXT_DAY, war) > plain.parts.quoter.best_markup(NEXT_DAY, plain)
+
+
+def test_the_dial_moves_far_on_a_mornings_first_answers_and_little_later():
+    plain, doubting = reach_desk(quoter="dial"), reach_desk(quoter="dial", day_sd=0.12)
+    steps = []
+    for desk in (plain, doubting):
+        quoter = desk.parts.quoter
+        for i in range(40):
+            before = quoter.dial
+            quoted(desk, {**NEXT_DAY, "id": f"L{i}"})
+            quoter.observe({"kind": "order_won" if i % 2 else "order_lost", "requestId": f"L{i}", "order": {**ORDER, "id": f"L{i}"}}, desk, False)
+            steps.append(abs(quoter.dial - before))
+    assert steps[40] > 2 * steps[0]  # the first answer of the week moves a dial in doubt further
+    assert steps[79] < steps[40] / 2  # and the fortieth much less
+    quoter.morning(1440 + 600)
+    assert quoter.doubt == 0.12 ** 2 * 2 and quoter.closes  # a new day: back to the mean of the days, and in doubt again
+
+
+def test_detail_prices_a_private_address_up_and_a_car_ready_tomorrow_down():
+    private = {**NEXT_DAY, "legs": [{**LEG, "delivery": {**PLACE, "placeId": "tampere", "privateAddress": True}}]}
+    later = {**NEXT_DAY, "legs": [{**LEG, "pickup": {**PLACE, "window": {"from": 1440 + 600, "to": 1440 + 1200}}}]}
+    plain = {**NEXT_DAY, "legs": [{**LEG, "car": {**LEG["car"], "premium": False}}]}
+    desk = reach_desk(quoter="dial", detail=1.0)
+    quoter = desk.parts.quoter
+    assert round(quoter.cost(private, desk) - quoter.cost(NEXT_DAY, desk)) == 2600
+    assert round(quoter.cost(later, desk) - quoter.cost(NEXT_DAY, desk)) == -1600
+    assert round(quoter.cost(NEXT_DAY, desk) - quoter.cost(plain, desk)) == 1400  # a premium car
+    # 25 drivers live in Helsinki and none within 60 km of Tampere: the car to Tampere is the dearer one to move
+    back = {**NEXT_DAY, "legs": [{**LEG, "pickup": {**PLACE, "placeId": "tampere"}, "delivery": PLACE}]}
+    assert round(quoter.cost(NEXT_DAY, desk) - quoter.cost(back, desk)) == round((0.04 - 0.03) * math.log(26) * 10000)
+    off = reach_desk(quoter="dial")
+    assert off.parts.quoter.cost(private, off) == 1.13 * 10000  # off by default
+
+
+def test_lanes_price_by_what_the_competitor_asks_for_the_delivery_place():
+    to_kotka = {**NEXT_DAY, "legs": [{**LEG, "delivery": {**PLACE, "placeId": "kotka"}}]}
+    to_vantaa = {**NEXT_DAY, "legs": [{**LEG, "delivery": {**PLACE, "placeId": "vantaa"}}]}
+    quoter = reach_desk(quoter="dial", lanes=1.0).parts.quoter
+    assert quoter.effect(to_kotka) - quoter.effect(to_vantaa) > 0.15  # a dealer accepts more for a car to Kotka
+    off = reach_desk(quoter="dial").parts.quoter
+    assert off.effect(to_kotka) == off.effect(to_vantaa)  # off by default
+
+
+def test_same_up_prices_same_day_above_the_later_option():
+    tomorrow = {**PLACE, "window": {"from": 1440 + 600, "to": 1440 + 1200}}
+    request = {**REQUEST, "note": None, "legs": [{**LEG, "pickup": tomorrow, "delivery": {**tomorrow, "placeId": "tampere"}}],
+               "options": [{"kind": "same_day", "deadline": 1440 + 1200, "listPriceCents": 20000}, {"kind": "next_day", "deadline": 2 * 1440 + 1200, "listPriceCents": 15000}]}
+    alike = quoted(reach_desk(quoter="dial", same_day=True), request)  # reach quotes same_day beside another option only when told
+    dearer = quoted(reach_desk(quoter="dial", same_day=True, same_up=0.1), request)
+    assert set(alike) == {"same_day", "next_day"} and alike["same_day"] * 3 == alike["next_day"] * 4  # one markup for both
+    assert dearer["next_day"] == alike["next_day"] and dearer["same_day"] == round(alike["same_day"] * 1.1)
+
+
+def test_place_gain_learns_a_pickup_place_apart_from_the_others():
+    desk = reach_desk(quoter="dial", place_gain=0.05)
+    quoter = desk.parts.quoter
+    elsewhere = {**NEXT_DAY, "id": "E", "legs": [{**LEG, "pickup": {**PLACE, "placeId": "tampere"}, "delivery": PLACE}]}
+    for i in range(10):
+        quoted(desk, {**NEXT_DAY, "id": f"W{i}"})
+        quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"W{i}"}}, desk, False)
+    assert quoter.place_dial["helsinki"] > 0 and "tampere" not in quoter.place_dial
+    assert math.isclose(quoter.effect({**NEXT_DAY, "id": "H"}) - quoter.effect(elsewhere), quoter.place_dial["helsinki"])
+
+
+def test_the_brake_raises_the_cost_in_a_week_of_warnings_and_lowers_it_in_a_calm_one():
+    desk = reach_desk(quoter="dial", brake=2.0)
+    quoter = desk.parts.quoter
+    usual = quoter.cost(NEXT_DAY, desk)
+    assert usual == 1.13 * 10000  # the week starts as a usual one
+    for i in range(60):
+        quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"O{i}"}}, desk, False)
+    assert quoter.cost(NEXT_DAY, desk) < usual  # sixty orders and no warning: a calm week
+    for i in range(20):
+        quoter.observe({"kind": "deadline_close", "orderId": f"O{i}", "lastPickupAt": 900}, desk, False)
+    quoter.observe({"kind": "ledger", "line": {"kind": "late_refund", "orderId": "O0", "cents": -100}}, desk, False)  # warned and late: one order
+    assert len(quoter.strained) == 20 and quoter.cost(NEXT_DAY, desk) > usual
+    assert reach_desk(quoter="dial").parts.quoter.strain() == 0
