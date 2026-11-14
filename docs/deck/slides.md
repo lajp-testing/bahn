@@ -18,7 +18,7 @@ pelaaja juhlii · Spread · Junction 2026
 :::
 
 ::: tiles small
-- **9th of about 230** best ranking round (Saturday 21:00): €84,857 over its 5 weeks, 96.4% on time
+- **13th of 56 ranked teams** (240 entered) in our best ranking round (Saturday 21:00): €84,857 over its 5 weeks, 96.4% on time
 - **5th of 75 ranked** Saturday 20:00 test final: €17,443, 356 orders, 97.2% on time
 - **40 of 40 ranked** weeks the final's code never saw: €17,308 and 399 orders a week, 96.1% on time
 :::

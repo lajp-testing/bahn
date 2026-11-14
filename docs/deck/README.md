@@ -38,7 +38,7 @@ Every slide's last line names its sources. In short:
 | Slide | Numbers | Source |
 |---|---|---|
 | 1 | Ranking round €84,857, 96.4% on time, 2,018 orders | our 5 board runs `b81-board-s9-1..5` in `data/runs.jsonl` (`numbers.json` → `board_saturday_2100`) |
-| 1 | "9th of about 230" | the public board, as recorded by the orchestrator. **Not in any findings file: check it.** |
+| 1 | "13th of 56 ranked teams (240 entered)" | the public practice board (`/v1/leaderboards/practice?level=8`, "previous" round Saturday 21:00), read after the round closed; our 5 board runs in data/runs.jsonl give the same €84,857 and 96.4%. |
 | 1 | Test final 5th of 75, €17,443, 356 orders, 97.2% | `tracks/orch/finals/testfinal-20261114-1800/README.md`; `charts.py` re-reads it from the feed |
 | 1, 9 | 40 unseen weeks: €17,308 / week, 399 orders, 96.1%, lowest 92.4% | `b89-main` on rob-21..60, `numbers.json` → `unseen40_b89`; tracks/orch/FINDINGS.md 21:50 |
 | 2 | Formula | `dispatch/pricing.py` (`ProfitQuoter.prices`, `chance`, `factor`, the level update), `dispatch/policies/main.py` defaults |
