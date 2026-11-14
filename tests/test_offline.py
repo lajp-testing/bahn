@@ -704,3 +704,17 @@ def test_list_gain_learns_that_this_weeks_dealers_pay_more_for_a_dear_car():
         quoted(desk, {**NEXT_DAY, "id": f"W{i}"})  # list €150: dearer than the usual €60
         quoter.observe({"kind": "order_won", "order": {**ORDER, "id": f"W{i}"}}, desk, False)
     assert quoter.list_dial > 0 and quoter.effect(NEXT_DAY) - quoter.effect(cheap) > gap
+
+
+def test_the_ladder_prices_a_cheap_car_of_a_busy_dealer_lower_and_only_on_a_short_drive():
+    def markup(**params):
+        desk = reach_desk(quoter="dial", **params)
+        for i in range(30):
+            quoted(desk, {**NEXT_DAY, "id": f"A{i}"})  # a busy dealer of cars at list €150
+        cheap = {**NEXT_DAY, "id": "C", "options": [{**NEXT_DAY["options"][0], "listPriceCents": 3000}]}
+        return quoted(desk, cheap)["next_day"] / 3000
+
+    drive = reach_desk(quoter="dial").ctx.minutes("helsinki", "tampere")
+    assert markup(ladder=0.01) < markup()
+    assert markup(ladder=0.01, ladder_drive=drive) == markup(ladder=0.01)
+    assert markup(ladder=0.01, ladder_drive=drive - 1) == markup()
