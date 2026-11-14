@@ -649,3 +649,43 @@ Conclusions:
 - **The long-lane gate loses money; do not adopt.** Even restricted to lanes of 300 km or more, the view raise costs €2,726 over 13 weeks and wins only 4/13. The one clear win (rob-04, +€895, on-time 96.0%→98.1%) is outweighed by losses spread across the dev seeds, so the gate does not isolate the test final's late long lanes — the raised fee still fires on long lanes that would have booked anyway at the lower fee.
 - All 13 weeks stayed ranked (on-time ≥ 94.0% in every week), so the loss is margin, not ranking.
 - The parameter `fee_flat_views_km` stays in the code (off by default, behaviour unchanged) for a possible narrower screen, e.g. a higher view count or a km band around the observed 420–830 km late lanes.
+
+## Where the floor-0.75 mainline still loses, 14 Nov
+
+Offline read of saved weeks only (script `tracks/t2/floor_bands.py`): the new mainline `b68-floor075-short095-carshort085` (flat-fee floors 0.75 / 0.95, lanes under 100 km at `car_short` 0.85) against the previous `b52-fee4-car110` (floors 0.85 / 1.15, `car` 1.1), on the **same 30 worlds** (dev-01..10, rob-01..20; 31,060 requests each). Rules: quote/list = lowest quoted price over that option's list price (no request goes unquoted); option kind = the dealer's choice when won, else the cheapest quoted kind; margin per won order = the order's ledger lines, a multi-order gig's fee shared equally among its orders (the 30-week ledger totals match the runs index to the cent: b68 €508,443.73, b52 €487,499.35); road km = `ctx.km` of the first leg; single-car gig = the first one-order post of an order, opening fee = its first schedule step, typical fee = the request's `referenceFeeCents`.
+
+Totals: b68 wins 11,818 (38.0%) at €43 margin/won; b52 wins 11,070 (35.6%) at €44. b68 wins +748 orders at −€1 margin each.
+
+**By road km of the first leg** (bands 0-50 / 50-100 / 100-200 / 200-300 / 300-500 / 500+):
+
+| Band | b52 req / win % / quote / margin€ | b68 req / win % / quote / margin€ | Win-rate change |
+|---|---|---|---|
+| 0-50 | 3,556 / 32% / 1.76 / 14 | 3,556 / 45% / 1.65 / 11 | +13 pp |
+| 50-100 | 5,886 / 31% / 1.77 / 22 | 5,886 / 46% / 1.66 / 18 | +15 pp |
+| 100-200 | 8,738 / 41% / 1.78 / 36 | 8,738 / 39% / 1.80 / 41 | −2 pp |
+| 200-300 | 4,399 / 44% / 1.83 / 50 | 4,399 / 42% / 1.86 / 56 | −2 pp |
+| 300-500 | 5,193 / 35% / 2.05 / 74 | 5,193 / 31% / 2.16 / 80 | −4 pp |
+| 500+ | 3,288 / 21% / 2.32 / 100 | 3,288 / 18% / 2.47 / 110 | −3 pp |
+
+The short-lane tilt did its job under 100 km (+13/+15 pp); **every band of 100 km or more got worse**, and its mean quote/list rose (long lanes +0.11–0.15 list) — the level/cost follow-through of winning more short cars prices the mid and long lanes up.
+
+**By option kind** (b68 / b52): `next_day` 18,150 / 18,450 requests, 32% / 30% win, quote 1.69 / 1.67, margin €52 / €53 — the biggest loss pool (12,336 lost requests under b68); `same_day` 8,933 / 8,329 requests, 63% / 61% win, quote 2.48 / 2.54, margin €32 / €33; `within_3_days` 3,977 / 4,281 requests, 10% / 9% win, quote 1.53 / 1.54, margin €68 / €65. **By weekday** (b68 / b52): Mon 37% / 34% win at quote 1.71 / 1.72, Tue 38% / 36%, Wed 42% / 39%, Thu 39% / 38%, Fri 33% / 31% at quote 1.99 / 2.02. Monday and Friday are the worst days; Monday's quote sits about 0.3 over the ~1.3–1.4 Monday acceptance level of the t2 scans.
+
+**Single-car opening gigs** (first one-order post per order; b68 n=9,349, b52 n=9,275):
+
+| Opening fee ÷ typical | b68 share / booked / median mins | b52 share / booked / median mins |
+|---|---|---|
+| at the 0.75 floor | 35% / 64% / 23 | — |
+| at the 0.85 floor | 5% / 64% / 73 | 68% / 74% / 14 |
+| at the 0.95 floor | 2% / 83% / 25 | 1% / 71% / 134 |
+| at the 1.15 floor | 1% / 78% / 7 | 4% / 95% / 2 |
+| above the floors (model fee) | 57% / 70% / 23 | 27% / 75% / 27 |
+| **all** | **68% booked / 24 min** | **75% booked / 15 min** |
+
+The 0.75 floor is at the drivers' edge: the opening gig books 10 pp less often and 9 minutes slower than at 0.85 (the schedule's step-ups and later multi-car posts recover the rest, and b68 still nets more margin overall). Do not go lower.
+
+Conclusions:
+
+- **The remaining losses are next_day mid lanes and the long bands the change itself gave back.** The largest absolute pool is 100-200 km (5,296 lost under b68, 39% win) on `next_day`; the worst regression vs b52 is 300-500 km (35%→31%) and 500+ (21%→18%), whose quotes rose 0.11-0.15 list with the level. Monday (37% win, quote 1.71) and Friday (33%, quote 1.99) are the weakest days.
+- **A graduated `car` tilt plausibly wins them without losing margin:** keep 0.85 under 100 km, add ~0.95 for 100-200 km, and pull the level back down on 300+ km (where margin per won order is €80-110, the week's best, so volume there adds margin rather than dilutes it). The short-band experiment is the evidence that a lane tilt moves win rate where the fee already sits near typical.
+- The 0.75/0.95 floors should stay as they are: 64% of floor gigs still book, and the floor is what pays for the short-lane wins; the booking share says the next fee-down step would buy slower bookings, not cheaper orders.
