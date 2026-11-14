@@ -175,3 +175,15 @@ Rejected: dev margin falls €10,735.61, and rob-17 does not rank. `t1s5-late3` 
 The 3% late-share rule has the highest minimum of the completed candidates but misses 94%; dev margin is €256.53 below baseline. Its late count uses the order deadline and timestamps, not ledger refunds, so private booked-hour deadlines may be missed. The 20-week check `t1s5-late3-rob` was started after this result, later than planned; the earlier `t1s5-best-rob` checked the then-leading warning rule.
 
 `t1s5-late3-rob`: €199,499.83, 5,309 orders, 96.8% aggregate, 20/20 ranked. Sorted: rob-17 92.43%, rob-18 93.05%, rob-14 93.22%, rob-05 95.40%, rob-11 96.20%, rob-10 96.53%, rob-08 96.74%, rob-09 97.12%, rob-12 97.25%, rob-03 97.39%, rob-20 97.41%, rob-13 97.47%, rob-19 97.61%, rob-07 97.62%, rob-16 97.74%, rob-06 97.81%, rob-01 98.13%, rob-02 98.14%, rob-15 98.14%, rob-04 98.95%. The five shaped-on weeks are included; no candidate meets 94%. Next measure posting-to-booking delay and unbooked gig age before the Thursday cohort's decisions, and reconstruct late share from ledger refunds including private deadlines. No inference of flu or outage cause is established.
+
+## More orders, same worst week, 14 Nov
+
+Stint of 30 minutes (cut from 75). Baseline `b26-fix-wo` (mainline: limit 35, 45 before noon, patience 120).
+
+**Where the week breaks.** `duedays.py` on `b26-fix-wo` (40 weeks): orders due Monday 5.5% late (127 orders), Tuesday 2.4%, Wednesday 2.8%, Thursday 2.4%, **Friday 4.7% (3,042 orders, the busiest day)**, after the week 2.1%. Friday collects Tuesday's within-3-days, Thursday's next-day and Friday's same-day options; Wednesday's within-3-days fall due after the weekend, so Saturday and Sunday hold almost nothing. `b27-limit40` raises Friday to 5.1% late and dev-07 to 90.8%: extra volume lands where it hurts.
+
+**Peak load per due day** (`tracks/t1/dayload.py`, the most undelivered orders due on one day at any moment): Friday's peak ranges 20 to 89 orders a week, median about 52. It does **not** predict the bad weeks well: dev-07 (93.7%) peaks at 58, while dev-03 peaks at 89 with 96.2% and dev-05 at 72 with 98.5%. So a day cap alone is not a safety rule. It may still let a higher total limit add volume on the other days while holding Friday where the baseline keeps it.
+
+**Switch `day_limit=<n>`** (off by default, `dispatch/intake.py` `LimitedIntake.room_on_day`, wired in `main.py`): an option is quoted only while its due day holds fewer than n undelivered orders. A quote awaiting its dealer counts as one order shared among the due days it was quoted for. Reason in one sentence: the drivers of one day can move only so many cars, so take the option that falls due on a day with room. With the switch off, `main` must equal `b26-fix-wo` (check `t1s9-off`, dev-01).
+
+Planned and not yet played: `limit=45 day_limit=60`, `limit=40 day_limit=60`, `limit=35 day_limit=60` (what the cap costs on its own), each over 30 weeks paired with `b26-fix-wo`.
