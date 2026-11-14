@@ -208,6 +208,9 @@ class ProfitQuoter(Part):
             scarcity = self.scarcity(request, desk)
             self.scarce_sum, self.scarce_n = self.scarce_sum + scarcity, self.scarce_n + 1
             car *= 1 + self.scarce * max(0.0, min(1.0, scarcity * self.scarce_n / self.scarce_sum - 1))
+        guard = getattr(self, "guard", None)
+        if guard is not None and guard.careful(desk):
+            car *= guard.guard_car  # the on-time governor: a week going badly makes every car dearer
         fee = car * fees.expected(request, desk) if self.car and hasattr(fees, "expected") else self.cost * request["referenceFeeCents"]
         risk = self.late * fees.late_risk(request, desk) if self.late and hasattr(fees, "late_risk") else 0.0
         if self.pair and desk.parts.bundles and desk.parts.bundles.fits(request, desk):

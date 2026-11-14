@@ -72,6 +72,9 @@ class LimitedIntake(Intake):
                          or (o["kind"] == "same_day" and self.same_day_slack >= 0
                              and nearby >= self.same_day_drivers
                              and notes.latest_delivery(request, o["deadline"]) - start - drive >= self.same_day_slack))}
+        guard = getattr(self, "guard", None)
+        if guard is not None and guard.careful(desk):  # the on-time governor: a week going badly loses same-day speed
+            later = {kind: price for kind, price in later.items() if kind != "same_day"}
         if (self.afternoon_ready and desk.now % 1440 >= 900
                 and hasattr(notes, "earliest_pickup")
                 and notes.earliest_pickup(request) <= desk.now + self.afternoon_ready):
