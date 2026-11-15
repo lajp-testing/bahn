@@ -4,6 +4,8 @@ import "./theme";
 import { Claim, Flow, Hook, Result } from "./scenes1";
 import { Formula, Idea1, Idea2, Idea3, Idea4 } from "./scenes2";
 import { Close, Limits, Method, Robust, TestFinal } from "./scenes3";
+import { Ablation } from "./Ablation";
+const AblationScene: React.FC = () => <Ablation n={9} />;
 
 // One idea per scene; durations in frames at 30 fps (about 2.5 words a second plus a second to settle).
 export const SCENE_LIST: [string, React.FC, number][] = [
@@ -16,10 +18,11 @@ export const SCENE_LIST: [string, React.FC, number][] = [
   ["idea2-prices", Idea2, 570],
   ["idea3-fees", Idea3, 570],
   ["idea4-cars", Idea4, 600],
-  ["method", Method, 480],
+  ["ablation", AblationScene, 660],
+  ["method", Method, 420],
   ["testfinal", TestFinal, 570],
   ["robust", Robust, 540],
-  ["limits", Limits, 570],
+  ["limits", Limits, 540],
   ["close", Close, 330],
 ];
 const TOTAL = SCENE_LIST.reduce((s, [, , d]) => s + d, 0);

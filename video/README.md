@@ -1,12 +1,12 @@
 # The video
 
-A presentation video for Spread with no presenter: every claim is on screen, with its evidence and its source line. Made with [Remotion](https://remotion.dev) (React → MP4), 1920×1080, 30 fps, about 4 minutes. It uses the demo's look: the night palette, amber headlights, Fraunces, IBM Plex Sans and Mono, and the real Finland map.
+A presentation video for Spread with no presenter: every claim is on screen, with its evidence and its source line. Made with [Remotion](https://remotion.dev) (React → MP4), 1920×1080, 30 fps, about 4½ minutes, 15 scenes. It uses the demo's look: the night palette, amber headlights, Fraunces, IBM Plex Sans and Mono, and the real Finland map.
 
 The output is `out/bahn-spread.mp4`.
 
 ## Fill in the final's result, then re-render
 
-1. Edit `src/final.ts`. Fill the five fields: `rank`, `rankedTeams`, `marginEur`, `orders`, `onTimePct`. A field left `null` shows as `__`.
+1. Edit `src/final.ts`. Fill the five fields of `FINAL`: `rank`, `rankedTeams`, `marginEur`, `orders`, `onTimePct`. A field left `null` shows as `__`. The best ranking round, `BEST_ROUND`, is in the same file.
 2. Run `./render.sh` from this folder. It writes `out/bahn-spread.mp4` in about 5 minutes on 16 cores.
 
 The result appears in two places: the dashed tile in scene 2 ("The result") and the last scene.
@@ -27,6 +27,7 @@ The result appears in two places: the dashed tile in scene 2 ("The result") and 
 | `src/Root.tsx` | The scene list and each scene's duration. Each scene is also its own composition, `scene-<id>`, for stills. |
 | `src/scenes1.tsx` | The hook (the real week on the map), the claim, the result, and how the system decides. |
 | `src/scenes2.tsx` | Idea 1 (cost model), the decision rule on request R00013, idea 2 (prices), idea 3 (fees), idea 4 (safe cars, bundles). |
+| `src/Ablation.tsx` | The final's code on the same 10 dev weeks, with one idea switched off per row (deck slide 7). |
 | `src/scenes3.tsx` | How we know, the test final, robustness, limits, the close. |
 | `src/MapWeek.tsx` | Finland and the week's cars, drawn for any world minute. |
 | `src/ui.tsx`, `src/theme.ts` | The scene frame, the animation helpers, the palette and fonts. |

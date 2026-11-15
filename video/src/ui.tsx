@@ -21,7 +21,7 @@ export const Count: React.FC<{ to: number; at?: number; dur?: number; fmt: (v: n
     return <>{fmt(to * prog(f, at, dur))}</>;
   };
 
-export const SCENES = 13;
+export const SCENES = 14;
 
 // Every scene: a kicker (what part of the story), a claim (the title), the body, and the source line.
 export const Scene: React.FC<{ n: number; kicker: string; title?: React.ReactNode; source?: string; titleWidth?: number; children?: React.ReactNode }> =

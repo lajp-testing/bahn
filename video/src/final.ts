@@ -7,3 +7,13 @@ export const FINAL = {
   orders: null as number | null,      // orders won, e.g. 356
   onTimePct: null as number | null,   // on-time share in percent, e.g. 97.2
 };
+
+// The best ranking round. Standings move while a round is open; update here if they change.
+export const BEST_ROUND = {
+  round: "Round 12 · Sunday 06:00",
+  rank: 6,             // our place at 06:10 UTC
+  rankedTeams: 43,
+  marginEur: 79842,    // over its 5 weeks
+  runs: 5,
+  onTimePct: 96.6,     // mean; every week ranked (95.3–97.6%)
+};

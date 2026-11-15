@@ -166,13 +166,13 @@ export const Idea3: React.FC = () => {
             <path d={flat} fill="none" stroke={C.headlight} strokeWidth={4} />
           </g>
           <text x={W} y={ladder[11][1] - 14} fill={C.faint} fontFamily={F.sans} fontSize={22} textAnchor="end">old: a raise every hour</text>
-          <text x={0} y={H - 104} fill={C.headlight} fontFamily={F.sans} fontSize={22}>opens at expected fee − 0.15 × typical</text>
+          <text x={0} y={H - 104} fill={C.headlight} fontFamily={F.sans} fontSize={22}>our fee</text>
           <text x={W * 0.5 + 10} y={H - 112} fill={C.headlight} fontFamily={F.sans} fontSize={20} opacity={prog(f, 80, 12)}>+0.15 after 6 h unbooked</text>
           <text x={W} y={H - 162} fill={C.headlight} fontFamily={F.sans} fontSize={20} textAnchor="end" opacity={prog(f, 95, 12)}>+0.15 a day before pickup</text>
           <text x={0} y={H + 32} fill={C.faint} fontFamily={F.mono} fontSize={19}>posted</text>
           <text x={W} y={H + 32} fill={C.faint} fontFamily={F.mono} fontSize={19} textAnchor="end">time →</text>
         </svg>
-        <In at={130} style={{ marginTop: 20 }}><Body style={{ fontSize: 26 }}>Never below 0.75 × typical (0.95 for a lane under 40 km or a car with under 5 hours left).</Body></In>
+        <In at={130} style={{ marginTop: 6 }}><Body style={{ fontSize: 25 }}>It opens at the model's expected fee − 0.15 × typical fee, never below 0.75 × typical (0.95 for a lane under 40 km or a car with under 5 hours left).</Body></In>
       </Col>
       <Col x={1020} w={780} top={300}>
         <In at={190}><Label color={C.headlight}>Why</Label>
@@ -184,7 +184,7 @@ export const Idea3: React.FC = () => {
             <div style={{ fontSize: 23, color: C.frost, marginTop: 6 }}>of one-car gigs late (about), 10 dev weeks</div></div>
         </In>
       </Col>
-      <Effect at={400} style={{ position: "absolute", left: 120, right: 120, top: 820 }}>
+      <Effect at={400} style={{ position: "absolute", left: 120, right: 120, top: 856 }}>
         Flat fees together with the safe-car rule (next): <B c={C.headlight}>+<Count to={69993} at={405} fmt={(v) => eur(v)} /></B> over 40 weeks, ahead in 38 of 40.
       </Effect>
     </Scene>

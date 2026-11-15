@@ -1,9 +1,10 @@
 import React from "react";
 import { useCurrentFrame } from "remotion";
 import nums from "./data/numbers.json";
-import { C, F, eur } from "./theme";
+import { C, F, eur, ord } from "./theme";
 import { B, Body, Effect, In, Label, prog, Scene } from "./ui";
 import { finalLine } from "./scenes1";
+import { BEST_ROUND as BR } from "./final";
 
 // ---------- 9 · how we know: the same 40 worlds at every adopted step ----------
 const STEP_NAMES = ["start", "safe cars + flat fees", "learned cost model", "same-day + cost tilt", "model 4, tilt 1.1", "cheaper short cars", "model 5", "higher limits"];
@@ -23,7 +24,7 @@ export const Method: React.FC = () => {
     d += ` L${a[0] + (b[0] - a[0]) * u},${a[1] + (b[1] - a[1]) * u}`;
   }
   return (
-    <Scene n={9} kicker="How we know" title="Every idea is a switch, judged on the same 40 worlds with and without it"
+    <Scene n={10} kicker="How we know" title="Every idea is a switch, judged on the same 40 worlds with and without it"
       source="Mean margin per week over the same 40 worlds (10 dev, 20 rob, 10 holdout) at each adopted step of 14 November; data/runs.jsonl via docs/deck/numbers.json. Model 5's step is partly in-sample.">
       <div style={{ position: "absolute", left: 120, top: 300 }}>
         <Label color={C.headlight}>Margin per week, mean of the same 40 worlds</Label>
@@ -75,7 +76,7 @@ export const TestFinal: React.FC = () => {
     );
   };
   return (
-    <Scene n={10} kicker="What the test final taught us" title="The live leaderboard showed our gap: about 110 short, cheap cars"
+    <Scene n={11} kicker="What the test final taught us" title="The live leaderboard showed our gap: about 110 short, cheap cars"
       source="tracks/orch/finals/testfinal-20261114-1800/ANALYSIS.md (leaderboard feed recorded every 2 s); b68-floor075-short095-carshort085 vs b52-fee4-car110, tracks/orch/FINDINGS.md 19:45.">
       <div style={{ position: "absolute", left: 120, top: 300, width: 800 }}>
         <In at={20}><Label color={C.headlight}>Saturday's test final</Label></In>
@@ -102,11 +103,11 @@ export const Robust: React.FC = () => {
   const un = (nums.unseen as [string, number, number, number, boolean][]).slice().sort((a, b) => a[2] - b[2]);
   const W = 1000, lo = 88, hi = 100, X = (v: number) => ((v - lo) / (hi - lo)) * W;
   return (
-    <Scene n={11} kicker="Robust" title="It holds on weeks it has never seen, and rejoins after a crash"
+    <Scene n={12} kicker="Robust" title="It holds on weeks it has never seen, and rejoins after a crash"
       source="b89-main (the final's code) on rob-21..60, data/runs.jsonl; restart: tracks/orch/FINDINGS.md 23:55 and tracks/t3/LIVE.md.">
       <div style={{ position: "absolute", left: 120, top: 300, width: W }}>
         <In at={20}><Label color={C.headlight}>On time, each of 40 unseen weeks · one dot a week</Label></In>
-        <svg width={W} height={220} style={{ overflow: "visible", marginTop: 30 }}>
+        <svg width={W} height={220} style={{ overflow: "visible", marginTop: 30, transform: "scale(1)" }}>
           <rect x={0} y={20} width={X(90)} height={140} fill={C.late} opacity={0.08} />
           <line x1={X(90)} x2={X(90)} y1={10} y2={170} stroke={C.late} strokeDasharray="6 6" />
           <text x={X(90) - 10} y={10} fill={C.late} fontFamily={F.mono} fontSize={19} textAnchor="end">unranked</text><text x={X(90)} y={200} fill={C.late} fontFamily={F.mono} fontSize={19} textAnchor="middle">90%</text>
@@ -148,7 +149,7 @@ const LIM: [string, [string, string][]][] = [
   ]],
 ];
 export const Limits: React.FC = () => (
-  <Scene n={12} kicker="Limits" title="What did not work, what would break it, what we don't know"
+  <Scene n={13} kicker="Limits" title="What did not work, what would break it, what we don't know"
     source="docs/jury.md §5 and the tracks' FINDINGS.md files; tracks/orch/finals/testfinal-20261114-1800/ANALYSIS.md.">
     <div style={{ position: "absolute", left: 120, top: 330, right: 120, display: "grid", gridTemplateColumns: "1.15fr 1fr 0.85fr", gap: 60 }}>
       {LIM.map(([h, items], c) => (
@@ -169,7 +170,7 @@ export const Limits: React.FC = () => (
 export const Close: React.FC = () => {
   const fl = finalLine();
   return (
-    <Scene n={13} kicker="pelaaja juhlii · Spread · Junction 2026">
+    <Scene n={14} kicker="pelaaja juhlii · Spread · Junction 2026">
       <div style={{ position: "absolute", left: 120, top: 250, right: 120 }}>
         <In at={10}><div style={{ fontFamily: F.serif, fontSize: 64, fontWeight: 560, lineHeight: 1.12, maxWidth: 1500 }}>
           Price each car over its own learned cost. Take only the work our drivers can deliver. Measure every idea on the same weeks.</div></In>
@@ -178,10 +179,10 @@ export const Close: React.FC = () => {
           <div style={{ fontFamily: F.mono, fontSize: 32, color: C.birch }}>{fl.sub}</div>
         </In>
         <In at={130} style={{ marginTop: 26 }}>
-          <Body>Best ranking round: <B>3rd of 33</B>, €79,842 over 5 runs, all ranked.</Body>
+          <Body>Best ranking round: <B>{ord(BR.rank)} of {BR.rankedTeams}</B> ranked teams, {eur(BR.marginEur)} over {BR.runs} weeks, every week ranked.</Body>
         </In>
         <In at={170} style={{ marginTop: 60 }}>
-          <div style={{ fontFamily: F.mono, fontSize: 22, color: C.faint }}>Every number in this video comes from data/runs.jsonl and tracks/*/FINDINGS.md in our repository.</div>
+          <div style={{ fontFamily: F.mono, fontSize: 22, color: C.faint }}>Every number in this video is in our repository: data/runs.jsonl, tracks/*/FINDINGS.md, docs/deck.</div>
         </In>
       </div>
     </Scene>

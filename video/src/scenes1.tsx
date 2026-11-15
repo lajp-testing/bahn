@@ -1,9 +1,9 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { C, F, eur } from "./theme";
+import { C, F, eur, ord } from "./theme";
 import { B, Body, Count, Effect, Grain, In, Label, prog, Scene } from "./ui";
 import { MapWeek, WEEK_MIN, clock, stats } from "./MapWeek";
-import { FINAL } from "./final";
+import { BEST_ROUND as BR, FINAL } from "./final";
 
 // ---------- 0 · the hook: the real week flowing across Finland ----------
 export const Hook: React.FC = () => {
@@ -95,7 +95,7 @@ export const Result: React.FC = () => {
   );
   return (
     <Scene n={2} kicker="The result" title="Every run ranked: on the board, in the test final, on weeks it never saw"
-      source="Round 12: tracks/orch/FINDINGS.md (04:37 UTC). Test final: tracks/orch/finals/testfinal-20261114-1800. Unseen weeks: b89-main on rob-21..60, data/runs.jsonl.">
+      source="Round 12: standing at 06:10 UTC, tracks/orch/FINDINGS.md. Test final: tracks/orch/finals/testfinal-20261114-1800. Unseen weeks: b89-main on rob-21..60, data/runs.jsonl.">
       <In at={20} style={{ position: "absolute", left: 120, top: 330, right: 120 }}>
         <div style={{ border: `2px dashed ${fl.filled ? C.headlight : C.coast}`, borderRadius: 6, padding: "26px 36px", display: "flex", alignItems: "baseline", gap: 40 }}>
           <div style={{ fontFamily: F.serif, fontSize: 72, fontWeight: 600, color: C.headlight }}>{fl.head}</div>
@@ -104,8 +104,8 @@ export const Result: React.FC = () => {
         </div>
       </In>
       <div style={{ position: "absolute", left: 120, top: 580, right: 120, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 56 }}>
-        {tile(70, <>3rd of 33</>, "Best ranking round · Sunday 06:00",
-          <><B><Count to={79842} at={80} dur={45} fmt={(v) => eur(v)} /></B> over 5 runs, every run ranked, 95.3–97.6% on time.</>)}
+        {tile(70, <>{ord(BR.rank)} of {BR.rankedTeams}</>, "Best ranking round · " + BR.round.split(" · ")[1],
+          <><B><Count to={BR.marginEur} at={80} dur={45} fmt={(v) => eur(v)} /></B> over {BR.runs} weeks, every week ranked, {BR.onTimePct}% on time.</>)}
         {tile(150, <>5th of 75</>, "Saturday's test final",
           <><B>€17,443</B> margin, 356 orders, 97.2% on time.</>)}
         {tile(230, <>40 of 40</>, "Weeks no part was tuned on",

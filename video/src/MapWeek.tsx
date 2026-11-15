@@ -69,7 +69,7 @@ export const MapWeek: React.FC<{ minute: number; scale?: number; x: number; y: n
               <path d={lane} fill="none" stroke={C.headlight} strokeWidth={1} opacity={laneOp} />
               {t < 1 ? (
                 <>
-                  <circle cx={pos[0]} cy={pos[1]} r={6} fill={C.headlight} opacity={0.5} filter="url(#glow)" />
+                  <circle cx={pos[0]} cy={pos[1]} r={6} fill={C.headlight} opacity={0.25} />
                   <circle cx={pos[0]} cy={pos[1]} r={2.6} fill={C.headlight} />
                 </>
               ) : (
