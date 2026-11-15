@@ -107,6 +107,10 @@ tr.us td, td strong { color: var(--ink); }
 .ablation th, .ablation td { white-space: nowrap; padding-top: 5px; padding-bottom: 5px; }
 .ablation th { white-space: normal; }
 .note p { font-size: 15.5px; line-height: 1.35; color: var(--ink2); }
+/* the demo link on the last slide: noticed, not the main point */
+.demo { margin-top: 14px; background: var(--wash); border-left: 4px solid var(--orange); border-radius: 8px; padding: 10px 16px; }
+.demo p { font-size: 16px; line-height: 1.35; color: var(--ink2); }
+.demo strong { color: var(--ink); }
 </style></head>
 <body>
 <main id="deck">
@@ -590,7 +594,7 @@ tr.us td, td strong { color: var(--ink); }
 <h2>What we would do next</h2>
 <ul><li><strong>Retrain on real bookings</strong> and keep judging every model on weeks it never saw.</li><li><strong>Learn each dealer's own price level</strong>, not one for the whole market.</li><li><strong>Forecast free drivers</strong> near each pickup and price that supply into the quote.</li><li><strong>Plan bundles ahead</strong> across the day instead of as cars arrive.</li></ul>
 </div></div>
-<div class="note">
+<div class="demo">
 <p><strong>Try the demo at spread.langsjo.dev:</strong> replay a real week on the map, then open any request in <strong>Inspect a decision</strong> and follow it through every part, with the numbers.</p>
 </div></div><div class="num">10 / 10</div></section>
 </main>

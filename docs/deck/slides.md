@@ -237,6 +237,6 @@ Limits and next steps
 - **Plan bundles ahead** across the day instead of as cars arrive.
 :::
 
-::: note
+::: demo
 **Try the demo at spread.langsjo.dev:** replay a real week on the map, then open any request in **Inspect a decision** and follow it through every part, with the numbers.
 :::

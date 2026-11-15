@@ -103,3 +103,7 @@ tr.us td, td strong { color: var(--ink); }
 .ablation th, .ablation td { white-space: nowrap; padding-top: 5px; padding-bottom: 5px; }
 .ablation th { white-space: normal; }
 .note p { font-size: 15.5px; line-height: 1.35; color: var(--ink2); }
+/* the demo link on the last slide: noticed, not the main point */
+.demo { margin-top: 14px; background: var(--wash); border-left: 4px solid var(--orange); border-radius: 8px; padding: 10px 16px; }
+.demo p { font-size: 16px; line-height: 1.35; color: var(--ink2); }
+.demo strong { color: var(--ink); }
