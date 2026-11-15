@@ -82,6 +82,7 @@ function showTab(tab, keepHash) {
     b.setAttribute("role", "tab");
   });
   document.querySelectorAll("main").forEach((m) => m.classList.toggle("on", m.id === "tab-" + tab));
+  if (tab === "week" && week.g) { layoutTowns(); renderWeek(); }   // sizes are in map units: redraw if the window changed while hidden
   if (!keepHash) writeHash(tab);
 }
 function writeHash(hash) {
@@ -217,7 +218,7 @@ function buildWeek() {
 function u(px) {  // screen px -> map units, under preserveAspectRatio "meet"
   const svg = $("#map");
   const s = Math.min(svg.clientWidth / week.view.w, svg.clientHeight / week.view.h);
-  return px / s;
+  return s > 0 ? px / s : px;   // the map is hidden (another tab): any finite size will do until it shows
 }
 
 function drawMapBase() {
@@ -803,7 +804,7 @@ function renderRows() {
   }).join("");
   document.querySelectorAll("#drows tr").forEach((tr) => {
     tr.tabIndex = tr.dataset.r === dec.sel ? 0 : -1;   // one tab stop; arrows walk the list
-    tr.addEventListener("click", () => selectRequest(tr.dataset.r));
+    tr.addEventListener("click", () => { selectRequest(tr.dataset.r); showDetailOnPhone(); });
     tr.addEventListener("keydown", (e) => {
       if (e.key === "Enter") selectRequest(tr.dataset.r);
       else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -848,6 +849,9 @@ function gigHistory(gigs) {
   return `<div class="gigstory">${rows}</div>`;
 }
 
+function showDetailOnPhone() {  // one column: the detail sits under the long list, so bring it into view
+  if (matchMedia("(max-width: 1100px)").matches) $("#detail").scrollIntoView({ behavior: "smooth", block: "start" });
+}
 function selectRequest(rid, quiet) {
   dec.sel = rid;
   markSelectedRow();
