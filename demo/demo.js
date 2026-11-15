@@ -69,6 +69,7 @@ python3 -m http.server 8000</pre>
   buildDecision();
   buildSystem();
   buildRace();
+  wireTerms();
   readHash(initialHash);   // deep links like #week@3720 or #decision/R00683, once the views exist
 }
 
@@ -817,6 +818,95 @@ function renderRows() {
   });
 }
 
+// ---------- why this price: the quoter's equation, in words and with this request's numbers ----------
+function term(text, tip, cls) {  // a hoverable (and focusable, for touch and keyboard) piece of an equation
+  return `<span class="term${cls ? " " + cls : ""}" tabindex="0" data-tip="${esc(tip)}">${text}</span>`;
+}
+function whyPrice(d, kind, primary) {
+  const t = d.terms[kind];
+  const k = kind.replace(/_/g, " ");
+  const pct = (v) => (v * 100).toFixed(1) + "%";
+  const m = (v, n = 3) => v.toFixed(n);
+  const safe = t.limit !== d.queue[1] && t.limit > 40;
+  const tips = {
+    list: `The public list price of the ${k} option: ${fmtEur(t.list)}. The dealer sees it too; our price and the competitor's (26–54% above it) are measured against it.`,
+    x: `Our price as a multiple of the list price. The quoter tries every multiple from just above the cost upwards, in steps of 0.01, and keeps the one with the highest expected margin: here ×${m(t.x, 2)}.`,
+    risk: `The learned cost model's chance that this car arrives late: ${pct(t.risk)}. A late order refunds part of its price, so the expected revenue loses this share.`,
+    cost: `What moving this car is expected to cost us, as a multiple of the list price: ${m(t.cost)} × ${fmtEur(t.list)} = ${fmtEur(t.cost * t.list)}.`,
+    tilt: `A margin of safety on the expected fee: ×${t.tilt} in the settings that played this week. The model's fee is an average, and a car priced under its cost loses money.`,
+    expected: `What the learned cost model expects a driver to accept for this car: ${fmtEur(t.expected)}, ${(t.expected / d.typical).toFixed(2)}× the typical fee (${fmtEur(d.typical)}). It reads the lane's length, how many drivers live near the pickup and the deadline.`,
+    charge: `A surcharge that grows with the queue of orders that have no driver yet: a full queue makes every new car dearer, so prices rise before the intake has to say no. Here ${m(t.charge)} of the list price.`,
+    queue: `How large the queue charge is when the queue is full: ${t.queue} of the list price.`,
+    unbooked: `Orders we had won at this minute that had no driver booked yet: ${t.unbooked}. (Quotes still waiting for a dealer's answer count for the intake, not here.)`,
+    limit: `The queue length at which the charge is full: ${t.limit}${safe ? ". This is a safe car (under 300 km, no private address), so it uses the larger queue" : ""}.`,
+    chance: `The chance that the dealer takes a price of x times list. Dealers switch to the competitor at a price we cannot see; around the market level those switching prices follow a logistic curve. At ×${m(t.x, 2)}: ${pct(t.chance)}.`,
+    factor: `Dealers accept 1% more from us for each order we delivered to them on time, up to 25. This dealer counted ${d.trust}, so the factor is ${m(t.factor, 2)}${d.trust ? `: our price looks ${d.trust}% cheaper to them` : ""}.`,
+    level: `The multiple of list the market accepts right now, learned from our own results this week: a step up after each win, a step down after each loss, larger when the result surprised us. Now ×${m(t.level, 2)}.`,
+    offset: `A shift of the level for this option and dealer (a faster option can sit higher). Here ${m(t.offset, 2)}.`,
+    spread: `How widely dealers' switching prices scatter around the level: ${t.spread} of list. The wider it is, the slower the chance falls as the price rises.`,
+    value: `The margin we expect from this quote before we know the dealer's answer: (price after the late refund risk − cost) × chance to win, ${m(t.value)} × ${fmtEur(t.list)} = ${fmtEur(t.value * t.list)}.`,
+  };
+  const T = (key, text, cls) => term(text, tips[key], cls);
+  const words = `
+    <div class="eq"><b class="eqlhs">price</b> = ${T("list", "list price")} × ${T("x", "x")}</div>
+    <div class="eq eqsub">where ${T("x", "x")} is the multiple that makes this the largest:</div>
+    <div class="eq">(${T("x", "x")} × (1 − ${T("risk", "late risk")}) − ${T("cost", "cost")}) × ${T("chance", "chance to win")}(${T("x", "x")})</div>
+    <div class="eq"><b class="eqlhs">${T("cost", "cost")}</b> = ${T("tilt", "cost tilt")} × ${T("expected", "expected fee")} ÷ ${T("list", "list price")} + ${T("charge", "queue charge")}</div>
+    <div class="eq"><b class="eqlhs">${T("charge", "queue charge")}</b> = ${T("queue", "queue weight")} × (${T("unbooked", "unbooked orders")} ÷ ${T("limit", "queue limit")})²</div>
+    <div class="eq"><b class="eqlhs">${T("chance", "chance to win")}(x)</b> = 1 ÷ (1 + e<sup>(x ÷ ${T("factor", "dealer trust")} − ${T("level", "market level")} − ${T("offset", "option offset")}) ÷ ${T("spread", "spread")}</sup>)</div>`;
+  const nums = `
+    <div class="eq"><b class="eqlhs">${T("cost", "cost")}</b> = ${T("tilt", m(t.tilt, 2), "n")} × ${T("expected", fmtEur(t.expected), "n")} ÷ ${T("list", fmtEur(t.list), "n")} + ${T("queue", t.queue, "n")} × (${T("unbooked", t.unbooked, "n")} ÷ ${T("limit", t.limit, "n")})² = ${T("cost", m(t.cost), "n hi")}</div>
+    <div class="eq"><b class="eqlhs">${T("chance", "chance")}</b> = 1 ÷ (1 + e<sup>(${T("x", m(t.x, 2), "n")} ÷ ${T("factor", m(t.factor, 2), "n")} − ${T("level", m(t.level, 3), "n")} − ${T("offset", m(t.offset, 2), "n")}) ÷ ${T("spread", t.spread, "n")}</sup>) = ${T("chance", pct(t.chance), "n hi")}</div>
+    <div class="eq"><b class="eqlhs">${T("value", "expected margin")}</b> = (${T("x", m(t.x, 2), "n")} × (1 − ${T("risk", m(t.risk, 3), "n")}) − ${T("cost", m(t.cost), "n")}) × ${T("chance", m(t.chance, 3), "n")} = ${T("value", m(t.value), "n")} of list = ${T("value", fmtEur(t.value * t.list), "n hi")}</div>
+    <div class="eq"><b class="eqlhs">price</b> = ${T("list", fmtEur(t.list), "n")} × ${T("x", m(t.x, 4), "n")} = <b class="eqres">${fmtEur(t.price)}</b></div>`;
+  // the expected margin over the multiples the quoter tried: the chosen one is the top of the hill
+  const c = t.curve, W = 300, H = 74, P = 6;
+  const xs = c.map((p) => p[0]), vs = c.map((p) => p[1]);
+  const x0 = Math.min(...xs, t.x), x1 = Math.max(...xs, t.x), vmax = Math.max(...vs, t.value), vmin = Math.min(0, ...vs);
+  const X = (x) => P + (x - x0) / (x1 - x0 || 1) * (W - 2 * P), Y = (v) => H - P - (v - vmin) / (vmax - vmin || 1) * (H - 2 * P - 8);
+  const path = c.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("");
+  const curve = `<svg class="eqcurve" viewBox="0 0 ${W} ${H}" role="img" aria-label="Expected margin by price; the highest point is the quote">
+    <line x1="${P}" x2="${W - P}" y1="${Y(0)}" y2="${Y(0)}" class="axis"/>
+    <path d="${path}" class="hill"/>
+    <line x1="${X(t.x)}" x2="${X(t.x)}" y1="${Y(t.value)}" y2="${Y(0)}" class="pick"/>
+    <circle cx="${X(t.x)}" cy="${Y(t.value)}" r="3.5" class="pickdot"/>
+    <text x="${P}" y="${H - 1}">×${x0.toFixed(2)}</text><text x="${W - P}" y="${H - 1}" text-anchor="end">×${x1.toFixed(2)} list</text>
+    <text x="${X(t.x)}" y="${Math.max(9, Y(t.value) - 6)}" text-anchor="${X(t.x) > W - 70 ? "end" : "middle"}" class="picklab">×${t.x.toFixed(2)}</text></svg>`;
+  const replayNote = !t.same || (d.quote[kind] != null && Math.abs(d.quote[kind] - t.price) > 1)
+    ? `<p class="eqnote">The replay gives ${fmtEur(t.price)} where the live desk sent ${fmtEur(d.quote[kind])}: some of the live desk's state at that minute was not saved, so the numbers here are the replay's.</p>` : "";
+  return `<details class="why"${primary ? " open" : ""}><summary>Why ${fmtEur(d.quote[kind] ?? t.price)} for ${k}</summary>
+    <p class="eqhint">Hover or tap any underlined part to see where it comes from.</p>
+    <div class="eqblock"><h5>The rule</h5>${words}</div>
+    <div class="eqblock"><h5>This request</h5>${nums}</div>
+    <div class="eqblock"><h5>Expected margin at each price tried</h5>${curve}</div>
+    ${replayNote}</details>`;
+}
+
+// one floating tooltip for every .term, so scroll boxes never clip it
+function wireTerms() {
+  const tip = document.createElement("div");
+  tip.className = "termtip"; tip.setAttribute("role", "tooltip"); tip.hidden = true;
+  document.body.appendChild(tip);
+  let current = null;
+  const show = (el) => {
+    current = el; tip.textContent = el.dataset.tip; tip.hidden = false;
+    const r = el.getBoundingClientRect(), w = Math.min(300, innerWidth - 24);
+    tip.style.maxWidth = w + "px";
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    const left = Math.max(12, Math.min(innerWidth - tw - 12, r.left + r.width / 2 - tw / 2));
+    const top = r.top - th - 8 >= 8 ? r.top - th - 8 : r.bottom + 8;
+    tip.style.left = left + "px"; tip.style.top = top + "px";
+  };
+  const hide = () => { current = null; tip.hidden = true; };
+  document.addEventListener("pointerover", (e) => { const el = e.target.closest?.(".term"); if (el && e.pointerType === "mouse") show(el); });
+  document.addEventListener("pointerout", (e) => { const el = e.target.closest?.(".term"); if (el && e.pointerType === "mouse" && !el.contains(e.relatedTarget)) hide(); });
+  document.addEventListener("focusin", (e) => { const el = e.target.closest?.(".term"); if (el) show(el); });
+  document.addEventListener("focusout", (e) => { if (e.target.closest?.(".term")) hide(); });
+  document.addEventListener("click", (e) => { const el = e.target.closest?.(".term"); if (el) { el.focus(); show(el); } });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && current) { current.blur(); hide(); } });
+  window.addEventListener("scroll", () => current && show(current), true);
+}
+
 function stage(n, title, body, tag) {
   const tagHtml = tag === "exact" ? `<span class="tag exact" title="${EXACTT}">exact</span>`
     : tag === "approx" ? `<span class="tag approx" title="${APPROX}">&approx;</span>` : "";
@@ -897,10 +987,14 @@ function selectRequest(rid, quiet) {
       <div class="bar"><i style="width:${ch * 100}%"></i></div>
       <span class="val">${fmtEur(q)} at ${(q / o[2]).toFixed(2)}&times; list, ${(ch * 100).toFixed(0)}% chance to win</span></div>`;
   }).join("");
+  const kinds = Object.keys(d.terms || {});
+  const firstKind = d.won && kinds.includes(d.won.option) ? d.won.option : kinds[0];
+  const whys = [firstKind, ...kinds.filter((k) => k !== firstKind)].filter(Boolean)
+    .map((k) => whyPrice(d, k, k === firstKind)).join("");
   const quoterBody = `
     <div class="kv"><b>market level</b><span>&times;${d.level.toFixed(2)} of list, rising on wins and falling on losses</span>
     <b>dealer trust</b><span>${d.trust} on-time orders${d.trust ? `, +${d.trust}% accepted price` : ""}</span></div>
-    ${qrows}`;
+    ${qrows}${whys}`;
   let tail;
   if (declined) {
     tail = stage(5, "The outcome",

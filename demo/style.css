@@ -354,6 +354,37 @@ details.settings p { margin: 6px 0 0; color: var(--faint); }
 
 .stats .fig { font-family: var(--mono); color: var(--birch); }
 
+/* why this price: the quoter's equation, every part hoverable */
+details.why { margin: 12px 0 4px; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); }
+details.why > summary { cursor: pointer; padding: 8px 12px; color: var(--birch); font-weight: 600; font-size: 15px; }
+details.why[open] > summary { border-bottom: 1px solid var(--rule); }
+.eqhint { margin: 8px 12px 0; font-size: 12px; color: var(--faint); }
+.eqblock { padding: 8px 12px 6px; }
+.eqblock + .eqblock { border-top: 1px dashed #24374F; }
+.eqblock h5 { margin: 0 0 6px; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--faint); }
+.eq { font-family: var(--mono); font-size: 13px; color: var(--frost); line-height: 1.9; padding-left: 2.2em; text-indent: -2.2em; }
+.eq.eqsub { font-family: var(--sans); color: var(--faint); font-size: 12.5px; text-indent: 0; padding-left: 0; }
+.eq sup { font-size: 11px; line-height: 0; }
+.eqlhs { color: var(--birch); font-weight: 600; }
+.eqres { color: var(--ontime); font-weight: 600; }
+.term { color: var(--birch); border-bottom: 1px dotted var(--headlight); cursor: help; border-radius: 2px;
+  text-decoration: none; outline-offset: 1px; transition: background-color .12s; }
+.term:hover, .term:focus { background: rgba(240,165,50,.16); color: #FFE7BF; }
+.term.n { color: #BFD6EE; }
+.term.hi { color: var(--ontime); font-weight: 600; }
+.eqnote { margin: 4px 12px 10px; font-size: 12.5px; color: var(--faint); }
+.eqcurve { width: 100%; max-width: 380px; height: auto; display: block; }
+.eqcurve .axis { stroke: #33465E; stroke-width: 1; }
+.eqcurve .hill { fill: none; stroke: #7FB4E8; stroke-width: 1.8; }
+.eqcurve .pick { stroke: var(--headlight); stroke-width: 1; stroke-dasharray: 3 3; }
+.eqcurve .pickdot { fill: var(--headlight); }
+.eqcurve text { font-family: var(--mono); font-size: 10px; fill: var(--faint); }
+.eqcurve .picklab { fill: var(--headlight); font-weight: 600; }
+.termtip { position: fixed; z-index: 50; background: #0A141F; color: var(--birch); border: 1px solid var(--rule);
+  border-left: 3px solid var(--headlight); border-radius: 4px; padding: 8px 10px; font-family: var(--sans);
+  font-size: 13px; line-height: 1.45; box-shadow: 0 6px 22px rgba(0,0,0,.45); pointer-events: none; }
+
 /* ---------- phones ---------- */
 .twocol > * { min-width: 0; }
 @media (max-width: 760px) {
@@ -409,6 +440,7 @@ details.settings p { margin: 6px 0 0; color: var(--faint); }
   .optrow { grid-template-columns: 84px 1fr; gap: 2px 10px; }
   .optrow .val { grid-column: 1 / -1; white-space: normal; font-size: 13px; }
   .kv { grid-template-columns: 104px 1fr; }
+  .eq { font-size: 12.5px; }
 
   /* how it works */
   .adoptrow { grid-template-columns: 1fr 90px; gap: 4px 10px; }

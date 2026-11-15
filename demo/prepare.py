@@ -426,6 +426,55 @@ def apply_event(desk: Desk, parts, e: dict) -> None:
         desk.urgent.add(e["orderId"])
 
 
+def quote_terms(quoter, request: dict, desk, recomputed: dict) -> dict:
+    """Each term of the quoter's price, option by option, so the page can show the equation with its numbers.
+    Mirrors ProfitQuoter.prices for the switches the as-played settings use (cost tilt, late risk, dealer trust,
+    queue charge); every other switch is off there. `same` says whether the mirror gives the price the quoter gave."""
+    import math
+    if quoter.barrier or quoter.invest or quoter.pair or quoter.scarce or quoter.target or quoter.yard or quoter.end_car:
+        return {}
+    fees, intake = desk.parts.fees, desk.parts.intake
+    leg = request["legs"][0]
+    km = desk.ctx.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"])
+    from dispatch.intake import unbooked
+    count = unbooked(desk, getattr(quoter, "queue_hours", 0), getattr(quoter, "queue_far", 0.0))
+    waiting = min(1.0, count / quoter.limit)
+    room_limit = quoter.limit
+    if getattr(intake, "safe_limit", 0) and intake.safe(request, desk):
+        waiting, room_limit = min(1.0, waiting * quoter.limit / intake.safe_limit), intake.safe_limit
+    charge = quoter.queue * waiting ** 2
+    tilt = quoter.car
+    if quoter.car_short and km < quoter.short_km:
+        tilt = quoter.car_short
+    if quoter.car_long and km >= quoter.long_km:
+        tilt = quoter.car_long
+    expected = fees.expected(request, desk)
+    fee = tilt * expected
+    risk = quoter.late * fees.late_risk(request, desk)
+    factor = quoter.factor(request["dealerId"]) * quoter.region(request, desk)
+    out = {}
+    for option in request["options"]:
+        lst = option["listPriceCents"]
+        cost = fee / lst + charge
+        floor = max(cost, 0.5 * fee / lst)
+        off = quoter.offset(request) + quoter.kind_off(option["kind"]) + quoter.lane_off(request, option["kind"], desk)
+        grid = [floor + 0.02 + 0.01 * i for i in range(260)]
+        value = lambda x: (x * (1 - risk) - cost) * quoter.chance(x / factor, off)
+        best = max(grid, key=value)
+        price = round(lst * best)
+        out[option["kind"]] = {
+            "list": lst, "expected": round(expected), "tilt": tilt, "fee": round(fee), "risk": round(risk, 4),
+            "unbooked": round(count, 1), "limit": room_limit, "waiting": round(waiting, 4), "queue": quoter.queue,
+            "charge": round(charge, 4), "cost": round(cost, 4), "floor": round(floor, 4), "factor": round(factor, 4),
+            "level": round(quoter.level, 4), "offset": round(off, 4), "spread": quoter.spread,
+            "x": round(best, 4), "chance": round(quoter.chance(best / factor, off), 4),
+            "value": round(value(best), 4), "price": price,
+            "same": abs(price - recomputed.get(option["kind"], -10)) <= 1,
+            "curve": [[round(x, 2), round(value(x), 4)] for x in grid[::4] if x <= best + 0.9],
+        }
+    return out
+
+
 def capture(desk, parts, request: dict, action: dict, orders: dict, money: dict,
             won_at, lost_at, cancelled, booked_at, booked_fee, booked_by, views,
             picked, delivered, gig_of, gig_posts, gig_history, late_orders):
@@ -449,6 +498,10 @@ def capture(desk, parts, request: dict, action: dict, orders: dict, money: dict,
         risk = fees.late_risk(request, desk)
     except Exception:
         expected, risk = 0, 0.0
+    try:
+        terms = quote_terms(quoter, request, desk, recomputed)
+    except Exception:
+        terms = {}
     factor = quoter.factor(request["dealerId"]) * quoter.region(request, desk)
     sent = action["prices"]
     chances = {k: quoter.chance(c / lists[k] / factor) for k, c in sent.items() if k in lists}
@@ -500,6 +553,7 @@ def capture(desk, parts, request: dict, action: dict, orders: dict, money: dict,
         "trust": round(quoter.counts.get(request["dealerId"], 0)),
         "chance": {k: round(v, 3) for k, v in chances.items()},
         "quote": sent,
+        "terms": {k: v for k, v in terms.items() if k in sent and sent[k] <= 4 * lists[k]},
         "replay": {"prices": {k: int(v) for k, v in admitted.items()} if admitted else None,
                    "match": bool(admitted) and all(
                        abs(admitted.get(k, 0) - sent.get(k, 0)) <= 1 for k in set(sent) | set(admitted))},
