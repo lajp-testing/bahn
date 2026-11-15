@@ -322,9 +322,10 @@ function zoomAt(factor, cx, cy) {
 
 function posOnPath(i, frac) {
   const { pts, cs, total } = week.seg.get(i);
-  const d = frac * total;
+  if (pts.length < 2 || !(total > 0)) return pts[0];   // a lane inside one town: a single point, nowhere to move
+  const d = Math.max(0, Math.min(1, frac)) * total;
   let k = 1;
-  while (k < cs.length && cs[k] < d) k++;
+  while (k < cs.length - 1 && cs[k] < d) k++;
   const f = (d - cs[k - 1]) / Math.max(1e-9, cs[k] - cs[k - 1]);
   return [pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * f, pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * f];
 }
@@ -708,7 +709,10 @@ function tickPlay(now) {
   if (week.t >= END) { week.t = END; togglePlay(); }
   // a phone may take longer than a frame to draw a busy hour: skip frames rather than queue them
   const due = week.t !== week.drawnT && now - (week.drawnAt || 0) >= Math.min(120, 1.5 * (week.renderMs || 0));
-  if (due || !week.playing) { week.drawnAt = now; renderWeek(); }
+  if (due || !week.playing) {
+    week.drawnAt = now;
+    try { renderWeek(); } catch (err) { console.error(err); }   // one bad frame must not stop the clock
+  }
   if (week.playing) requestAnimationFrame(tickPlay);
 }
 
