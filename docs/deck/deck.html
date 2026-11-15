@@ -119,7 +119,7 @@ tr.us td, td strong { color: var(--ink); }
 </div>
 <h3>Our big ideas</h3>
 <div class="ideas">
-<ol><li><strong>Learn what each car will cost.</strong> A machine learning model, trained on every week we played, predicts the driver fee and the late risk.</li><li><strong>Quote for the most expected margin.</strong> Each price weighs our margin against the chance the dealer says yes.</li><li><strong>One flat fee for drivers.</strong> A gig opens near what the car needs and rarely rises, so drivers have no reason to wait.</li><li><strong>Take only work we can staff, and share drivers.</strong> When drivers are short we take only easy cars; one driver carries two or three.</li><li><strong>Measure every idea.</strong> Each is a switch, played with and without on the same weeks before it is kept.</li></ol>
+<ol><li><strong>Learn what each car will cost.</strong> A machine learning model, trained on every week we played, predicts the driver fee and the late risk.</li><li><strong>Quote for the most expected margin.</strong> Each price weighs our margin against the chance the dealer says yes.</li><li><strong>One flat fee for drivers.</strong> A gig opens near what the car needs and rarely rises, so drivers have no reason to wait.</li><li><strong>Take only work we can staff, and share drivers.</strong> When few drivers are free we take only easy cars; one driver carries two or three.</li><li><strong>Measure every idea.</strong> Each is a switch, played with and without on the same weeks before it is kept.</li></ol>
 </div></div><div class="num">1 / 10</div></section>
 <section class="slide " id="s2"><div class="inner"><div class="kicker">
 <p>Idea 1 · What a car will cost</p>
@@ -246,12 +246,12 @@ tr.us td, td strong { color: var(--ink); }
 </figure>
 <p>We tried taking 55% more orders to see what breaks: margin fell 19%. Long trips and private addresses went late; short, ordinary cars stayed on time.</p>
 </div><div class="col">
-<h3>Easy cars when drivers are short</h3>
+<h3>Easy cars when few drivers are free</h3>
 <p>If we don't think we can get a driver, we don't take the car. When many of our cars are still waiting for a driver, we keep quoting only the cars that are easy to staff.</p>
 <h3>Bundles</h3>
 <p>A new car joins a gig no driver has booked yet when one driver can do the stops in a row, up to 3 cars. The gig pays 0.85 × the cars' fees together, so each car costs less.</p>
 <div class="effect">
-<ul><li>Bundles: <strong>+27% margin</strong>, 359 → 401 orders a week. In a two-car gig a car costs 0.79 × typical and is 1.0% late; alone 0.97 × and 3.7%.</li><li>Easy cars only when drivers are short: <strong>+2% margin</strong>, 390 → 401 orders a week.</li></ul>
+<ul><li>Bundles: <strong>+27% margin</strong>, 359 → 401 orders a week. In a two-car gig a car costs 0.79 × typical and is 1.0% late; alone 0.97 × and 3.7%.</li><li>Easy cars only when few drivers are free: <strong>+2% margin</strong>, 390 → 401 orders a week.</li></ul>
 </div>
 </div></div></div><div class="num">5 / 10</div></section>
 <section class="slide " id="s6"><div class="inner"><h1>How the ideas work together</h1>
@@ -293,7 +293,7 @@ tr.us td, td strong { color: var(--ink); }
 <text x="580" y="50" text-anchor="middle" class="t">Do we want the request?</text>
 <text x="580" y="70" text-anchor="middle" class="s">quote an option only if a</text>
 <text x="580" y="86" text-anchor="middle" class="s">driver has time to make it;</text>
-<text x="580" y="102" text-anchor="middle" class="s">drivers short: easy cars only</text>
+<text x="580" y="102" text-anchor="middle" class="s">few free drivers: easy cars</text>
 
 <rect x="712" y="26" width="208" height="92" rx="10" class="o"/>
 <text x="816" y="50" text-anchor="middle" class="t">Quoter</text>
@@ -374,7 +374,7 @@ tr.us td, td strong { color: var(--ink); }
 </svg>
 </figure>
 <div class="effect">
-<p><strong>Follow one real request through this pipeline: spread.langsjo.dev.</strong> Open the tab <strong>Inspect a decision</strong> and pick any of the week's 1,030 requests (or click a ring on the map in <strong>The week</strong>). It shows each part in this order with its numbers: the note reader, the intake, the cost model, the quoter with its price equation, the dealer's answer, the gig's fees, and the money.</p>
+<p><strong>Follow one real request through this pipeline at spread.langsjo.dev:</strong> open <strong>Inspect a decision</strong> and pick any request to see every part with its numbers.</p>
 </div></div><div class="num">6 / 10</div></section>
 <section class="slide " id="s7"><div class="inner"><div class="kicker">
 <p>The effect of each idea</p>
@@ -390,7 +390,7 @@ tr.us td, td strong { color: var(--ink); }
 <tr><td style="text-align:left">Idea 2 · Same-day offers</td><td style="text-align:right">€152,203</td><td style="text-align:right"><strong>+16%</strong></td><td style="text-align:right">332</td><td style="text-align:right">97.5% / 95.9%</td><td style="text-align:right">10 of 10</td></tr>
 <tr><td style="text-align:left">Idea 2 · Safety margin on the cost</td><td style="text-align:right">€168,296</td><td style="text-align:right"><strong>+5%</strong></td><td style="text-align:right">398</td><td style="text-align:right">95.6% / 92.8%</td><td style="text-align:right">9 of 10</td></tr>
 <tr><td style="text-align:left">Idea 2 · Dealer trust</td><td style="text-align:right">€171,617</td><td style="text-align:right"><strong>+3%</strong></td><td style="text-align:right">413</td><td style="text-align:right">96.6% / 95.2%</td><td style="text-align:right">8 of 10</td></tr>
-<tr><td style="text-align:left">Idea 4 · Easy cars when drivers are short</td><td style="text-align:right">€173,827</td><td style="text-align:right"><strong>+2%</strong></td><td style="text-align:right">390</td><td style="text-align:right">96.6% / 94.9%</td><td style="text-align:right">7 of 10</td></tr></tbody></table>
+<tr><td style="text-align:left">Idea 4 · Easy cars when few drivers are free</td><td style="text-align:right">€173,827</td><td style="text-align:right"><strong>+2%</strong></td><td style="text-align:right">390</td><td style="text-align:right">96.6% / 94.9%</td><td style="text-align:right">7 of 10</td></tr></tbody></table>
 </div>
 <div class="note">
 <p>The final's exact code, one idea switched off per row, on the same 10 weeks, played on the morning of the final. ✗ marks a week under 90% on time, which does not rank. The limit on how many cars may wait for a driver is not listed: it adds no margin, but without it the weakest week falls from 95.5% to 92.7%, close to the 90% line.</p>

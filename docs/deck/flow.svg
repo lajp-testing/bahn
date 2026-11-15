@@ -36,7 +36,7 @@
 <text x="580" y="50" text-anchor="middle" class="t">Do we want the request?</text>
 <text x="580" y="70" text-anchor="middle" class="s">quote an option only if a</text>
 <text x="580" y="86" text-anchor="middle" class="s">driver has time to make it;</text>
-<text x="580" y="102" text-anchor="middle" class="s">drivers short: easy cars only</text>
+<text x="580" y="102" text-anchor="middle" class="s">few free drivers: easy cars</text>
 
 <rect x="712" y="26" width="208" height="92" rx="10" class="o"/>
 <text x="816" y="50" text-anchor="middle" class="t">Quoter</text>

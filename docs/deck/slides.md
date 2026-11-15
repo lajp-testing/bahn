@@ -22,7 +22,7 @@ pelaaja juhlii · Spread · Junction 2026
 1. **Learn what each car will cost.** A machine learning model, trained on every week we played, predicts the driver fee and the late risk.
 2. **Quote for the most expected margin.** Each price weighs our margin against the chance the dealer says yes.
 3. **One flat fee for drivers.** A gig opens near what the car needs and rarely rises, so drivers have no reason to wait.
-4. **Take only work we can staff, and share drivers.** When drivers are short we take only easy cars; one driver carries two or three.
+4. **Take only work we can staff, and share drivers.** When few drivers are free we take only easy cars; one driver carries two or three.
 5. **Measure every idea.** Each is a switch, played with and without on the same weeks before it is kept.
 :::
 
@@ -115,7 +115,7 @@ Idea 4 · Which cars, and how many per driver
 
 We tried taking 55% more orders to see what breaks: margin fell 19%. Long trips and private addresses went late; short, ordinary cars stayed on time.
 +++
-### Easy cars when drivers are short
+### Easy cars when few drivers are free
 If we don't think we can get a driver, we don't take the car. When many of our cars are still waiting for a driver, we keep quoting only the cars that are easy to staff.
 
 ### Bundles
@@ -123,7 +123,7 @@ A new car joins a gig no driver has booked yet when one driver can do the stops 
 
 ::: effect
 - Bundles: **+27% margin**, 359 → 401 orders a week. In a two-car gig a car costs 0.79 × typical and is 1.0% late; alone 0.97 × and 3.7%.
-- Easy cars only when drivers are short: **+2% margin**, 390 → 401 orders a week.
+- Easy cars only when few drivers are free: **+2% margin**, 390 → 401 orders a week.
 :::
 :::
 
@@ -134,7 +134,7 @@ A new car joins a gig no driver has booked yet when one driver can do the stops 
 ![The parts and how a request flows through them](flow.svg)
 
 ::: effect
-**Follow one real request through this pipeline: spread.langsjo.dev.** Open the tab **Inspect a decision** and pick any of the week's 1,030 requests (or click a ring on the map in **The week**). It shows each part in this order with its numbers: the note reader, the intake, the cost model, the quoter with its price equation, the dealer's answer, the gig's fees, and the money.
+**Follow one real request through this pipeline at spread.langsjo.dev:** open **Inspect a decision** and pick any request to see every part with its numbers.
 :::
 
 ---
@@ -156,7 +156,7 @@ The effect of each idea
 | Idea 2 · Same-day offers | €152,203 | **+16%** | 332 | 97.5% / 95.9% | 10 of 10 |
 | Idea 2 · Safety margin on the cost | €168,296 | **+5%** | 398 | 95.6% / 92.8% | 9 of 10 |
 | Idea 2 · Dealer trust | €171,617 | **+3%** | 413 | 96.6% / 95.2% | 8 of 10 |
-| Idea 4 · Easy cars when drivers are short | €173,827 | **+2%** | 390 | 96.6% / 94.9% | 7 of 10 |
+| Idea 4 · Easy cars when few drivers are free | €173,827 | **+2%** | 390 | 96.6% / 94.9% | 7 of 10 |
 :::
 
 ::: note
