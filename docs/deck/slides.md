@@ -133,6 +133,10 @@ A new car joins a gig no driver has booked yet when one driver can do the stops 
 
 ![The parts and how a request flows through them](flow.svg)
 
+::: effect
+**Follow one real request through this pipeline: spread.langsjo.dev.** Open the tab **Inspect a decision** and pick any of the week's 1,030 requests (or click a ring on the map in **The week**). It shows each part in this order with its numbers: the note reader, the intake, the cost model, the quoter with its price equation, the dealer's answer, the gig's fees, and the money.
+:::
+
 ---
 
 ::: kicker
@@ -234,5 +238,5 @@ Limits and next steps
 :::
 
 ::: note
-**Try the demo at spread.langsjo.dev:** Replay a real week on the map, then open any request and follow its decision through every part, with the numbers.
+**Try the demo at spread.langsjo.dev:** replay a real week on the map, then open any request in **Inspect a decision** and follow it through every part, with the numbers.
 :::
