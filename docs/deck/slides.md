@@ -12,13 +12,17 @@ pelaaja juhlii · Spread · Junction 2026
 
 # We price each car over its own learned cost, and take only the work our drivers can deliver
 
+::: lede
+Each slide's title is its claim. Below it: the idea, why we tried it, and its measured effect, the same weeks played with and without it. The last line of each slide names where its numbers come from.
+:::
+
 <!-- FILL IN AT ABOUT 09:40: the final's result. Replace the underscores in the one line below (the dashed tile). -->
 ::: tiles fill
 - **Final: __ of __** €__ margin · __ orders · __% on time
 :::
 
 ::: tiles small
-- **13th of 56 ranked teams** (240 entered) in our best ranking round (Saturday 21:00): €84,857 over its 5 weeks, 96.4% on time
+- **6th of 43 ranked teams** (57 played) in our best ranking round (Sunday 06:00), the final's exact code: €79,842 over its 5 weeks, every week ranked, 96.6% on time
 - **5th of 75 ranked** Saturday 20:00 test final: €17,443, 356 orders, 97.2% on time
 - **40 of 40 ranked** weeks the final's code never saw: €17,308 and 399 orders a week, 96.1% on time
 :::
@@ -32,7 +36,7 @@ pelaaja juhlii · Spread · Junction 2026
 :::
 
 ::: source
-Ranking round: our 5 board runs `b81-board-s9-*` in data/runs.jsonl; rank from the public board. Test final: tracks/orch/finals/testfinal-20261114-1800/README.md. Unseen weeks: `b89-main` on rob-21..60, tracks/orch/FINDINGS.md 21:50.
+Ranking round: our 5 board runs `main@d03d350` (code identical to the final's) in data/runs.jsonl, tracks/orch/FINDINGS.md 04:37; rank from the public board at 06:10 UTC. Test final: tracks/orch/finals/testfinal-20261114-1800/README.md. Unseen weeks: `b89-main` on rob-21..60, tracks/orch/FINDINGS.md 21:50.
 :::
 
 ---
@@ -190,7 +194,7 @@ How we know
 ::: cols c333
 - **Off by default.** With its switch off, the code must reproduce the mainline to the cent before a comparison counts.
 +++
-- **Paired weeks.** 10 dev + 20 rob + 10 holdout worlds, both versions on the same seeds. Total margin and the weakest week decide.
+- **Paired weeks.** 10 development, 20 robustness and 10 holdout worlds, both versions on the same seeds. Total margin and the weakest week decide.
 +++
 - **Rejected for the weakest week:** earlier urgent fees made +€3,166 but put a week at 91.7%.
 :::
@@ -236,7 +240,7 @@ Robust
 ::: cols c64
 ![Paired margin change per unseen week](charts/unseen.svg)
 
-**40 unseen weeks** (rob-21..60): all ranked, mean 96.1% on time (sd 1.6 points), lowest 92.4%, €17,308 and 399 orders a week.
+**40 unseen weeks** (worlds rob-21 to rob-60, never used to tune anything): all ranked, mean 96.1% on time (sd 1.6 points), lowest 92.4%, €17,308 and 399 orders a week.
 +++
 ::: tiles stack small
 - **Restart** the live runner journals every action and answer, then rebuilds orders and gigs from the world and the journal. Rehearsal of the final setting, killed mid-week and restarted: €27,655, 460 orders, 93.7% on time, against €28,447, 467, 94.6% for the same world played without a restart.
