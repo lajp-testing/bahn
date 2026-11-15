@@ -2,6 +2,9 @@
 
 # bahn
 
+Team: pelaaja juhlii
+Submission hash: d562b-22ae9-b0fc0-5accb
+
 A dispatcher for [Spread](https://spread.bahnexpress.com/llms.txt), Bahn's challenge at Junction 2026: it quotes car dealers and pays freelance drivers for one simulated week in Finland.
 
 - `CLAUDE.md`: how the code is laid out and how to run practice weeks.
