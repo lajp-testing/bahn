@@ -1,0 +1,473 @@
+{
+ "unseen": [
+  [
+   "rob-21",
+   15951,
+   97.3,
+   412,
+   true
+  ],
+  [
+   "rob-22",
+   18251,
+   93.7,
+   396,
+   true
+  ],
+  [
+   "rob-23",
+   17809,
+   95.3,
+   422,
+   true
+  ],
+  [
+   "rob-24",
+   27540,
+   97.6,
+   509,
+   true
+  ],
+  [
+   "rob-25",
+   13149,
+   94.7,
+   358,
+   true
+  ],
+  [
+   "rob-26",
+   22880,
+   95.8,
+   452,
+   true
+  ],
+  [
+   "rob-27",
+   13066,
+   96.7,
+   336,
+   true
+  ],
+  [
+   "rob-28",
+   14912,
+   97.6,
+   375,
+   true
+  ],
+  [
+   "rob-29",
+   17788,
+   95.8,
+   401,
+   true
+  ],
+  [
+   "rob-30",
+   21496,
+   95.5,
+   444,
+   true
+  ],
+  [
+   "rob-31",
+   14623,
+   92.4,
+   370,
+   true
+  ],
+  [
+   "rob-32",
+   15256,
+   96.8,
+   345,
+   true
+  ],
+  [
+   "rob-33",
+   18503,
+   97.4,
+   421,
+   true
+  ],
+  [
+   "rob-34",
+   16524,
+   95.8,
+   361,
+   true
+  ],
+  [
+   "rob-35",
+   12727,
+   97.2,
+   355,
+   true
+  ],
+  [
+   "rob-36",
+   20478,
+   97.1,
+   420,
+   true
+  ],
+  [
+   "rob-37",
+   17159,
+   95.5,
+   419,
+   true
+  ],
+  [
+   "rob-38",
+   15461,
+   92.4,
+   356,
+   true
+  ],
+  [
+   "rob-39",
+   13175,
+   97.3,
+   365,
+   true
+  ],
+  [
+   "rob-40",
+   16092,
+   93.7,
+   412,
+   true
+  ],
+  [
+   "rob-41",
+   16418,
+   97.4,
+   392,
+   true
+  ],
+  [
+   "rob-42",
+   17826,
+   94.9,
+   409,
+   true
+  ],
+  [
+   "rob-43",
+   21635,
+   97.7,
+   431,
+   true
+  ],
+  [
+   "rob-44",
+   13685,
+   96.2,
+   416,
+   true
+  ],
+  [
+   "rob-45",
+   21674,
+   97.2,
+   472,
+   true
+  ],
+  [
+   "rob-46",
+   20306,
+   96.1,
+   431,
+   true
+  ],
+  [
+   "rob-47",
+   24329,
+   97.8,
+   496,
+   true
+  ],
+  [
+   "rob-48",
+   8243,
+   98.1,
+   314,
+   true
+  ],
+  [
+   "rob-49",
+   16369,
+   92.5,
+   429,
+   true
+  ],
+  [
+   "rob-50",
+   19040,
+   97.6,
+   416,
+   true
+  ],
+  [
+   "rob-51",
+   14947,
+   95.9,
+   365,
+   true
+  ],
+  [
+   "rob-52",
+   17431,
+   96.8,
+   370,
+   true
+  ],
+  [
+   "rob-53",
+   17374,
+   93.1,
+   423,
+   true
+  ],
+  [
+   "rob-54",
+   22002,
+   97.1,
+   447,
+   true
+  ],
+  [
+   "rob-55",
+   16611,
+   96.7,
+   366,
+   true
+  ],
+  [
+   "rob-56",
+   11613,
+   96.6,
+   323,
+   true
+  ],
+  [
+   "rob-57",
+   13923,
+   96.5,
+   341,
+   true
+  ],
+  [
+   "rob-58",
+   24352,
+   95.2,
+   454,
+   true
+  ],
+  [
+   "rob-59",
+   17418,
+   96.5,
+   400,
+   true
+  ],
+  [
+   "rob-60",
+   14303,
+   97.8,
+   325,
+   true
+  ]
+ ],
+ "steps": [
+  {
+   "label": "t3s10-calm",
+   "at": "10:45",
+   "weeks": 40,
+   "margin_eur": 490210.99,
+   "mean_week_eur": 12255.27,
+   "orders_per_week": 277.2,
+   "on_time_pct": 96.8,
+   "lowest_on_time": [
+    91.6,
+    92.3,
+    93.7
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "t3s15-safe-flat15",
+   "at": "13:40",
+   "weeks": 40,
+   "margin_eur": 560203.71,
+   "mean_week_eur": 14005.09,
+   "orders_per_week": 363.8,
+   "on_time_pct": 95.92,
+   "lowest_on_time": [
+    90.2,
+    91.1,
+    92.7
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b37-fee3",
+   "at": "14:00",
+   "weeks": 40,
+   "margin_eur": 592474.64,
+   "mean_week_eur": 14811.87,
+   "orders_per_week": 390.1,
+   "on_time_pct": 96.81,
+   "lowest_on_time": [
+    92.0,
+    94.0,
+    94.1
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b46-car105-sameday480",
+   "at": "15:05",
+   "weeks": 40,
+   "margin_eur": 624450.05,
+   "mean_week_eur": 15611.25,
+   "orders_per_week": 370.7,
+   "on_time_pct": 96.97,
+   "lowest_on_time": [
+    93.8,
+    94.7,
+    94.9
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b52-fee4-car110",
+   "at": "17:00",
+   "weeks": 40,
+   "margin_eur": 644278.09,
+   "mean_week_eur": 16106.95,
+   "orders_per_week": 360.6,
+   "on_time_pct": 96.42,
+   "lowest_on_time": [
+    91.3,
+    94.2,
+    94.3
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b68-floor075-short095-carshort085",
+   "at": "19:45",
+   "weeks": 40,
+   "margin_eur": 675465.22,
+   "mean_week_eur": 16886.63,
+   "orders_per_week": 386.4,
+   "on_time_pct": 96.34,
+   "lowest_on_time": [
+    92.1,
+    93.7,
+    94.0
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b84-fee5",
+   "at": "21:30",
+   "weeks": 40,
+   "margin_eur": 689909.11,
+   "mean_week_eur": 17247.73,
+   "orders_per_week": 388.6,
+   "on_time_pct": 97.08,
+   "lowest_on_time": [
+    93.8,
+    94.7,
+    94.9
+   ],
+   "all_ranked": true
+  },
+  {
+   "label": "b87-fee5-limit45",
+   "at": "21:45",
+   "weeks": 40,
+   "margin_eur": 696403.97,
+   "mean_week_eur": 17410.1,
+   "orders_per_week": 394.8,
+   "on_time_pct": 96.74,
+   "lowest_on_time": [
+    93.0,
+    93.2,
+    94.2
+   ],
+   "all_ranked": true
+  }
+ ],
+ "flood": [
+  [
+   "under\n100 km",
+   98.1,
+   94.6
+  ],
+  [
+   "100\u2013200",
+   97.2,
+   95.3
+  ],
+  [
+   "200\u2013300",
+   96.8,
+   94.3
+  ],
+  [
+   "300\u2013500",
+   96.1,
+   88.2
+  ],
+  [
+   "500 km\nand more",
+   88.2,
+   72.3
+  ],
+  [
+   "private\naddress",
+   81.1,
+   75.9
+  ]
+ ],
+ "sameday": [
+  {
+   "label": "b44-car100",
+   "change_eur": 7394.77,
+   "ahead": 20,
+   "lowest_on_time": 94.2
+  },
+  {
+   "label": "b43-car105",
+   "change_eur": 9074.41,
+   "ahead": 18,
+   "lowest_on_time": 95.2
+  },
+  {
+   "label": "b45-sameday480",
+   "change_eur": 25732.47,
+   "ahead": 25,
+   "lowest_on_time": 89.2
+  },
+  {
+   "label": "b46-car105-sameday480",
+   "change_eur": 27281.49,
+   "ahead": 23,
+   "lowest_on_time": 94.7
+  }
+ ],
+ "testfinal": {
+  "ranked_teams": 75,
+  "our_rank": 5,
+  "our_margin_eur": 17442.75,
+  "our_orders": 356,
+  "our_on_time_pct": 97.2,
+  "top_margin_eur": 19592.05,
+  "top_orders": 469
+ }
+}

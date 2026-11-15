@@ -29,7 +29,7 @@ export const Ablation: React.FC<{ n: number }> = ({ n }) => {
   return (
     <Scene n={n} kicker="Effect of each idea · with and without, same weeks"
       title="Switch one idea off and the margin falls: same 10 weeks"
-      source="The final's code on the 10 dev weeks, one idea switched off per row: docs/deck/slides.md slide 7 (main 6be5ef6). On time: mean / lowest week. Ahead: weeks where the full system earned more.">
+      source="The final's code on the 10 dev weeks, one switch changed per row: data/runs.jsonl labels main@8c7e522 and main[<switch>]; tracks/t1, t2, t3/ablation-20261115.md; deck slide 7. On time: mean / lowest week.">
       <In at={20}>
         <div style={{ position: "absolute", left: 120, top: top - 44 }}><Label style={{ fontSize: 17 }} color={C.headlight}>Idea switched off</Label></div>
         <div style={{ position: "absolute", left: X0 - BW, width: BW, textAlign: "right", top: top - 44 }}><Label style={{ fontSize: 17 }} color={C.headlight}>Margin lost over 10 weeks</Label></div>
@@ -61,7 +61,7 @@ export const Ablation: React.FC<{ n: number }> = ({ n }) => {
       })}
       <In at={260} style={{ position: "absolute", left: 120, right: 120, top: top + 11 * rh + 18 }}>
         <div style={{ fontSize: 25, color: C.frost, lineHeight: 1.4 }}>
-          Without the quoter one week drops to <span style={{ color: C.late, fontWeight: 600 }}>87.1%</span>, unranked. The queue limit earns nothing on its own, but it keeps the weakest week safe.
+          Without the quoter one week drops to <span style={{ color: C.late, fontWeight: 600 }}>87.1%</span>, unranked. The queue limit earns nothing on its own, but without it the weakest week falls from 95.5% to 92.7%.
         </div>
       </In>
     </Scene>
