@@ -478,3 +478,24 @@ details.why[open] > summary { border-bottom: 1px solid var(--rule); }
   .bigmargin span { font-size: 24px; }
   .hint, .tourbox { left: auto; right: 8px; top: 8px; bottom: auto; max-width: 300px; }
 }
+
+/* ---------- the inspector front and centre ---------- */
+.head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.cta { background: var(--headlight); color: #20150A; border-color: var(--headlight); font-weight: 600; }
+.cta:hover { border-color: #FFC866; background: #FFBD52; color: #20150A; }
+nav button .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--headlight); margin-left: 7px; vertical-align: 1px;
+  box-shadow: 0 0 7px rgba(240,165,50,.8); }
+.rail-nudge { margin: 14px 0 0; padding: 7px 10px; border: 1px solid var(--rule);
+  border-left: 3px solid var(--headlight); border-radius: 4px;
+  font-size: 12.5px; color: var(--frost); }
+.featured { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.fchip { font-size: 12.5px; padding: 3px 9px; color: var(--frost); }
+.fchip .fid { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-left: 6px; }
+.fchip:hover { color: var(--birch); border-color: var(--headlight); }
+.fchip.on { border-color: var(--headlight); color: #FFE7BF; background: rgba(240,165,50,.14); }
+@media (max-width: 760px) {
+  .head-right { align-items: flex-start; gap: 8px; }
+  .cta { padding: 8px 14px; }
+  .rail-nudge { margin-top: 12px; }
+}

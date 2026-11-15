@@ -789,9 +789,23 @@ function wireTour() {
 
 const dec = { filter: "all", search: "", sel: null };
 
+// five requests that show the desk's range, picked from decisions.json by hand
+const FEATURED = [
+  ["R00013", "won, urgent fee ladder"],
+  ["R00244", "won in a 3-car bundle"],
+  ["R00001", "lost to the competitor"],
+  ["R00028", "declined by our intake"],
+  ["R00212", "delivered late"],
+];
+
 function buildDecision() {
   $("#search").addEventListener("input", (e) => { dec.search = e.target.value.toLowerCase(); renderRows(); });
   $("#filter").addEventListener("change", (e) => { dec.filter = e.target.value; renderRows(); });
+  $("#featured").innerHTML = FEATURED.map(([rid, why]) =>
+    `<button class="fchip" data-r="${rid}">${why}<span class="fid">${rid}</span></button>`).join("");
+  document.querySelectorAll(".fchip").forEach((c) =>
+    c.addEventListener("click", () => { selectRequest(c.dataset.r); showDetailOnPhone(); }));
+  $("#ctaInspect").addEventListener("click", () => openRequest("R00013"));
   const buckets = [[0, 40], [40, 100], [100, 300], [300, 1e9]];
   const stat = buckets.map(() => [0, 0]);
   WEEK.requests.forEach((r) => {
@@ -815,6 +829,7 @@ function markSelectedRow() {
     tr.classList.toggle("sel", tr.dataset.r === dec.sel);
     tr.tabIndex = tr.dataset.r === dec.sel ? 0 : -1;
   });
+  document.querySelectorAll(".fchip").forEach((c) => c.classList.toggle("on", c.dataset.r === dec.sel));
 }
 function renderRows() {
   const rows = WEEK.requests.filter((r) => {

@@ -14,14 +14,17 @@
     <p class="sub">How our team played <b>Spread</b>, the car-transport dispatching challenge
     at Junction 2026, in one recorded week: the organiser's test final of 14 November.</p>
   </div>
-  <p class="manifest">Final result: <b>5th of 75</b> ranked teams,
-    <b>€17,442.75</b> margin, <b>356</b> orders, <b>97.2%</b> on time, <b>1,030</b> requests.</p>
+  <div class="head-right">
+    <p class="manifest">Final result: <b>5th of 75</b> ranked teams,
+      <b>€17,442.75</b> margin, <b>356</b> orders, <b>97.2%</b> on time, <b>1,030</b> requests.</p>
+    <button id="ctaInspect" class="cta">Follow one request through the desk →</button>
+  </div>
 </header>
 
 <nav class="load-2" id="tabs" role="tablist" aria-label="Views">
   <button data-tab="week">The week</button>
   <button data-tab="challenge">The challenge</button>
-  <button data-tab="decision">Inspect a decision</button>
+  <button data-tab="decision">Inspect a decision<i class="dot" aria-hidden="true"></i></button>
   <button data-tab="system">How it works</button>
   <button data-tab="race">The race</button>
 </nav>
@@ -75,6 +78,7 @@
       </dl>
       <div class="ontime"><div id="onTimeBar"><i id="onTimeFill"></i><b id="onTimePct">–</b></div>
         <i>on time; below 90% nothing ranks</i></div>
+      <p class="rail-nudge">Tap a ring on the map or a line below to see how the desk decided.</p>
       <h3 class="rail-h">Right now</h3>
       <ol id="feed" class="feed"></ol>
     </aside>
@@ -137,6 +141,7 @@
 <main id="tab-decision" class="tab">
   <div class="decgrid">
     <div class="declist">
+      <div class="featured" id="featured" aria-label="Featured examples"></div>
       <div class="filters">
         <input id="search" placeholder="Search id, dealer, town…" aria-label="Search requests">
         <select id="filter" aria-label="Filter requests">
