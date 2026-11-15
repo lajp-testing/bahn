@@ -36,3 +36,23 @@ The result appears in two places: the dashed tile in scene 2 ("The result") and 
 ## Where the numbers come from
 
 Every number comes from the repository. Each scene's source line names the file: `docs/deck/slides.md` and `docs/deck/numbers.json`, `tracks/*/FINDINGS.md` (ranking round 12 is in `tracks/orch/FINDINGS.md`, 04:37 UTC), and the test final's week in `demo/assets/`. The 40 unseen weeks in the robustness scene are the `b89-main` rows of `data/runs.jsonl`. Their mean and lowest week match FINDINGS (96.1% on time, lowest 92.4%, €17,308 a week).
+
+## Scenes
+
+| # | Scene | Seconds | What it shows |
+|---|---|---:|---|
+| 0 | hook | 17 | The test final's real week on the map of Finland: requests, cars, deliveries, margin counting up. |
+| 1 | claim | 18 | The approach in one sentence and the four ideas. |
+| 2 | result | 18 | The final (placeholder until filled in), the best ranking round, the test final, 40 unseen weeks. |
+| 3 | flow | 18 | How a request flows through the parts; the desk keeps the books. |
+| 4 | idea1-cost | 20 | The learned cost model: why (1.19 × vs 0.92 ×), fee error, effect. |
+| 5 | formula | 23 | The quote rule built term by term on request R00013, and the expected-margin curve over prices. |
+| 6 | idea2-prices | 19 | Day-to-day price levels, the level update, same-day quotes, effect. |
+| 7 | idea3-fees | 19 | The flat fee against the hourly ladder, why drivers wait, effect. |
+| 8 | idea4-cars | 20 | What breaks at 55% more orders, safe cars, bundles, effect. |
+| 9 | ablation | 22 | The final's code on the same 10 weeks with one idea off per row. |
+| 10 | method | 14 | Mean margin per week on the same 40 worlds at each adopted step; the rules. |
+| 11 | testfinal | 19 | The gap the live leaderboard showed and the fix. |
+| 12 | robust | 18 | 40 unseen weeks, the restart rehearsal, latency. |
+| 13 | limits | 18 | What did not work, what would break it, what we don't know. |
+| 14 | close | 11 | The approach again, the final's result, the best round. |
