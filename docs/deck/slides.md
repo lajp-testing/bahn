@@ -182,25 +182,33 @@ tracks/t1/FINDINGS.md (`t1s13-flood` vs `t1s11-base`, "What breaks, by group"); 
 ---
 
 ::: kicker
-How we know
+How we know · the effect of each idea
 :::
 
-# Every idea is a switch, judged on the same 40 worlds with and without it
+# Switch any one idea off and the same 10 weeks earn less
 
-::: steps
-![Margin per week on the same 40 worlds at each adopted step of 14 November](charts/steps.svg)
+::: ablation
+| Idea switched off (the final's code, one switch changed) | Margin, 10 weeks | Change | Orders a week | On time, mean / lowest week | Full system ahead |
+|---|---:|---:|---:|---:|---:|
+| **none: the full system** | **€177,043** | | **401** | **97.2% / 95.5%** | |
+| Expected-margin quoter (fixed markup instead) | €118,016 | **−€59,027** | 259 | 93.0% / 87.1% ✗ | 10 of 10 |
+| Bundles (one car per gig) | €138,985 | **−€38,058** | 359 | 96.8% / 94.5% | 10 of 10 |
+| Note reader (the kit's starter) | €141,823 | **−€35,219** | 320 | 97.0% / 94.6% | 10 of 10 |
+| Learned cost model (hand-fit formula) | €148,742 | **−€28,301** | 360 | 94.9% / 93.4% | 10 of 10 |
+| Flat fees (the rising hourly ladder) | €150,450 | **−€26,592** | 403 | 96.8% / 95.6% | 10 of 10 |
+| Same-day quoted at 8 h of slack (12 h gate) | €152,203 | **−€24,839** | 332 | 97.5% / 95.9% | 10 of 10 |
+| Cost tilt (fee counted at 1.0 ×) | €168,296 | **−€8,746** | 398 | 95.6% / 92.8% | 9 of 10 |
+| Dealer trust | €171,617 | **−€5,425** | 413 | 96.6% / 95.2% | 8 of 10 |
+| Safe cars | €173,827 | **−€3,216** | 390 | 96.6% / 94.9% | 7 of 10 |
+| Queue limit (no limit) | €177,085 | +€42 | 409 | 96.2% / 92.7% | 7 of 10 |
 :::
 
-::: cols c333
-- **Off by default.** With its switch off, the code must reproduce the mainline to the cent before a comparison counts.
-+++
-- **Paired weeks.** 10 development, 20 robustness and 10 holdout worlds, both versions on the same seeds. Total margin and the weakest week decide.
-+++
-- **Rejected for the weakest week:** earlier urgent fees made +€3,166 but put a week at 91.7%.
+::: note
+The same 10 worlds for every row, played on the morning of the final; ✗ marks a week under 90%, not ranked. The queue limit earns nothing on its own, but without it the weakest week falls from 95.5% to 92.7%. Each idea was first adopted on 40 worlds with the weakest week as a gate; those gains are on the idea slides.
 :::
 
 ::: source
-Each dot: one week; bar: the mean; the same 40 worlds (10 dev, 20 rob, 10 holdout) at every step. Model 5 trained on dev and rob weeks, so its two steps are partly in-sample. data/runs.jsonl, labels in tracks/orch/FINDINGS.md 10:45–21:45.
+Labels in data/runs.jsonl: `main@8c7e522` and `main[<switch>]@…` (the later hash differs only in demo/ files); tracks/t1, t2, t3/ablation-20261115.md. Adoption steps: tracks/orch/FINDINGS.md 10:45–21:45.
 :::
 
 ---

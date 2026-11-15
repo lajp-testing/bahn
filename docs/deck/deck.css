@@ -95,3 +95,9 @@ tr.us td, td strong { color: var(--ink); }
 
 /* the steps chart leaves room for the three rules under it */
 .steps figure svg { max-height: 330px; }
+
+/* the with/without table: one line per idea */
+.ablation table { font-size: 17px; }
+.ablation th, .ablation td { white-space: nowrap; padding-top: 5px; padding-bottom: 5px; }
+.ablation th:first-child, .ablation td:first-child { white-space: normal; }
+.note p { font-size: 15.5px; line-height: 1.35; color: var(--ink2); }
