@@ -435,7 +435,7 @@ def capture(desk, parts, request: dict, action: dict, orders: dict, money: dict,
     km = desk.ctx.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"])
 
     # what the parts would say now, at the recorded minute (the cost model's driver-supply
-    # inputs are approximated: the final world's own roster was not saved)
+    # inputs are the world's own driver list, so they are exact)
     try:
         recomputed = quoter.prices(request, desk)
         admitted = intake.admit(request, dict(recomputed), desk)
