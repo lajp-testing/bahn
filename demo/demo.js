@@ -229,6 +229,7 @@ function drawMapBase() {
   const gOutline = mk("outline"), gAtmos = mk("atmos"), gRoads = mk("roads");
   const routes = mk("routes"), markers = mk("markers"), cars = mk("cars");
   week.g = { routes, markers, cars };
+  wireWeekClicks();
   week.townG = mk("towns");
   // graticule: the map's own grid, every 2 degrees
   for (let lat = 60; lat <= 70; lat += 2) {
@@ -327,7 +328,10 @@ function posOnPath(i, frac) {
   const f = (d - cs[k - 1]) / Math.max(1e-9, cs[k] - cs[k - 1]);
   return [pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * f, pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * f];
 }
-function pathD(i) { return week.seg.get(i).pts.map((p) => p.join(",")).join(" "); }
+function pathD(i) {  // built once per lane: the render loop asks for it every frame
+  const seg = week.seg.get(i);
+  return seg.d || (seg.d = seg.pts.map((p) => p.join(",")).join(" "));
+}
 
 /* ============================== the week: render ============================== */
 
@@ -338,7 +342,10 @@ function setTime(t) {
 }
 
 function renderWeek() {
+  const started = performance.now();
   const t = week.t;
+  week.drawnT = t;
+  const U = u(1), uu = (px) => px * U;   // read the map's size once, before the DOM changes: a read after each change forces a layout
   $("#clock").textContent = clockStr(t);
   const g = week.g;
   g.routes.textContent = ""; g.markers.textContent = ""; g.cars.textContent = "";
@@ -346,23 +353,23 @@ function renderWeek() {
   const nReq = bisect(week.reqByAt, t);
   for (let i = nReq - 1; i >= 0 && week.reqByAt[i][0] > t - 25; i--) {
     const r = week.reqByAt[i][1], age = t - r.at, p = proj.f(...ll(r.p));
-    const c = svgEl("circle", { cx: p[0], cy: p[1], r: u(9) + age * u(.5), fill: "none",
+    const c = svgEl("circle", { cx: p[0], cy: p[1], r: uu(9) + age * uu(.5), fill: "none",
       stroke: "#F0A532", "stroke-width": 2, opacity: .9 * (1 - age / 25), "vector-effect": "non-scaling-stroke",
       "pointer-events": "all" });
     c.style.cursor = "pointer";
     c.tabIndex = 0;
     c.setAttribute("role", "button");
-    c.addEventListener("click", () => { if (!week.dragged) openRequest(r.id); });
-    c.addEventListener("keydown", (e) => { if (e.key === "Enter") openRequest(r.id); });
+    c.dataset.rid = r.id;   // one delegated listener on the markers group opens it
     g.markers.appendChild(c);
   }
   const nLost = bisect(week.lostByAt, t);
   for (let i = nLost - 1; i >= 0 && week.lostByAt[i][0] > t - 15; i--) {
     const p = proj.f(...ll(WEEK.reqMap[week.lostByAt[i][1]].p));
-    g.markers.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: u(5), fill: "#5C7188",
+    g.markers.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: uu(5), fill: "#5C7188",
       opacity: .7 * (1 - (t - week.lostByAt[i][0]) / 15) }));
   }
-  const nWon = bisect(week.wonByAt, t) - bisect(WEEK.cancelled.map((c) => [c[0]]), t);
+  week.cancelAt = week.cancelAt || WEEK.cancelled.map((c) => [c[0]]);
+  const nWon = bisect(week.wonByAt, t) - bisect(week.cancelAt, t);
   const wonSet = new Set();
   for (let i = 0; i < bisect(week.wonByAt, t); i++) wonSet.add(week.wonByAt[i][1]);
   let moving = 0, carsDone = 0;
@@ -378,7 +385,7 @@ function renderWeek() {
           "vector-effect": "non-scaling-stroke" }));
         if (age < 360) {
           const p = posOnPath(i, 1);
-          g.cars.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: u(7), fill: "#EF6D6D", stroke: "#EFE9DC", "stroke-width": 1.5, opacity: 1 - age / 360 }));
+          g.cars.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: uu(7), fill: "#EF6D6D", stroke: "#EFE9DC", "stroke-width": 1.5, opacity: 1 - age / 360 }));
         }
       } else if (age < 150) {
         g.routes.appendChild(svgEl("polyline", { points: pathD(i), fill: "none",
@@ -390,19 +397,18 @@ function renderWeek() {
     g.routes.appendChild(svgEl("polyline", { points: pathD(i), fill: "none",
       stroke: m.late ? "#EF6D6D" : "#7FB4E8", "stroke-width": 1.8, opacity: .8, "vector-effect": "non-scaling-stroke" }));
     const p = posOnPath(i, (t - m.pu) / Math.max(1, de - m.pu));
-    g.cars.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: u(5.5), fill: m.late ? "#EF6D6D" : "#7FB4E8",
+    g.cars.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: uu(5.5), fill: m.late ? "#EF6D6D" : "#7FB4E8",
       stroke: "#0A141F", "stroke-width": 1.5 }));
   });
   WEEK.moves.forEach((m) => {
     if (!wonSet.has(m.rid) || m.pu <= t) return;
     const p = proj.f(...ll(m.p));
-    const c = svgEl("circle", { cx: p[0], cy: p[1], r: u(8), fill: "none", stroke: "#54C08A",
+    const c = svgEl("circle", { cx: p[0], cy: p[1], r: uu(8), fill: "none", stroke: "#54C08A",
       "stroke-width": 2.5, opacity: .85, "vector-effect": "non-scaling-stroke", "pointer-events": "all" });
     c.style.cursor = "pointer";
     c.tabIndex = 0;
     c.setAttribute("role", "button");
-    c.addEventListener("click", () => { if (!week.dragged) openRequest(m.rid); });
-    c.addEventListener("keydown", (e) => { if (e.key === "Enter") openRequest(m.rid); });
+    c.dataset.rid = m.rid;
     g.markers.appendChild(c);
   });
   if (week.hl && Date.now() < week.hl.until) {
@@ -428,15 +434,42 @@ function renderWeek() {
   $("#onTimePct").textContent = share == null ? "–" : (share * 100).toFixed(1) + "%";
 
   const kf = bisect(week.feedAt, t);
-  const focusId = document.activeElement?.dataset?.rid || null;
-  $("#feed").innerHTML = week.feed.slice(Math.max(0, kf - 11), kf).reverse().map((e) => feedLine(e, t)).join("");
-  document.querySelectorAll("#feed li[data-rid]").forEach((li) => {
-    li.tabIndex = 0;
-    li.addEventListener("click", () => openRequest(li.dataset.rid));
-    li.addEventListener("keydown", (e) => { if (e.key === "Enter") openRequest(li.dataset.rid); });
-  });
-  if (focusId) document.querySelector(`#feed li[data-rid="${focusId}"]`)?.focus();
+  const feedKey = kf + "|" + Math.floor(t / 1440);   // the lines change only with a new event or a new day
+  if (feedKey !== week.feedKey) {
+    week.feedKey = feedKey;
+    const focusId = document.activeElement?.dataset?.rid || null;
+    $("#feed").innerHTML = week.feed.slice(Math.max(0, kf - 11), kf).reverse().map((e) => feedLine(e, t))
+      .join("").replace(/<li class="([^"]*)" data-rid=/g, '<li tabindex="0" class="$1" data-rid=');
+    if (focusId) document.querySelector(`#feed li[data-rid="${focusId}"]`)?.focus();
+  }
   moveCursor(t);
+  week.renderMs = performance.now() - started;
+}
+
+// clicks on rings and feed lines: one listener each, since the render loop rebuilds them every frame
+function wireWeekClicks() {
+  // While the week plays, a ring or feed line is replaced by a new one many times a second, so a tap's
+  // press and release often land on different elements and no click fires. Remember what the press hit
+  // and open it on release, if the finger did not travel.
+  let press = null;
+  const down = (e) => {
+    const el = e.target.closest?.("[data-rid]");
+    press = el ? { rid: el.dataset.rid, x: e.clientX, y: e.clientY } : null;
+  };
+  const up = (e) => {
+    if (press && Math.abs(e.clientX - press.x) + Math.abs(e.clientY - press.y) < 12) openRequest(press.rid);
+    press = null;
+  };
+  const key = (e) => {
+    const el = e.target.closest?.("[data-rid]");
+    if (el && e.key === "Enter") openRequest(el.dataset.rid);
+  };
+  for (const [host, upHost] of [[week.g.markers, $("#map")], [$("#feed"), $("#feed")]]) {
+    host.addEventListener("pointerdown", down);
+    upHost.addEventListener("pointerup", up);
+    upHost.addEventListener("pointercancel", () => { press = null; });
+    host.addEventListener("keydown", key);
+  }
 }
 
 function feedLine(e, now) {
@@ -489,6 +522,7 @@ function flyTo(view) { week.view = { ...view }; applyView(); }
 function openRequest(rid) {
   showTab("decision");
   selectRequest(rid);
+  showDetailOnPhone();
 }
 function showOnMap(rid) {
   const r = WEEK.reqMap[rid];
@@ -632,6 +666,7 @@ function wireControls() {
     applyView();
   });
   svg.addEventListener("pointerup", () => { pan = null; });
+  svg.addEventListener("pointercancel", () => { pan = null; });   // the browser took the touch to scroll the page
   $("#zoomIn").addEventListener("click", () => zoomAt(1 / 1.6, week.view.x + week.view.w / 2, week.view.y + week.view.h / 2));
   $("#zoomOut").addEventListener("click", () => zoomAt(1.6, week.view.x + week.view.w / 2, week.view.y + week.view.h / 2));
   $("#zoomReset").addEventListener("click", () => { week.view = { x: 0, y: 0, w: proj.W, h: proj.H }; applyView(); });
@@ -671,7 +706,9 @@ function tickPlay(now) {
   week.t = Math.floor(week.tf);   // a float clock: 15 min/s must still move
   week.last = now;
   if (week.t >= END) { week.t = END; togglePlay(); }
-  renderWeek();
+  // a phone may take longer than a frame to draw a busy hour: skip frames rather than queue them
+  const due = week.t !== week.drawnT && now - (week.drawnAt || 0) >= Math.min(120, 1.5 * (week.renderMs || 0));
+  if (due || !week.playing) { week.drawnAt = now; renderWeek(); }
   if (week.playing) requestAnimationFrame(tickPlay);
 }
 
