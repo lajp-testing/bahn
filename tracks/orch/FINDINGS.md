@@ -208,3 +208,7 @@ Tried on the mainline, unseen rob-21..50 (30 weeks, against `b89-main`), not ado
 ## 23:55 live rehearsal of the frozen setting (964b8f0)
 
 `harness.pace` played world `t3-live-9` with the real `dispatch.live` runner at accelerated pace, killed it at minute 4320 (Wednesday 00:00) and restarted it 10 s later (the world ran on at final speed meanwhile): **€27,655.36, 460 orders, 93.7% on time, ranked**; slowest desk batch 91 ms, slowest send round trip 34 ms. The normal runner on the same seed (`b94-live-ref`): €28,446.70, 467 orders, 94.6%. The live path, its restart and the frozen setting work end to end; the gap (−2.8%) is the outage and the different timing, as in the earlier rehearsals.
+
+## 2026-11-15 04:37 UTC — ranking round 12 (Sunday 06:00), frozen mainline
+
+`main@d03d350` (dispatch/ and harness/ identical to 964b8f0), 5 runs: €11,613.72 / €13,487.59 / €17,959.57 / €13,682.12 / €23,099.00 = **€79,842.00**, 343–468 orders a week, on time 95.3–97.6%, all ranked. **3rd of 33 ranked teams** at 04:37 (Juhus €98,179, blib_blib €81,773).
