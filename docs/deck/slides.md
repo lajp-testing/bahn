@@ -16,6 +16,8 @@ pelaaja juhlii · Spread · Junction 2026
 - **Final: 7th of 58 ranked teams** €19,863 margin · 422 orders · 96.7% on time
 :::
 
+### Our big ideas
+
 ::: ideas
 1. **Learn what each car will cost.** A machine learning model, trained on every week we played, predicts the driver fee and the late risk.
 2. **Quote for the most expected margin.** Each price weighs our margin against the chance the dealer says yes.
