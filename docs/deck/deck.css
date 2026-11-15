@@ -81,7 +81,9 @@ tr.us td, td strong { color: var(--ink); }
 
 .small p, .small li { font-size: 16px; }
 .ideas ol { gap: 6px; }
-.ideas li { font-size: 18px; }
+.ideas ol { gap: 9px; }
+.ideas li { font-size: 16px; color: var(--ink2); }
+.ideas li strong { font-size: 21px; color: var(--ink); margin-right: 4px; }
 
 /* three columns of short statements on the limits slide */
 .limits h2 { font-size: 19px; color: var(--blue); border-bottom: 2px solid var(--blue); padding-bottom: 4px; }

@@ -10,5 +10,5 @@
 <text x="181.7" y="41.8" font-size="15" font-weight="700" fill="#0b0b0b">quote €209.04: the highest point</text>
 <text x="181.7" y="59.8" font-size="13" fill="#52514e">31% chance to win, €12.95 expected margin</text>
 <text x="50.0" y="246.9" font-size="12" fill="#8a8984">cheap: likely won, little margin</text>
-<text x="542.0" y="236.4" text-anchor="end" font-size="12" fill="#8a8984">dear: big margin, rarely won</text>
+<text x="542.0" y="236.4" text-anchor="end" font-size="12" fill="#8a8984">expensive: big margin, rarely won</text>
 </svg>

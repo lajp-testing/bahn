@@ -92,10 +92,10 @@ Drivers learn our fees: if they expect a raise, they wait for it. So a gig opens
 It rises by 0.15 × typical at most twice: after 6 daytime hours (07–21) without a booking, and a day before the last pickup. Close to the deadline, an urgent fee takes over.
 
 ### Why
-With a fee that rose every hour, drivers saw the gig, waited for the next raise, and booked late and dear.
+With a fee that rose every hour, drivers saw the gig, waited for the next raise, and booked late and at a higher fee.
 +++
 ::: tiles stack
-- **86 → 7–12 min** median time from posting to booking for a one-car gig
+- **86 min → 7–12 min** median time from posting to booking for a one-car gig
 - **7.0% → about 5.9%** of one-car gigs late
 - **+18% margin** with flat fees instead of the hourly rising fee, same 10 weeks, ahead in all 10
 :::
@@ -177,7 +177,7 @@ Every team played the same week. We finished 5th of 75 ranked teams with fewer o
 We price every car over its own predicted cost and stay out of the price fight for cars that would cost more than they pay. The teams above us won volume on short, cheap trips; we won the middle distances, where our cost estimate is sharp.
 
 ::: effect
-**What we took from it:** the short trips we lost were dear for us to staff, not unwinnable. A lower opening fee for them and a cheaper cost for trips under 100 km won more of them without giving up the rule.
+**What we took from it:** the short trips we lost cost us too much to staff, not too little to win. A lower opening fee for them and a cheaper cost for trips under 100 km won more of them without giving up the rule.
 :::
 :::
 

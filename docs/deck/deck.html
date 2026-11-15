@@ -85,7 +85,9 @@ tr.us td, td strong { color: var(--ink); }
 
 .small p, .small li { font-size: 16px; }
 .ideas ol { gap: 6px; }
-.ideas li { font-size: 18px; }
+.ideas ol { gap: 9px; }
+.ideas li { font-size: 16px; color: var(--ink2); }
+.ideas li strong { font-size: 21px; color: var(--ink); margin-right: 4px; }
 
 /* three columns of short statements on the limits slide */
 .limits h2 { font-size: 19px; color: var(--blue); border-bottom: 2px solid var(--blue); padding-bottom: 4px; }
@@ -160,7 +162,7 @@ tr.us td, td strong { color: var(--ink); }
 <text x="181.7" y="41.8" font-size="15" font-weight="700" fill="#0b0b0b">quote €209.04: the highest point</text>
 <text x="181.7" y="59.8" font-size="13" fill="#52514e">31% chance to win, €12.95 expected margin</text>
 <text x="50.0" y="246.9" font-size="12" fill="#8a8984">cheap: likely won, little margin</text>
-<text x="542.0" y="236.4" text-anchor="end" font-size="12" fill="#8a8984">dear: big margin, rarely won</text>
+<text x="542.0" y="236.4" text-anchor="end" font-size="12" fill="#8a8984">expensive: big margin, rarely won</text>
 </svg></figure>
 <div class="effect">
 <ul><li><strong>+50% margin</strong> with this quote instead of a fixed markup over list, same 10 weeks, ahead in all 10. Without it one week fell to 87.1% on time and out of the ranking.</li><li><strong>Offer the dealer same-day delivery whenever a driver still has 8 hours to make it</strong> (before: 12 hours): a request with both same-day and next-day is won 67% of the time, next-day alone 34%. <strong>+16% margin</strong>, 332 → 401 orders a week.</li></ul>
@@ -175,10 +177,10 @@ tr.us td, td strong { color: var(--ink); }
 <p>Drivers learn our fees: if they expect a raise, they wait for it. So a gig opens at <strong>(expected fee − 0.15) × typical fee</strong>, the expected fee coming from the machine learning model, and holds it. It never opens below 0.75 × typical (0.95 for a very short trip or a car with little time left).</p>
 <p>It rises by 0.15 × typical at most twice: after 6 daytime hours (07–21) without a booking, and a day before the last pickup. Close to the deadline, an urgent fee takes over.</p>
 <h3>Why</h3>
-<p>With a fee that rose every hour, drivers saw the gig, waited for the next raise, and booked late and dear.</p>
+<p>With a fee that rose every hour, drivers saw the gig, waited for the next raise, and booked late and at a higher fee.</p>
 </div><div class="col">
 <div class="tiles stack">
-<ul><li><strong>86 → 7–12 min</strong> median time from posting to booking for a one-car gig</li><li><strong>7.0% → about 5.9%</strong> of one-car gigs late</li><li><strong>+18% margin</strong> with flat fees instead of the hourly rising fee, same 10 weeks, ahead in all 10</li></ul>
+<ul><li><strong>86 min → 7–12 min</strong> median time from posting to booking for a one-car gig</li><li><strong>7.0% → about 5.9%</strong> of one-car gigs late</li><li><strong>+18% margin</strong> with flat fees instead of the hourly rising fee, same 10 weeks, ahead in all 10</li></ul>
 </div>
 </div></div></div><div class="num">4 / 10</div></section>
 <section class="slide " id="s5"><div class="inner"><div class="kicker">
@@ -507,7 +509,7 @@ tr.us td, td strong { color: var(--ink); }
 <h3>Why</h3>
 <p>We price every car over its own predicted cost and stay out of the price fight for cars that would cost more than they pay. The teams above us won volume on short, cheap trips; we won the middle distances, where our cost estimate is sharp.</p>
 <div class="effect">
-<p><strong>What we took from it:</strong> the short trips we lost were dear for us to staff, not unwinnable. A lower opening fee for them and a cheaper cost for trips under 100 km won more of them without giving up the rule.</p>
+<p><strong>What we took from it:</strong> the short trips we lost cost us too much to staff, not too little to win. A lower opening fee for them and a cheaper cost for trips under 100 km won more of them without giving up the rule.</p>
 </div>
 </div></div></div><div class="num">8 / 10</div></section>
 <section class="slide " id="s9"><div class="inner"><div class="kicker">
