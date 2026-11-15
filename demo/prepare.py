@@ -270,14 +270,17 @@ def build_decisions(world_map: dict, events: list, journal: list, reveal: dict, 
                     share = cost / len(gig_orders[line["gigId"]])
                     money.setdefault(member, {})["fees"] = money.get(member, {}).get("fees", 0) + share
         elif line["kind"] in ("failed_visit", "waiting", "fine", "release_fee", "undelivered_penalty") and oid:
-            # every cost line is negative in the ledger; keep costs positive
-            money.setdefault(oid, {})["other"] = money.get(oid, {}).get("other", 0) - line["cents"]
+            # every cost line is negative in the ledger; keep costs positive, by kind
+            costs = money.setdefault(oid, {}).setdefault("otherCosts", {})
+            kind = {"waiting": "waiting at a closed site", "failed_visit": "failed visit",
+                    "fine": "fine", "release_fee": "release fee"}.get(line["kind"], line["kind"])
+            costs[kind] = costs.get(kind, 0) - line["cents"]
 
-    attributed = sum((m.get("price", 0) - m.get("fees", 0) - m.get("refund", 0) - m.get("other", 0))
-                     for m in money.values())
+    attributed = sum((m.get("price", 0) - m.get("fees", 0) - m.get("refund", 0)
+                      - sum(m.get("otherCosts", {}).values())) for m in money.values())
     ledger_total = sum(e["line"]["cents"] for e in ledger_lines)
     loose = ledger_total - attributed
-    assert abs(loose) < 1e6, f"per-order money is off by {loose / 100:.2f} euros"
+    assert abs(loose) <= 1, f"per-order money is off by {loose} cents"
     print(f"money: per-order nets {attributed / 100:.2f} + unattributed {loose / 100:.2f} = {ledger_total / 100:.2f}")
 
     late_orders = {e["line"]["orderId"] for e in ledger_lines
@@ -458,6 +461,25 @@ def capture(desk, parts, request: dict, action: dict, orders: dict, money: dict,
         slack[o["kind"]] = round((notes.latest_delivery(request, o["deadline"]) - start - drive) / 60, 1)
     tilt = (quoter.car_short if quoter.car_short and km < quoter.short_km else quoter.car) \
         if getattr(quoter, "car", 0) else 0
+    # why the intake would decline, in the intake's own order: the slack filter,
+    # private addresses, then the queue; None when the recording does not say
+    reason = None
+    declined = any(c > 4 * lists[k] for k, c in sent.items() if k in lists)
+    if declined:
+        passable = []
+        for o in request["options"]:
+            need = intake.same_day_slack if o["kind"] == "same_day" and intake.same_day_slack >= 0 else intake.slack
+            if notes.latest_delivery(request, o["deadline"]) - start - drive >= need:
+                passable.append(o["kind"])
+        if not passable:
+            reason = "no option had enough slack"
+        elif not intake.private and any(l[s]["privateAddress"] for l in request["legs"] for s in ("pickup", "delivery")):
+            reason = "a private address"
+        else:
+            from dispatch.intake import unbooked
+            waiting = unbooked(desk) + getattr(intake, "pending_weight", 1.0) * len(intake.pending)
+            limit = intake.morning_limit if intake.morning_limit and desk.now % 1440 < 12 * 60 else intake.limit
+            reason = "the queue of orders without a driver was full" if waiting >= limit else None
 
     rid = request["id"]
     row = {
@@ -469,7 +491,8 @@ def capture(desk, parts, request: dict, action: dict, orders: dict, money: dict,
             "plates": facts.plates, "hours": list(facts.pickup_hours) if facts.pickup_hours else None,
             "deliveryHours": list(facts.delivery_hours) if facts.delivery_hours else None,
             "summerTyres": facts.summer_tyres, "sure": facts.sure},
-        "declined": any(c > 4 * lists[k] for k, c in sent.items() if k in lists),
+        "declined": declined,
+        "declineReason": reason,
         "slack": slack,
         "queue": [round(queue, 1), limit],
         "cost": [expected, round(expected / typical, 3) if typical else 0, round(risk, 3), tilt],

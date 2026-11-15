@@ -28,7 +28,7 @@
 }
 
 :root {
-  --map-h: clamp(420px, calc(100vh - 300px), 780px);  /* the map's height; the side rail matches it */
+  --map-h: clamp(420px, calc(100vh - 420px), 780px);  /* the map's height; the side rail matches it */
   --night: #0A141F;      /* polar night — page ground */
   --land: #142A44;       /* kartta land */
   --sea: #0C1A2C;        /* the map's water */
@@ -72,13 +72,15 @@ select, input { font: inherit; color: var(--birch); background: var(--panel);
 
 /* ---------- header, nav ---------- */
 header { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px;
-  padding: 26px 28px 18px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+  padding: 26px 28px 18px; border-bottom: 1px solid var(--rule); flex-wrap: wrap;
+  max-width: 1520px; margin: 0 auto; }
 h1 { font-size: 34px; font-weight: 600; letter-spacing: -.01em; }
 .sub { color: var(--frost); margin: 4px 0 0; max-width: 62ch; }
 .sub b { color: var(--birch); font-weight: 600; }
 .manifest { margin: 6px 0 0; color: var(--frost); font-size: 15px; max-width: 60ch; }
 .manifest b { color: var(--birch); font-family: var(--mono); font-weight: 600; }
-nav { display: flex; gap: 2px; padding: 0 28px; border-bottom: 1px solid var(--rule); }
+nav { display: flex; gap: 2px; padding: 0 28px; border-bottom: 1px solid var(--rule);
+  max-width: 1520px; margin: 0 auto; width: 100%; }
 nav button { border: none; border-bottom: 2px solid transparent; border-radius: 0;
   color: var(--frost); padding: 10px 16px 8px; font-size: 15px; }
 nav button:hover { color: var(--birch); }
@@ -95,17 +97,18 @@ footer { border-top: 1px solid var(--rule); color: var(--faint); font-size: 13.5
 #map { width: 100%; height: var(--map-h); display: block; cursor: grab; }
 #map.panning { cursor: grabbing; }
 #map text { font-family: var(--sans); fill: var(--frost); user-select: none; }
+.towns { pointer-events: none; }
 #map text.major { fill: var(--birch); }
-.zoomctrl { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 4px; }
+.zoomctrl { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 4px; }
 .zoomctrl button { width: 34px; height: 30px; padding: 0; background: rgba(10,20,31,.85); }
-.maplegend { position: absolute; left: 12px; bottom: 10px; display: flex; gap: 14px; flex-wrap: wrap;
+.maplegend { position: absolute; right: 12px; bottom: 10px; display: flex; gap: 14px; flex-wrap: wrap;
   font-size: 13.5px; color: var(--frost); background: rgba(10,20,31,.85); padding: 4px 12px; border-radius: 4px; }
 .maplegend .k { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 5px;
   vertical-align: middle; }
 .k.req { background: var(--headlight); } .k.won { background: var(--ontime); }
 .k.car { background: #7FB4E8; } .k.done { background: var(--ontime); opacity: .45; } .k.late { background: var(--late); }
 
-.hint, .tourbox { position: absolute; left: 14px; top: 14px; max-width: 340px; background: rgba(10,20,31,.94);
+.hint, .tourbox { position: absolute; right: 14px; top: 14px; max-width: 340px; background: rgba(10,20,31,.94);
   border: 1px solid var(--rule); border-left: 3px solid var(--headlight); border-radius: 4px; padding: 14px 16px; }
 .hint p, .tourbox p { margin: 4px 0; font-size: 13.5px; color: var(--frost); }
 .hint p:first-child { color: var(--birch); }
@@ -114,7 +117,9 @@ footer { border-top: 1px solid var(--rule); color: var(--faint); font-size: 13.5
   border-color: var(--headlight); font-weight: 600; }
 .hint button.quiet, .tourbox button.quiet { background: none; color: var(--frost); border-color: var(--rule); font-weight: 400; }
 .tourbox h4 { font-size: 18px; color: var(--headlight); font-weight: 600; }
-.tourctrl { display: flex; align-items: center; gap: 8px; }
+.tourctrl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tourctrl button { white-space: nowrap; }
+.tourStep { font-family: var(--mono); font-size: 13.5px; color: var(--faint); font-weight: 400; margin-left: 10px; }
 .tourctrl span { font-family: var(--mono); font-size: 13.5px; color: var(--frost); flex: 1; text-align: center; }
 
 .side { display: flex; flex-direction: column; min-width: 0; max-height: calc(var(--map-h) + 2px); }
@@ -183,6 +188,7 @@ dl.rail dd { margin: 0; font-family: var(--mono); font-weight: 600; font-size: 1
 
 /* ---------- inspect a decision ---------- */
 .decgrid { display: grid; grid-template-columns: minmax(400px, 1fr) minmax(430px, 1.25fr); gap: 20px; align-items: start; }
+.declist, .detail, .part { min-width: 0; }
 .declist { border: 1px solid var(--rule); border-radius: 6px; padding: 12px; background: var(--panel); }
 .filters { display: flex; gap: 8px; margin-bottom: 8px; }
 .filters input { flex: 1; }
@@ -207,7 +213,7 @@ dl.rail dd { margin: 0; font-family: var(--mono); font-weight: 600; font-size: 1
   border-bottom: 1px solid var(--rule); padding-bottom: 8px; }
 .dhead h3 { font-size: 24px; margin: 0; }
 .dhead h3 .lane { color: var(--frost); font-size: 18px; font-weight: 400; }
-.dhead .when { color: var(--faint); font-size: 13.5px; font-family: var(--mono); }
+.dhead .when { color: var(--faint); font-size: 13.5px; }
 .settings { font-size: 13.5px; color: var(--faint); margin: 6px 0 2px; }
 .settings b { color: var(--frost); font-weight: 400; }
 .spine { margin-top: 14px; position: relative; }
@@ -260,7 +266,6 @@ dl.rail dd { margin: 0; font-family: var(--mono); font-weight: 600; font-size: 1
 .part h4 { font-size: 18px; margin: 0; }
 .part .code { font-family: var(--mono); font-size: 12px; color: var(--faint); }
 .part p { margin: 0; color: var(--frost); font-size: 13.5px; }
-.part .eff { font-size: 13.5px; color: var(--ontime); font-family: var(--mono); }
 dl.method { margin: 0; }
 .method dt { color: var(--birch); font-weight: 600; margin-top: 12px; }
 .method dd { margin: 2px 0 0; color: var(--frost); font-size: 15px; }
@@ -316,7 +321,7 @@ table.rej td.lose { color: var(--late); font-family: var(--mono); font-size: 12p
 @media (max-height: 980px) {
   header { padding: 10px 28px 8px; }
   h1 { font-size: 24px; }
-  .sub { display: none; }   /* a mid-word ellipsis reads as broken; the title stands alone here */
+  .sub { font-size: 13.5px; }
   .manifest b { font-size: 18px; }
   .manifest div { padding: 2px 14px; }
   nav button { padding: 6px 14px 5px; font-size: 15px; }
@@ -343,3 +348,8 @@ details.settings p { margin: 6px 0 0; color: var(--faint); }
 /* the measured-effect column: prose in birch, only the figures mono */
 .part .eff { font-family: var(--sans); color: var(--birch); font-size: 13.5px; }
 .part .eff .fig { font-family: var(--mono); color: var(--ontime); font-weight: 600; }
+
+/* the challenge's last step is a rule, not a step in the flow: span the grid */
+.stepcard:last-child { grid-column: 1 / -1; }
+
+.stats .fig { font-family: var(--mono); color: var(--birch); }

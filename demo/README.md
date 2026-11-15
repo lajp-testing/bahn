@@ -63,8 +63,9 @@ one day, `space` plays or pauses.
    (expected fee as a multiple of the typical fee, late risk, cost tilt) → the quoter
    (market level, dealer trust, win chance at our price) → the outcome → the gig
    (the fee schedule, the whole gig history: every post, reprice, refusal, drop and
-   booking) → the money (price − fee − refund − other costs = margin, as a bar with a
-   legend). Requests link both ways: click a ring or a feed line on the map to open
+   booking) → the money (two aligned rows: the price above, the costs and margin below
+   at the same scale, so a loss shows as the costs running past the price in red).
+   Requests link both ways: click a ring or a feed line on the map to open
    one here; **Show on the map** jumps the week to its minute and highlights its lane.
 4. **How it works** — the system **as it is now** (the eight parts, each with its
    reason and measured effect; how we decided; each adopted step as a measured bar —
@@ -92,7 +93,8 @@ world's own driver list** (`roster.json.gz`, 859 drivers, fetched after the end)
 | Requests, options, list prices, typical fees, notes | exact (recorded events) |
 | Our quotes, outcomes, order prices, deadlines | exact (recorded actions + events) |
 | Gig fee schedules, bookings, drivers, pickup/delivery times | exact (recorded) |
-| Money per order (price, fees, refunds, waiting and other costs, margin) | exact from the ledger; a bundle gig's fee splits evenly across its cars when the ledger line names no order, and prepare.py asserts the per-order nets plus unattributed lines sum to the whole account (€17,442.75) |
+| Money per order (price, fees, refunds, waiting and other costs by kind, margin) | exact from the ledger; a bundle gig's fee splits evenly across its cars when the ledger line names no order, and prepare.py asserts the per-order nets plus unattributed lines sum to the whole account (€17,442.75) to the cent |
+| Decline reasons | the intake's own verdict from the desk replay (slack, private address, queue, in that order); when the recording does not say, the inspector says "reason not recorded" |
 | On-time and late | exact: an order is late exactly when the account refunded it (a `late_refund` or `undelivered_penalty` line), so the rail ends at the same 97.2% and 10 late as the header |
 | Market level, dealer trust counts, queue fill, slack, win chance at our price | exact (replayed through the real desk) |
 | The note reader's facts | exact (the same reader, the same notes) |

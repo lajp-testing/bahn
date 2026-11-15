@@ -11,8 +11,8 @@
 <header class="load-1">
   <div class="masthead">
     <h1>A dispatcher's week in Finland</h1>
-    <p class="sub">How our team played <b>Spread</b>, the car-transport challenge at Junction 2026.
-    This is the organiser's test final of 14 November — one real week, recorded and replayed decision by decision.</p>
+    <p class="sub">How our team played <b>Spread</b>, the car-transport dispatching challenge
+    at Junction 2026, in one recorded week: the organiser's test final of 14 November.</p>
   </div>
   <p class="manifest">Final result: <b>5th of 75</b> ranked teams,
     <b>€17,442.75</b> margin, <b>356</b> orders, <b>97.2%</b> on time, <b>1,030</b> requests.</p>
@@ -57,7 +57,6 @@
         <p id="tourText"></p>
         <div class="tourctrl">
           <button id="tourPrev" class="quiet">Back</button>
-          <span id="tourStep"></span>
           <button id="tourNext">Next</button>
           <button id="tourClose" class="quiet">Close</button>
         </div>
@@ -110,6 +109,7 @@
 
 <!-- ============================== THE CHALLENGE ============================= -->
 <main id="tab-challenge" class="tab">
+  <p class="lead" id="chIntro"></p>
   <section class="steps">
     <div id="steps"></div>
   </section>
@@ -124,7 +124,7 @@
     </div>
     <div>
       <h2>The one rule that shapes everything</h2>
-      <p class="callout">Below <b>90% of orders on time, a team is not ranked at all</b> — whatever its margin.
+      <p class="callout">Below <b>90% of orders on time, a team is not ranked at all</b>, whatever its margin.
       So the desk's central question is never &ldquo;how much can we win?&rdquo; but <b>&ldquo;how much profitable
       work can we still promise?&rdquo;</b> The final is one secret week at the hardest level: a third of the
       drivers, unevenly spread between towns, a price war nobody announces, and dealers who trust a team only
@@ -174,7 +174,7 @@
     </div>
     <div>
       <h2>Each adopted step, measured</h2>
-      <p class="small">Margin change over 40 paired worlds, one comparison per row — the rows are not additive.</p>
+      <p class="small">Margin change over 40 paired worlds, one comparison per row; the rows are not additive.</p>
       <div id="adoption"></div>
     </div>
   </section>
@@ -183,18 +183,20 @@
 <!-- ================================ THE RACE ================================ -->
 <main id="tab-race" class="tab">
   <p class="lead">The live leaderboard feed of the test final, recorded every 2 seconds from Tuesday 13:51 to
-  the end. We finished <b>5th of 75 ranked teams</b>. The gap to the top was volume — about 110 cars on lanes
-  under 100 km — not price; the fix went in the same evening and is in
+  the end. We finished <b>5th of 75 ranked teams</b>. The gap to the top was volume, about 110 cars on lanes
+  under 100 km, not price; the fix went in the same evening and is in
   <a href="#" data-goto="system">how it works</a>.</p>
   <div class="racecharts">
     <svg id="raceMargin"></svg>
     <svg id="raceOrders"></svg>
   </div>
+  <p class="small">Requests stop at Friday 18:00; deliveries and the account run on to Wednesday,
+  so the part of each chart past the dashed line is the quiet tail.</p>
   <div class="racenotes" id="raceNotes"></div>
 </main>
 
 <footer>
-  <p>Runs entirely offline from saved data — the recorded events, actions and reveal of one real week,
+  <p>Runs entirely offline from saved data: the recorded events, actions and reveal of one real week,
   replayed through the same code that played it. No server, no live calls.</p>
 </footer>
 <script src="demo.js"></script>

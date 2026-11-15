@@ -3,6 +3,7 @@
    minute on the map), so scrubbing backwards is exact. Design: demo/DESIGN.md. */
 "use strict";
 
+const W_CHART = 900;   // the race charts' drawing width
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Mon 2", "Tue 2", "Wed 2"];
 const END = 14280;            // the world ends Wed 22:00, minute 14280
 const OPEN_MIN = 570;         // the page opens at Mon 09:30, with the first cars moving
@@ -24,14 +25,14 @@ function svgEl(tag, attrs) {
 }
 function fmtEur(cents) {
   const e = (cents || 0) / 100;
-  const body = Math.abs(e).toLocaleString("en-GB", { minimumFractionDigits: e % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const body = Math.abs(e).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return (e < 0 ? "−€" : "€") + body;
 }
 function clockStr(min) {
   const day = Math.floor(min / 1440), m = min % 1440;
   return `${DAYS[Math.min(day, 9)]} ${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
-function hhmm(min) { return clockStr(min).slice(4); }
+function hhmm(min) { return `${String(Math.floor((min % 1440) / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`; }
 function bisect(arr, t) { // count of rows with row[0] <= t
   let lo = 0, hi = arr.length;
   while (lo < hi) { const mid = (lo + hi) >> 1; if (arr[mid][0] <= t) lo = mid + 1; else hi = mid; }
@@ -99,6 +100,7 @@ document.querySelectorAll("[data-goto]").forEach((a) =>
 /* ============================== challenge ============================== */
 
 function buildChallenge() {
+  $("#chIntro").textContent = STORY.challenge.intro;
   $("#steps").innerHTML = STORY.challenge.steps.map((s, i) =>
     `<div class="stepcard"><div class="n">${i + 1}</div><div><h4>${s.title}</h4><p>${s.text}</p></div></div>`).join("");
   $("#words").innerHTML = STORY.challenge.words.map(([w, d]) => `<dt>${w}</dt><dd>${d}</dd>`).join("");
@@ -110,19 +112,17 @@ function buildChallenge() {
     ["Driver", "books, drives"], ["Delivered", "on time = margin"],
   ];
   const W = 1150, H = 190, xs = stops.map((_, i) => 70 + i * (W - 140) / (stops.length - 1));
-  const y = (x) => 105 + 26 * Math.sin((x / W) * Math.PI * 2.2);   // a gentle road curve
+  const y = (x) => 128 + 14 * Math.sin((x / W) * Math.PI * 2.2);   // a gentle road curve
   let d = `M ${xs[0]},${y(xs[0])}`;
   xs.forEach((x, i) => { if (i) d += ` C ${xs[i-1]+55},${y(xs[i-1])} ${x-55},${y(x)} ${x},${y(x)}`; });
   const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}` });
   svg.appendChild(svgEl("path", { d, fill: "none", stroke: "#33465E", "stroke-width": 3, "stroke-dasharray": "1 7", "stroke-linecap": "round" }));
   stops.forEach(([t, s], i) => {
-    const x = xs[i], yy = y(x), up = i % 2 === 0;
+    const x = xs[i], yy = y(x);
     svg.appendChild(svgEl("circle", { cx: x, cy: yy, r: 7, class: "stop" + (i === 7 ? " hot" : "") }));
-    const ty = up ? 38 : 168;   // two quiet label bands, clear of the road
-    const tx = svgEl("text", { x, y: ty, "text-anchor": "middle" });
-    tx.innerHTML = `<tspan font-weight="600" fill="#EFE9DC">${t}</tspan><tspan x="${x}" dy="16" font-size="12" fill="#8FA6BE">${s}</tspan>`;
-    svg.appendChild(svgEl("line", { x1: x, y1: yy + (up ? -8 : 8), x2: x, y2: ty + (up ? 10 : -20),
-      stroke: "#33465E", "stroke-width": 1 }));
+    svg.appendChild(svgEl("line", { x1: x, y1: yy - 8, x2: x, y2: 52, stroke: "#33465E", "stroke-width": 1 }));
+    const tx = svgEl("text", { x, y: 46, "text-anchor": "middle" });
+    tx.innerHTML = `<tspan font-weight="600" fill="#EFE9DC">${t}</tspan><tspan x="${x}" dy="17" font-size="13.5" fill="#8FA6BE">${s}</tspan>`;
     svg.appendChild(tx);
   });
   $("#flow").innerHTML = "";
@@ -151,6 +151,7 @@ function ll(id) { const q = MAP.places.find((x) => x.id === id); return [q.lat, 
 
 const MINOR = new Set(["espoo", "vantaa", "raisio", "lempaala", "porvoo", "salo", "rauma", "hyvinkaa", "kouvola", "ylivieska"]);
 
+const scrubRef = { fn: null };   // the live scrub function, rewired on each timeline rebuild
 const week = {
   t: OPEN_MIN, playing: false, speed: 60, last: 0,
   reqByAt: [], wonByAt: [], lostByAt: [], ledgerCum: [], feed: [], feedAt: [],
@@ -425,12 +426,14 @@ function renderWeek() {
   $("#onTimePct").textContent = share == null ? "–" : (share * 100).toFixed(1) + "%";
 
   const kf = bisect(week.feedAt, t);
+  const focusId = document.activeElement?.dataset?.rid || null;
   $("#feed").innerHTML = week.feed.slice(Math.max(0, kf - 11), kf).reverse().map((e) => feedLine(e, t)).join("");
   document.querySelectorAll("#feed li[data-rid]").forEach((li) => {
     li.tabIndex = 0;
     li.addEventListener("click", () => openRequest(li.dataset.rid));
     li.addEventListener("keydown", (e) => { if (e.key === "Enter") openRequest(li.dataset.rid); });
   });
+  if (focusId) document.querySelector(`#feed li[data-rid="${focusId}"]`)?.focus();
   moveCursor(t);
 }
 
@@ -497,7 +500,12 @@ function showOnMap(rid) {
 
 function buildTimeline() {
   const svg = $("#tline");
-  const W = 1000, H = 96, QUIET = 7440;   // Friday 18:00: the last request of the week
+  // size the drawing to the strip's real box, so nothing is letterboxed and the
+  // pointer maps straight through; rebuilt on resize
+  const W = Math.max(600, svg.clientWidth), H = svg.clientHeight || 96;
+  svg.textContent = "";
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const QUIET = 7440;   // Friday 18:00: the last request of the week
   // minutes to x: the working week gets 85% of the strip, the quiet tail 15%
   const X = (min) => min <= QUIET
     ? 8 + min / QUIET * (W - 16) * 0.85
@@ -553,6 +561,10 @@ function buildTimeline() {
   week.cursor = svgEl("line", { x1: X(week.t), y1: 0, x2: X(week.t), y2: H - 14, stroke: "#F0A532", "stroke-width": 1.5 });
   svg.appendChild(week.cursor);
   week.tlX = X;
+  if (!week.tlBuilt) {
+    window.addEventListener("resize", () => { week.tlBuilt = false; buildTimeline(); renderWeek(); });
+    week.tlBuilt = true;
+  }
   // drag / click anywhere to scrub
   const scrub = (e) => {
     const r = svg.getBoundingClientRect();
@@ -561,10 +573,14 @@ function buildTimeline() {
       : QUIET + (x / span - 0.85) / 0.15 * (END - QUIET);
     setTime(min);
   };
-  let down = false;
-  svg.addEventListener("pointerdown", (e) => { down = true; svg.setPointerCapture(e.pointerId); scrub(e); });
-  svg.addEventListener("pointermove", (e) => { if (down) scrub(e); });
-  svg.addEventListener("pointerup", () => { down = false; });
+  if (!week.tlWired) {   // pointer wiring once; the drawing itself rebuilds on resize
+    week.tlWired = true;
+    let down = false;
+    svg.addEventListener("pointerdown", (e) => { down = true; svg.setPointerCapture(e.pointerId); scrubRef.fn(e); });
+    svg.addEventListener("pointermove", (e) => { if (down) scrubRef.fn(e); });
+    svg.addEventListener("pointerup", () => { down = false; });
+  }
+  scrubRef.fn = scrub;
 }
 function moveCursor(t) {
   if (week.cursor) week.cursor.setAttribute("x1", week.tlX(t)),
@@ -594,16 +610,21 @@ function wireControls() {
   }, { passive: false });
   let pan = null;
   svg.addEventListener("pointerdown", (e) => {
+    if (e.target.closest('[role="button"]')) return;   // a ring press is a click, not a pan
     pan = { x: e.clientX, y: e.clientY, view: { ...week.view }, moved: false };
     week.dragged = false;
-    svg.setPointerCapture(e.pointerId);
   });
   svg.addEventListener("pointermove", (e) => {
     if (!pan) return;
     const r = svg.getBoundingClientRect();
     const v = pan.view;
+    if (!pan.moved && Math.abs(e.clientX - pan.x) + Math.abs(e.clientY - pan.y) > 3) {
+      pan.moved = true;
+      svg.setPointerCapture(e.pointerId);   // capture only once the drag is real
+    }
+    if (!pan.moved) return;
+    week.dragged = true;
     const dx = (e.clientX - pan.x) / r.width * v.w, dy = (e.clientY - pan.y) / r.height * v.h;
-    if (Math.abs(e.clientX - pan.x) + Math.abs(e.clientY - pan.y) > 3) { pan.moved = true; week.dragged = true; }
     week.view.x = Math.min(proj.W - v.w, Math.max(0, v.x - dx));
     week.view.y = Math.min(proj.H - v.h, Math.max(0, v.y - dy));
     applyView();
@@ -619,7 +640,9 @@ function wireControls() {
     const day = e.ctrlKey || e.altKey || e.metaKey;
     if (e.key === "ArrowLeft") { e.preventDefault(); setTime(day ? week.t - 1440 : e.shiftKey ? week.t - 60 : stepMinute(-1)); }
     else if (e.key === "ArrowRight") { e.preventDefault(); setTime(day ? week.t + 1440 : e.shiftKey ? week.t + 60 : stepMinute(1)); }
-    else if (e.key === " ") { e.preventDefault(); togglePlay(); }
+    else if (e.key === " " && !e.target.closest("button, [role=button], li[tabindex], a")) {
+      e.preventDefault(); togglePlay();
+    }
   });
   window.addEventListener("resize", layoutTowns);
 }
@@ -661,13 +684,14 @@ function startTour() {
     .sort((a, b) => (b.de - WEEK.deadline[b.rid]) - (a.de - WEEK.deadline[a.rid]))[0];
   const lateHours = Math.round((lateMove.de - WEEK.deadline[lateMove.rid]) / 60);
   const first = WEEK.requests[0];
+  if (!WEEK.won.length || !bundle || !lateMove) return;   // another week's data: no tour
   const firstRid = WEEK.won[0][1];
   const bundleRids = WEEK.gigOrders[bundle[1]];
   tour.steps = [
     { t: 510, title: "Monday, 08:30", view: defaultView(),
       text: "The desk is open. From 09:00 dealers across Finland will start asking for prices; every amber ring is a request that gives us fifteen minutes to quote." },
     { t: first.at, title: `The first request, ${first.id}`, view: laneView([first.id]), hl: [first.id],
-      text: `${nameOf[first.p]} to ${nameOf[first.d]}, ${DEC[first.id].km} km. We quoted ${Object.entries(DEC[first.id].quote).map(([k, v]) => `${fmtEur(v)} for ${k.replace(/_/g, " ")}`).join(" and ")} ; we lost it to the competitor. A loss teaches the quoter's level to step down.` },
+      text: `${nameOf[first.p]} to ${nameOf[first.d]}, ${DEC[first.id].km} km. We quoted ${Object.entries(DEC[first.id].quote).map(([k, v]) => `${fmtEur(v)} for ${k.replace(/_/g, " ")}`).join(" and ")} and lost it to the competitor. A loss teaches the quoter's level to step down.` },
     { t: WEEK.won[0][0], title: `The first win, ${firstRid}`, view: laneView([firstRid]), hl: [firstRid],
       text: `At ${fmtEur(DEC[firstRid].won.price)} the dealer chose us. The gig opens at what the cost model expects the car to cost, and a driver books within minutes; watch the blue car leave ${nameOf[WEEK.reqMap[firstRid].p]}.` },
     { t: bundle[0], title: "A bundle", view: laneView(bundleRids), hl: bundleRids,
@@ -675,16 +699,12 @@ function startTour() {
     { t: 2880, title: "Wednesday: the price war", view: defaultView(),
       text: "Nobody announces it, but today the competitor quotes 20% under its usual prices. Our cost, not the quoter's level, held the quote up: the median stayed at 1.33 to 1.38 times list all Wednesday. We won 23% of the day's requests, against 48% on Thursday." },
     { t: 3620, title: "Wednesday noon: the bulk order", view: proj.box(59.95, 60.75, 24.15, 25.55),
-      text: "A dealer group sends 30 cars from one yard in Vantaa, and we win 4. Not because the queue was full: it held at most 25 of 35 orders on Wednesday and declined no request. The price war held our quotes up, and short cars were dear to move that week." },
+      text: "A dealer group sends 30 cars from one yard in Vantaa, and we win 4. Not because of the queue: it held at most 25 of 35 orders on Wednesday and declined none for a full queue. The price war held our quotes up, and short cars were dear to move that week." },
     { t: lateMove.de - 30, rid: lateMove.rid, title: `A late car, ${lateMove.rid}`, view: laneView([lateMove.rid]), hl: [lateMove.rid],
       text: `${lateHours} hours late: the dealer gets half its price back and its trust count halves. Ten of our 356 orders ran late; 97.2% arrived on time, above the 90% the ranking demands.` },
     { t: END, title: "The end of the week", view: defaultView(),
       text: "€17,442.75 of margin, 356 orders, 97.2% on time: 5th of 75 teams. The gap to the top was about 110 short cars — the fee floors priced them out. The fix went in the same evening; it is in the How it works tab." },
   ];
-  if (!bundle || !lateMove) {   // a different week's data: skip what is not there
-    tour.steps = tour.steps.filter((s) => (s.title === "A bundle" && !bundle) ||
-      (String(s.title).startsWith("A late car") && !lateMove) ? false : true);
-  }
   tour.i = 0;
   $("#hint").hidden = true;
   $("#tourbox").hidden = false;
@@ -696,9 +716,8 @@ function showTourStep() {
   if (s.view) flyTo(s.view);
   week.hl = s.hl ? { polys: s.hl.map(lanePts), until: Infinity } : null;
   renderWeek();
-  $("#tourTitle").textContent = `${s.title}`;
+  $("#tourTitle").innerHTML = `${esc(s.title)} <span class="tourStep">${tour.i + 1} of ${tour.steps.length}</span>`;
   $("#tourText").textContent = s.text;
-  $("#tourStep").textContent = `${tour.i + 1} / ${tour.steps.length}`;
   const btn = $("#tourNext");
   btn.textContent = tour.i === tour.steps.length - 1 ? "Finish" : "Next";
   const insp = $("#tourPrev").parentElement.querySelector(".inspect");
@@ -708,7 +727,7 @@ function showTourStep() {
     b.className = "quiet inspect";
     b.textContent = "Inspect " + s.rid;
     b.addEventListener("click", () => { endTour(); openRequest(s.rid); });
-    $(".tourctrl").insertBefore(b, $("#tourStep"));
+    $(".tourctrl").appendChild(b);
   }
 }
 function endTour() {
@@ -741,15 +760,23 @@ function buildDecision() {
     const b = buckets.findIndex(([lo, hi]) => d.km >= lo && d.km < hi);
     stat[b][0]++; if (d.won) stat[b][1]++;
   });
-  $("#laneStats").innerHTML = "win rate by lane: " + buckets.map(([lo, hi], i) =>
-    `${hi < 1e9 ? (lo ? `${lo}–${hi}` : `<${hi}`) : `${lo}+`} km ${stat[i][0] ? Math.round(100 * stat[i][1] / stat[i][0]) : 0}% (${stat[i][1]}/${stat[i][0]})`
-  ).join("  ·  ");
+  $("#laneStats").innerHTML = "Win rate by lane: " + buckets.map(([lo, hi], i) =>
+    `${hi < 1e9 ? (lo ? `${lo} to ${hi}` : `under ${hi}`) : `${lo} or more`} km, ` +
+    `<span class="fig">${stat[i][0] ? Math.round(100 * stat[i][1] / stat[i][0]) : 0}%</span> ` +
+    `(<span class="fig">${stat[i][1]}</span> of <span class="fig">${stat[i][0]}</span>)`
+  ).join("; ") + ".";
   wireTour();
   renderRows();
   const withNote = WEEK.requests.find((r) => r.note && DEC[r.id]?.won);
-  if (withNote) selectRequest(withNote.id);
+  if (withNote) selectRequest(withNote.id, true);
 }
 
+function markSelectedRow() {
+  document.querySelectorAll("#drows tr").forEach((tr) => {
+    tr.classList.toggle("sel", tr.dataset.r === dec.sel);
+    tr.tabIndex = tr.dataset.r === dec.sel ? 0 : -1;
+  });
+}
 function renderRows() {
   const rows = WEEK.requests.filter((r) => {
     const d = DEC[r.id]; if (!d) return false;
@@ -775,9 +802,17 @@ function renderRows() {
       <td class="r">${d.km}</td><td class="r mono">&times;${Math.min(...ratioList).toFixed(2)}</td><td>${badge}</td></tr>`;
   }).join("");
   document.querySelectorAll("#drows tr").forEach((tr) => {
-    tr.tabIndex = 0;
+    tr.tabIndex = tr.dataset.r === dec.sel ? 0 : -1;   // one tab stop; arrows walk the list
     tr.addEventListener("click", () => selectRequest(tr.dataset.r));
-    tr.addEventListener("keydown", (e) => { if (e.key === "Enter") selectRequest(tr.dataset.r); });
+    tr.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") selectRequest(tr.dataset.r);
+      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const rows = [...document.querySelectorAll("#drows tr")];
+        const i = rows.indexOf(tr) + (e.key === "ArrowDown" ? 1 : -1);
+        if (rows[i]) { tr.tabIndex = -1; rows[i].tabIndex = 0; rows[i].focus(); }
+      }
+    });
   });
 }
 
@@ -787,15 +822,9 @@ function stage(n, title, body, tag) {
   return `<div class="stage"><span class="node">${n}</span><h4>${title}${tagHtml}</h4><div class="body">${body}</div></div>`;
 }
 
-// why the intake declined a request, from the numbers the inspector already shows
-function declineReason(r, d) {
-  const offered = Object.keys(d.quote);
-  const slacks = offered.map((k) => d.slack[k]).filter((x) => x != null);
-  if (!offered.length || (slacks.length && Math.max(...slacks) < 12)) return "no option had 12 hours of slack";
-  if (d.queue[0] >= d.queue[1]) return "the queue of orders without a driver was full";
-  if (r.priv) return "the pickup or delivery is a private address";
-  if (d.noteFacts && !d.noteFacts.sure) return "the note left the reader unsure";
-  return "the car cost more than the day's prices would pay";
+// the intake's verdict, exported by the desk replay in prepare.py
+function declineReason(d) {
+  return d.declineReason || "reason not recorded";
 }
 
 function lateText(mins) {
@@ -819,10 +848,10 @@ function gigHistory(gigs) {
   return `<div class="gigstory">${rows}</div>`;
 }
 
-function selectRequest(rid) {
+function selectRequest(rid, quiet) {
   dec.sel = rid;
-  renderRows();
-  writeHash(`decision/${rid}`);
+  markSelectedRow();
+  if (!quiet) writeHash(`decision/${rid}`);
   const r = WEEK.reqMap[rid], d = DEC[rid];
   const facts = d.noteFacts;
   const floors = SETTINGS.floors;
@@ -833,7 +862,9 @@ function selectRequest(rid) {
     if (facts.ready != null) chips.push(`<span class="chip">ready from ${clockStr(facts.ready)}</span>`);
     if (facts.deadline != null) chips.push(`<span class="chip">must arrive by ${clockStr(facts.deadline)}</span>`);
     if (facts.hours) chips.push(`<span class="chip">pickup hours ${facts.hours[0] != null ? hhmm(facts.hours[0]) : ""} to ${facts.hours[1] != null ? hhmm(facts.hours[1]) : ""}</span>`);
-    if (facts.deliveryHours) chips.push(`<span class="chip">destination hours ${facts.deliveryHours[0] != null ? hhmm(facts.deliveryHours[0]) : ""} to ${facts.deliveryHours[1] != null ? hhmm(facts.deliveryHours[1]) : "the close of day"}</span>`);
+    if (facts.deliveryHours) chips.push(facts.deliveryHours[0] == null
+      ? `<span class="chip">destination closes at ${hhmm(facts.deliveryHours[1])}</span>`
+      : `<span class="chip">destination hours ${hhmm(facts.deliveryHours[0])} to ${hhmm(facts.deliveryHours[1])}</span>`);
     if (facts.manual) chips.push(`<span class="chip">manual licence needed</span>`);
     if (facts.plates) chips.push(`<span class="chip">fetch transfer plates</span>`);
     if (facts.summerTyres) chips.push(`<span class="chip">summer tyres</span>`);
@@ -849,7 +880,7 @@ function selectRequest(rid) {
   const intakeBody = `
     <div class="chips">${slackChips.join("")}</div>
     <div class="kv"><b>queue</b><span>${d.queue[0]} of ${d.queue[1]} unbooked${d.queue[0] >= d.queue[1] ? " (full)" : ""}</span></div>
-    ${declined ? `<p>We <b>declined</b> this one: ${declineReason(r, d)}. The quote sits far above the list price, so losing it costs nothing.</p>` : ""}`;
+    ${declined ? `<p>We <b>declined</b> this one: ${declineReason(d)}. The quote sits far above the list price, so losing it costs nothing.</p>` : ""}`;
   const costBody = `
     <div class="kv">
       <b>expected fee</b><span>${fmtEur(d.cost[0])}, ${(d.cost[1]).toFixed(2)} times the typical fee (${fmtEur(d.typical)})</span>
@@ -869,7 +900,7 @@ function selectRequest(rid) {
   let tail;
   if (declined) {
     tail = stage(5, "The outcome",
-      `<p><span class="badge decline">declined</span> We declined this one: ${declineReason(r, d)}.
+      `<p><span class="badge decline">declined</span> We declined this one: ${declineReason(d)}.
       The dealer went to the competitor, and a declined request teaches the level nothing: only a real quote that lost does.</p>`);
   } else if (d.won) {
     tail = stage(5, "The outcome",
@@ -888,9 +919,12 @@ function selectRequest(rid) {
     const sched = g ? g.schedule.map((s, i) =>
       `<span class="gigstep">${i === 0 ? "opens " : "then "}${fmtEur(s.feeCents)}</span>`)
       .join('<span class="gigjoin">&#8250;</span>') : "";
+    const mult = g.fee / d.typical;
+    const floor = Math.abs(mult - floors[0]) < 0.005 ? ` (at the &times;${floors[0]} floor)`
+      : Math.abs(mult - floors[1]) < 0.005 ? ` (at the &times;${floors[1]} floor)` : "";
     const feeLine = g ? (nCars > 1
       ? `the gig's fee ${fmtEur(g.fee)} for ${nCars} cars; this car's share ${fmtEur(share)}, ${(share / d.typical).toFixed(2)} times its typical fee`
-      : `${fmtEur(g.fee)}, ${(g.fee / d.typical).toFixed(2)} times the typical fee (floored at &times;${floors[0]}, or &times;${floors[1]} under 40 km)`) : "";
+      : `${fmtEur(g.fee)}, ${mult.toFixed(2)} times the typical fee${floor}`) : "";
     const pickedUp = d.won.pickedUp.map((x) => x != null ? clockStr(x) : "never").join(", ");
     const delivered = d.won.delivered.map((x) => x != null ? clockStr(x) : "never").join(", ");
     const isLate = d.won.late;
@@ -906,18 +940,24 @@ function selectRequest(rid) {
       ${isLate ? `<p><span class="badge late">${lateness > 0 ? `late by ${lateText(lateness)}` : "late against its own delivery window"}</span> The dealer was refunded and its trust count halved.</p>`
                : `<p><span class="badge won">on time</span> The price is ours, and the dealer counts one more on-time order.</p>`}`);
     const m = d.money || {};
-    const price = m.price || d.won.price, fees = m.fees || 0, refund = m.refund || 0, other = m.other || 0;
+    const price = m.price || d.won.price, fees = m.fees || 0, refund = m.refund || 0;
+    const other = Object.values(m.otherCosts || {}).reduce((a, v) => a + v, 0) || m.other || 0;
     const net = price - fees - refund - other;
-    const segs = [
-      ["price", price, "m-price"], ["driver fee", fees, "m-fee"],
-      ...(refund ? [["refund", refund, "m-ref"]] : []),
-      ...(other ? [["other costs", other, "m-ref"]] : []),
-    ].filter(([, v]) => v > 0);
-    const tot = segs.reduce((a, [, v]) => a + v, 0) || 1;
-    const bar = `<div class="money">${segs.map(([lab, v, cls]) =>
-      `<div class="${cls}" style="width:${100 * v / tot}%"></div>`).join("")}<div class="m-net"></div></div>`;
-    const legend = `<div class="mlegend">${segs.map(([lab, v, cls]) =>
-      `<span><i class="${cls}"></i>${lab} ${fmtEur(Math.round(v))}</span>`).join("")}` +
+    // two rows on one scale: the price above, the costs and the margin below; a loss
+    // shows as the costs running past the price, in late red
+    const costs = fees + refund + other;
+    const scale = Math.max(price, costs) || 1;
+    const costSegs = [["driver fee", fees, "m-fee"], ["refund", refund, "m-ref"],
+      ...Object.entries(m.otherCosts || {}).map(([k, v]) => [k, v, "m-ref"])]
+      .filter(([, v]) => v > 0);
+    const bar = `
+      <div class="mrows">
+        <div class="money"><div class="m-price" style="width:${100 * price / scale}%"></div></div>
+        <div class="money">${costSegs.map(([lab, v, cls]) => `<div class="${cls}" style="width:${100 * v / scale}%"></div>`).join("")}
+          ${net >= 0 ? `<div class="m-net" style="width:${100 * net / scale}%"></div>` : `<div class="m-loss" style="width:${100 * -net / scale}%"></div>`}</div>
+      </div>`;
+    const legend = `<div class="mlegend"><span><i class="m-price"></i>price ${fmtEur(price)}</span>` +
+      costSegs.map(([lab, v, cls]) => `<span><i class="${cls}"></i>${lab} ${fmtEur(Math.round(v))}</span>`).join("") +
       `<span class="net">margin <b class="${net < 0 ? "neg" : ""}">${fmtEur(Math.round(net))}</b></span></div>`;
     tail += stage(7, "The money", `${bar}${legend}`);
   }
@@ -971,33 +1011,34 @@ function buildSystem() {
 /* ============================== the race ============================== */
 
 function buildRace() {
-  const s = RACE.series, x0 = s[0][0];
-  const x1 = Math.min(RACE.end, 5 * 1440);   // Saturday 00:00: no requests after Friday 18:00
+  const s = RACE.series, x0 = s[0][0], QUIET = 5 * 1440;   // Saturday 00:00
+  // the working week gets 85% of the width; the quiet delivery tail runs to the true finals
+  const X = (min) => min <= QUIET
+    ? 70 + (min - x0) / (QUIET - x0) * (W_CHART - 84) * 0.85
+    : 70 + (W_CHART - 84) * (0.85 + (min - QUIET) / (RACE.end - QUIET) * 0.15);
   const chart = (svgSel, pick, idx, yLabel, step, fmt) => {
-    const svg = $(svgSel), W = 900, H = 380, ml = 70, mt = 34, mb = 34;
+    const svg = $(svgSel), W = W_CHART, H = 380, ml = 70, mt = 34, mb = 34;
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-    const yMax = Math.ceil(Math.max(...s.map(pick)) / step) * step;
-    const X = (min) => ml + (min - x0) / (x1 - x0) * (W - ml - 14);
+    const yMax = Math.ceil(Math.max(...s.map(pick), s[s.length - 1][idx[0]], s[s.length - 1][idx[1]]) / step) * step;
     const Y = (v) => H - mb - v / yMax * (H - mt - mb);
     let grid = "";
-    for (let d = 1; d <= 4; d++) { const min = d * 1440 + 480;
-      if (min < x0 || min > x1) continue;
+    for (let d = 1; d <= 4; d++) { const min = d * 1440 + 480;   // Tue 08 to Fri 08
       grid += `<line x1="${X(min)}" y1="${mt}" x2="${X(min)}" y2="${H - mb}" stroke="#223349"/>
         <text x="${X(min)}" y="${H - 12}" fill="#7D93AB" font-size="15" text-anchor="middle">${DAYS[d]} 08</text>`; }
     for (let v = 0; v <= yMax; v += step) {
       grid += `<line x1="${ml}" y1="${Y(v)}" x2="${W - 14}" y2="${Y(v)}" stroke="#16263B"/>
         <text x="${ml - 8}" y="${Y(v) + 5}" fill="#7D93AB" font-size="15" text-anchor="end">${fmt(v)}</text>`; }
+    grid += `<line x1="${X(QUIET)}" y1="${mt}" x2="${X(QUIET)}" y2="${H - mb}" stroke="#223349" stroke-dasharray="3 3"/>`;
     const line = (i, color) =>
-      `<polyline points="${s.filter((p) => p[0] <= x1).map((p) => `${X(p[0])},${Y(p[i])}`).join(" ")}" fill="none" stroke="${color}" stroke-width="2.4"/>`;
-    const lastp = s.filter((p) => p[0] <= x1).slice(-1)[0];
+      `<polyline points="${s.map((p) => `${X(p[0])},${Y(p[i])}`).join(" ")}" fill="none" stroke="${color}" stroke-width="2.4"/>`;
+    const lastp = s[s.length - 1];
     svg.innerHTML = `
       <text x="${ml}" y="20" fill="#8FA6BE" font-size="16">${yLabel}</text>${grid}
       ${line(idx[0], "#54C08A")}${line(idx[1], "#B9CCE2")}
-      <text x="${X(x1) - 6}" y="${Y(lastp[idx[0]]) - 9}" fill="#54C08A" font-size="15" text-anchor="end">us ${fmt(lastp[idx[0]])}</text>
-      <text x="${X(x1) - 6}" y="${Y(lastp[idx[1]]) - 9}" fill="#B9CCE2" font-size="15" text-anchor="end">top team ${fmt(lastp[idx[1]])}</text>
-      <text x="${W - 14}" y="${H - 12}" fill="#7D93AB" font-size="14" text-anchor="end">the week runs to Friday 18:00; the chart stops at Saturday 00:00</text>`;
+      <text x="${X(RACE.end) - 6}" y="${Y(lastp[idx[0]]) - 9}" fill="#54C08A" font-size="15" text-anchor="end">us ${fmtEur(lastp[idx[0]])}</text>
+      <text x="${X(RACE.end) - 6}" y="${Y(lastp[idx[1]]) - 9}" fill="#B9CCE2" font-size="15" text-anchor="end">top team ${fmtEur(lastp[idx[1]])}</text>`;
   };
-  chart("#raceMargin", (p) => Math.max(p[1], p[3]), [1, 3], "margin (game euros)", 500000, (v) => "€" + Math.round(v / 100 / 1000) + "k");
+  chart("#raceMargin", (p) => Math.max(p[1], p[3]), [1, 3], "margin (game euros)", 500000, (v) => "€" + v / 100 / 1000 + "k");
   chart("#raceOrders", (p) => Math.max(p[2], p[4]), [2, 4], "orders won", 100, (v) => v);
   $("#raceNotes").innerHTML = STORY.raceNotes.map(([d, t]) => `<div><b>${d}:</b> ${t}</div>`).join("")
     + `<div><b>The feed:</b> every team's totals, every 2 s; we show only us and the top team. The top team's books,
