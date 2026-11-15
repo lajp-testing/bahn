@@ -381,6 +381,8 @@ details.why[open] > summary { border-bottom: 1px solid var(--rule); }
 .eqcurve .pickdot { fill: var(--headlight); }
 .eqcurve text { font-family: var(--mono); font-size: 10px; fill: var(--faint); }
 .eqcurve .picklab { fill: var(--headlight); font-weight: 600; }
+.gigstep.term { border-bottom: 1px dotted var(--headlight); cursor: help; color: var(--birch); }
+.gigstep.term:hover, .gigstep.term:focus { border-color: var(--headlight); }
 .termtip { position: fixed; z-index: 50; background: #0A141F; color: var(--birch); border: 1px solid var(--rule);
   border-left: 3px solid var(--headlight); border-radius: 4px; padding: 8px 10px; font-family: var(--sans);
   font-size: 13px; line-height: 1.45; box-shadow: 0 6px 22px rgba(0,0,0,.45); pointer-events: none; }

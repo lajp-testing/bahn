@@ -919,6 +919,42 @@ function whyPrice(d, kind, primary) {
     ${replayNote}</details>`;
 }
 
+// ---------- the fee a gig advertises to drivers, step by step: what set it and why it rises ----------
+const QUIET_FROM = 21 * 60, QUIET_TO = 7 * 60;   // as played: raises wait out the night, few drivers look then
+function driverMinutes(a, b) {  // minutes of the drivers' day between a and b (21:00 to 07:00 does not count)
+  let n = 0;
+  for (let t = a; t < b; t += 5) { const m = t % 1440; if (m >= QUIET_TO && m < QUIET_FROM) n += Math.min(5, b - t); }
+  return n;
+}
+function feeStepTip(g, i, nCars, d) {
+  const steps = g.schedule, s = steps[i], prev = steps[i - 1];
+  const typical = d.typical * nCars;
+  const m = s.feeCents / typical, floors = SETTINGS.floors;
+  const when = clockStr(s.at);
+  const urgent = steps.length > 1 && steps.every((x, k) => k === 0 || x.at - steps[k - 1].at === 30)
+    && Math.abs(steps[0].feeCents / typical - 1.5) < 0.02;
+  const bundle = nCars > 1
+    ? ` This gig carries ${nCars} cars: its fee is 0.85 × the sum of what each car's own schedule pays at that minute, so one driver doing the stops in a row costs less than ${nCars} drivers.` : "";
+  if (urgent) {
+    if (i === 0) return `Opens at ${fmtEur(s.feeCents)}, 1.50 × the typical fee (${fmtEur(typical)}), from ${when}. The world warned that this order's last pickup was near, so the gig moved to the urgent ladder: 1.5 × typical, then 0.25 × more every 30 minutes, up to 2.5 ×. A late car refunds part of its price and halves the dealer's trust in us, which costs more than a dearer driver.`;
+    return `${fmtEur(s.feeCents)} from ${when}: ${m.toFixed(2)} × typical, 30 minutes after the last step. The urgent ladder rises 0.25 × typical every half hour until a driver books, up to 2.5 ×.`;
+  }
+  if (i === 0) {
+    const atFloor = nCars === 1 && Math.abs(m - floors[0]) < 0.01 ? ` That is the floor: never below ${floors[0]} × typical, or drivers ignore the gig.`
+      : nCars === 1 && Math.abs(m - floors[1]) < 0.01 ? ` That is the higher floor, ${floors[1]} × typical, for a lane under 40 km or a car with under 5 hours before its last pickup: a tiny fee draws no driver in time.` : "";
+    const model = nCars === 1 && !atFloor
+      ? ` When we quoted, the learned cost model expected this car to need ${fmtEur(d.cost[0])} (${d.cost[1].toFixed(2)} × typical); the gig opens at that expected multiple minus 0.15, recomputed at the minute of posting.` : "";
+    return `Opens at ${fmtEur(s.feeCents)}${nCars === 1 ? `, ${m.toFixed(2)} × the typical fee (${fmtEur(typical)})` : ""}, from ${when}.${model}${atFloor}${bundle} Drivers learn our fees: if they expect raises, they wait for them. So one flat fee near what the car needs, which rarely rises, books in minutes instead of hours.`;
+  }
+  if (nCars > 1)
+    return `${fmtEur(s.feeCents)} from ${when}: one of the gig's ${nCars} cars reached one of its own two look-again moments (6 hours of the drivers' day without a booking, or a day before its last pickup) and its share stepped up 0.15 × its typical fee. The gig pays 0.85 × the sum of its cars' fees.`;
+  const sincePost = driverMinutes(steps[0].at, s.at);
+  const why = Math.abs(sincePost - 360) <= 5
+    ? `6 hours of the drivers' day passed since it opened without a booking (the night, 21:00 to 07:00, does not count), so the fee steps up 0.15 × typical`
+    : `the car's last pickup is a day away and still no driver has booked, so the fee steps up 0.15 × typical`;
+  return `${fmtEur(s.feeCents)} from ${when}, ${m.toFixed(2)} × typical: ${why}. A flat gig rises at most twice, and both raises are set when it is posted, so drivers see no ladder worth waiting for.`;
+}
+
 // one floating tooltip for every .term, so scroll boxes never clip it
 function wireTerms() {
   const tip = document.createElement("div");
@@ -1027,7 +1063,7 @@ function selectRequest(rid, quiet) {
   const kinds = Object.keys(d.terms || {});
   const firstKind = d.won && kinds.includes(d.won.option) ? d.won.option : kinds[0];
   const whys = [firstKind, ...kinds.filter((k) => k !== firstKind)].filter(Boolean)
-    .map((k) => whyPrice(d, k, k === firstKind)).join("");
+    .map((k) => whyPrice(d, k, false)).join("");   // closed until asked: the stages stay short
   const quoterBody = `
     <div class="kv"><b>market level</b><span>&times;${d.level.toFixed(2)} of list, rising on wins and falling on losses</span>
     <b>dealer trust</b><span>${d.trust} on-time orders${d.trust ? `, +${d.trust}% accepted price` : ""}</span></div>
@@ -1052,7 +1088,7 @@ function selectRequest(rid, quiet) {
       ? WEEK.gigOrders[week.ridGid[rid]].length : 1;
     const share = g ? Math.round(g.fee / nCars) : 0;
     const sched = g ? g.schedule.map((s, i) =>
-      `<span class="gigstep">${i === 0 ? "opens " : "then "}${fmtEur(s.feeCents)}</span>`)
+      `<span class="gigstep term" tabindex="0" data-tip="${esc(feeStepTip(g, i, nCars, d))}">${i === 0 ? "opens " : "then "}${fmtEur(s.feeCents)}</span>`)
       .join('<span class="gigjoin">&#8250;</span>') : "";
     const mult = g.fee / d.typical;
     const floor = Math.abs(mult - floors[0]) < 0.005 ? ` (at the &times;${floors[0]} floor)`
