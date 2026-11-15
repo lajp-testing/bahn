@@ -12,9 +12,8 @@ pelaaja juhlii · Spread · Junction 2026
 
 # We price each car over its own learned cost, and take only the work our drivers can deliver
 
-<!-- FILL IN: the final's result. Replace the underscores in the one line below (the dashed tile). -->
 ::: tiles fill
-- **Final: __ of __** €__ margin · __ orders · __% on time
+- **Final: 7th of 58 ranked teams** €19,863 margin · 422 orders · 96.7% on time
 :::
 
 ::: ideas
@@ -191,7 +190,7 @@ Robust
 ::: cols c64
 ![Margin change per unseen week, the final's code against the version before](charts/unseen.svg)
 
-**40 weeks the final's code never saw:** all ranked, mean 96.1% on time, weakest 92.4%, €17,308 and 399 orders a week. **Best ranking round,** with the final's exact code: 6th of 43 ranked teams, all 5 weeks ranked, 96.6% on time.
+**40 weeks the final's code never saw:** all ranked, mean 96.1% on time, weakest 92.4%, €17,308 and 399 orders a week. **Best ranking round,** with the final's exact code: 8th of 52 ranked teams, all 5 weeks ranked, 96.6% on time.
 +++
 ### How an idea gets in
 1. **See it** in the live leaderboard, our books or a study of saved weeks.
