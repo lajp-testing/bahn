@@ -103,7 +103,7 @@ tr.us td, td strong { color: var(--ink); }
 /* the with/without table: one line per idea */
 .ablation table { font-size: 17px; }
 .ablation th, .ablation td { white-space: nowrap; padding-top: 5px; padding-bottom: 5px; }
-.ablation th:first-child, .ablation td:first-child { white-space: normal; }
+.ablation th { white-space: normal; }
 .note p { font-size: 15.5px; line-height: 1.35; color: var(--ink2); }
 </style></head>
 <body>
@@ -112,249 +112,80 @@ tr.us td, td strong { color: var(--ink); }
 <p>pelaaja juhlii · Spread · Junction 2026</p>
 </div>
 <h1>We price each car over its own learned cost, and take only the work our drivers can deliver</h1>
-<div class="lede">
-<p>Each slide's title is its claim. Below it: the idea, why we tried it, and its measured effect, the same weeks played with and without it. The last line of each slide names where its numbers come from.</p>
-</div>
 <div class="tiles fill">
 <ul><li><strong>Final: __ of __</strong> €__ margin · __ orders · __% on time</li></ul>
 </div>
-<div class="tiles small">
-<ul><li><strong>6th of 43 ranked teams</strong> (57 played) in our best ranking round (Sunday 06:00), the final's exact code: €79,842 over its 5 weeks, every week ranked, 96.6% on time</li><li><strong>5th of 75 ranked</strong> Saturday 20:00 test final: €17,443, 356 orders, 97.2% on time</li><li><strong>40 of 40 ranked</strong> weeks the final's code never saw: €17,308 and 399 orders a week, 96.1% on time</li></ul>
-</div>
 <div class="ideas">
-<ol><li><strong>A cost model learned from 1.9 million of our own orders</strong> says what each car will cost: its driver fee and its late risk.</li><li><strong>Each quote is the price with the most expected margin</strong> at the price dealers accept today.</li><li><strong>Drivers learn our fees</strong>, so a gig opens at one flat fee near what the car needs.</li><li><strong>We take more of the cars that stay on time</strong>, and let one driver carry two or three.</li><li><strong>Every idea is a switch</strong>, judged on the same weeks with and without it, and last on worlds no part was tuned on.</li></ol>
-</div>
-<div class="source">
-<p>Ranking round: our 5 board runs <code>main@d03d350</code> (code identical to the final's) in data/runs.jsonl, tracks/orch/FINDINGS.md 04:37; rank from the public board at 06:10 UTC. Test final: tracks/orch/finals/testfinal-20261114-1800/README.md. Unseen weeks: <code>b89-main</code> on rob-21..60, tracks/orch/FINDINGS.md 21:50.</p>
+<ol><li><strong>Learn what each car will cost.</strong> A machine learning model, trained on every week we played, predicts the driver fee and the late risk.</li><li><strong>Quote for the most expected margin.</strong> Each price weighs our margin against the chance the dealer says yes.</li><li><strong>One flat fee for drivers.</strong> A gig opens near what the car needs and rarely rises, so drivers have no reason to wait.</li><li><strong>Take only work we can staff, and share drivers.</strong> When drivers are short we take only easy cars; one driver carries two or three.</li><li><strong>Measure every idea.</strong> Each is a switch, played with and without on the same weeks before it is kept.</li></ol>
 </div></div><div class="num">1 / 10</div></section>
 <section class="slide " id="s2"><div class="inner"><div class="kicker">
-<p>How the system decides</p>
-</div>
-<h1>A desk keeps the books; five small parts make every decision</h1>
-<figure role="img" aria-label="The parts and how a request flows through them"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -16 1160 416" font-family="Inter, 'Helvetica Neue', Arial, sans-serif">
-<!-- Hand-drawn: how one request moves through the parts. Edit the text here; charts.py does not touch this file. -->
-<defs>
-  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#52514e"/></marker>
-  <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#eb6834"/></marker>
-</defs>
-<style>
-  .w { fill: #f1f0ec; stroke: #c9c8c2; stroke-width: 1.2; }
-  .o { fill: #ffffff; stroke: #2a78d6; stroke-width: 2; }
-  .m { fill: #eaf2fc; stroke: #2a78d6; stroke-width: 2.4; }
-  .t { font-size: 16px; font-weight: 650; fill: #0b0b0b; }
-  .s { font-size: 12.5px; letter-spacing: -0.01em; fill: #52514e; }
-  .l { font-size: 12px; fill: #8a5a00; font-style: italic; }
-  .f { stroke: #52514e; stroke-width: 1.6; fill: none; }
-  .fb { stroke: #eb6834; stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
-  .k { font-size: 13px; font-weight: 600; fill: #8a8984; letter-spacing: .08em; }
-</style>
-
-<text x="4" y="16" class="k">WIN THE WORK</text>
-<text x="4" y="392" class="k">DELIVER IT</text>
-
-<!-- row 1 -->
-<rect x="4" y="26" width="208" height="92" rx="10" class="w"/>
-<text x="108" y="50" text-anchor="middle" class="t">Dealer request</text>
-<text x="108" y="70" text-anchor="middle" class="s">cars, lanes, a note;</text>
-<text x="108" y="86" text-anchor="middle" class="s">options, each with a</text>
-<text x="108" y="102" text-anchor="middle" class="s">deadline and a list price</text>
-
-<rect x="240" y="26" width="208" height="92" rx="10" class="o"/>
-<text x="344" y="50" text-anchor="middle" class="t">Notes reader</text>
-<text x="344" y="70" text-anchor="middle" class="s">Finnish, Swedish, English</text>
-<text x="344" y="86" text-anchor="middle" class="s">→ ready times, hours,</text>
-<text x="344" y="102" text-anchor="middle" class="s">plates, manual licence</text>
-
-<rect x="476" y="26" width="208" height="92" rx="10" class="o"/>
-<text x="580" y="50" text-anchor="middle" class="t">Intake</text>
-<text x="580" y="70" text-anchor="middle" class="s">slack: 8 h same-day, else 12 h</text>
-<text x="580" y="86" text-anchor="middle" class="s">45 cars waiting (55 a.m.),</text>
-<text x="580" y="102" text-anchor="middle" class="s">then only safe cars, to 100</text>
-
-<rect x="712" y="26" width="208" height="92" rx="10" class="o"/>
-<text x="816" y="50" text-anchor="middle" class="t">Quoter</text>
-<text x="816" y="70" text-anchor="middle" class="s">price with the most</text>
-<text x="816" y="86" text-anchor="middle" class="s">(price − cost) × win chance,</text>
-<text x="816" y="102" text-anchor="middle" class="s">× dealer trust</text>
-
-<rect x="948" y="26" width="208" height="92" rx="10" class="w"/>
-<text x="1052" y="50" text-anchor="middle" class="t">Dealer decides</text>
-<text x="1052" y="70" text-anchor="middle" class="s">our price against the</text>
-<text x="1052" y="86" text-anchor="middle" class="s">competitor's, at respondBy</text>
-<text x="1052" y="102" text-anchor="middle" class="s">→ won or lost</text>
-
-<line x1="212" y1="72" x2="238" y2="72" class="f" marker-end="url(#a)"/>
-<line x1="448" y1="72" x2="474" y2="72" class="f" marker-end="url(#a)"/>
-<line x1="684" y1="72" x2="710" y2="72" class="f" marker-end="url(#a)"/>
-<line x1="920" y1="72" x2="946" y2="72" class="f" marker-end="url(#a)"/>
-<!-- win/loss moves the level -->
-<path d="M 1040 26 C 1040 2, 840 2, 830 24" class="fb" marker-end="url(#b)"/>
-<text x="935" y="-4" text-anchor="middle" class="l">every win or loss moves the price level</text>
-
-<!-- middle: the model -->
-<rect x="682" y="150" width="268" height="100" rx="12" class="m"/>
-<text x="816" y="176" text-anchor="middle" class="t">Learned cost model</text>
-<text x="816" y="196" text-anchor="middle" class="s">expected driver fee (× typical fee)</text>
-<text x="816" y="212" text-anchor="middle" class="s">and late risk, from 44 facts</text>
-<text x="816" y="228" text-anchor="middle" class="s">known at the request · 0.1 ms</text>
-<line x1="816" y1="150" x2="816" y2="120" class="f" marker-end="url(#a)"/>
-<line x1="816" y1="250" x2="816" y2="280" class="f" marker-end="url(#a)"/>
-
-<line x1="1052" y1="118" x2="1052" y2="280" class="f" marker-end="url(#a)"/>
-<text x="1062" y="204" class="s">won →</text>
-<text x="1062" y="220" class="s">an order</text>
-
-<!-- row 3 -->
-<rect x="948" y="282" width="208" height="92" rx="10" class="o"/>
-<text x="1052" y="306" text-anchor="middle" class="t">Bundles</text>
-<text x="1052" y="326" text-anchor="middle" class="s">up to 3 cars share a gig</text>
-<text x="1052" y="342" text-anchor="middle" class="s">when one driver can do</text>
-<text x="1052" y="358" text-anchor="middle" class="s">the stops in a row</text>
-
-<rect x="712" y="282" width="208" height="92" rx="10" class="o"/>
-<text x="816" y="306" text-anchor="middle" class="t">Fees</text>
-<text x="816" y="326" text-anchor="middle" class="s">one flat fee per gig:</text>
-<text x="816" y="342" text-anchor="middle" class="s">expected fee − 0.15,</text>
-<text x="816" y="358" text-anchor="middle" class="s">at most two raises</text>
-
-<rect x="476" y="282" width="208" height="92" rx="10" class="w"/>
-<text x="580" y="306" text-anchor="middle" class="t">Drivers book</text>
-<text x="580" y="326" text-anchor="middle" class="s">a driver books when the</text>
-<text x="580" y="342" text-anchor="middle" class="s">fee beats their cost and</text>
-<text x="580" y="358" text-anchor="middle" class="s">beats waiting for more</text>
-
-<rect x="240" y="282" width="208" height="92" rx="10" class="w"/>
-<text x="344" y="306" text-anchor="middle" class="t">Delivery</text>
-<text x="344" y="326" text-anchor="middle" class="s">by the deadline:</text>
-<text x="344" y="342" text-anchor="middle" class="s">on time, dealer trust +1;</text>
-<text x="344" y="358" text-anchor="middle" class="s">late, a refund, trust halves</text>
-
-<rect x="4" y="282" width="208" height="92" rx="10" class="o"/>
-<text x="108" y="306" text-anchor="middle" class="t">Desk and journal</text>
-<text x="108" y="326" text-anchor="middle" class="s">the books: orders, gigs,</text>
-<text x="108" y="342" text-anchor="middle" class="s">fees, refunds; every action</text>
-<text x="108" y="358" text-anchor="middle" class="s">and answer journaled</text>
-
-<line x1="948" y1="328" x2="922" y2="328" class="f" marker-end="url(#a)"/>
-<line x1="712" y1="328" x2="686" y2="328" class="f" marker-end="url(#a)"/>
-<line x1="476" y1="328" x2="450" y2="328" class="f" marker-end="url(#a)"/>
-<line x1="240" y1="328" x2="214" y2="328" class="f" marker-end="url(#a)"/>
-
-<!-- repairs -->
-<path d="M 580 282 C 580 262, 700 262, 712 296" class="fb" marker-end="url(#b)"/>
-<text x="560" y="262" text-anchor="middle" class="l">no booking: one raise after 6 h, one a day before last pickup</text>
-
-<!-- retrain -->
-<path d="M 108 282 L 108 200 L 680 200" class="fb" marker-end="url(#b)"/>
-<text x="130" y="192" class="l">saved weeks → retrain on 1.9 million orders, judged on unseen worlds</text>
-</svg>
-</figure>
-<div class="formula">
-<p><code>quote</code> = the price p (in list prices) with the highest  (p × (1 − late risk) − cost) × chance(p ÷ trust)</p>
-<p><code>cost</code> = 1.1 × expected fee (0.85 × for a lane under 100 km) + 0.3 × (cars waiting for a driver ÷ 45)²</p>
-<p><code>chance(p)</code> = 1 ÷ (1 + e^((p − level) ÷ 0.2)), <code>level</code> += 0.06 × (won − chance) after each decision · <code>trust</code> = 1 + 0.01 × on-time orders to this dealer (25 at most; a late order halves it)</p>
-</div>
-<div class="source">
-<p>Code: <code>dispatch/desk.py</code>, <code>reader.py</code>, <code>intake.py</code>, <code>pricing.py</code>, <code>learned3.py</code>, <code>bundles.py</code>, <code>fees.py</code>; defaults in <code>dispatch/policies/main.py</code>. Practice and the live final use the same desk.</p>
-</div></div><div class="num">2 / 10</div></section>
-<section class="slide " id="s3"><div class="inner"><div class="kicker">
 <p>Idea 1 · What a car will cost</p>
 </div>
-<h1>A model learned from our own 1.9 million orders says what each car will cost</h1>
+<h1>A machine learning model predicts the driver fee each car will need</h1>
 <div class="cols c46"><div class="col">
 <h3>The idea</h3>
-<p>For every request the system predicts two numbers: the driver fee the car will need (× its typical fee) and its chance of being late. Gradient-boosted trees on 44 facts known at quote time: the lane, the time, the cars, the note, our own books. Shipped as plain Python: 0.1 ms a request.</p>
+<p>From the first practice week we saved every request, decision and result: 1.9 million orders. On them we trained a model that predicts, for each request, the driver fee we will have to pay (as a coefficient of its typical fee) and the car's chance of being late.</p>
 <h3>Why</h3>
-<p>Our hand-fit cost formula expected won cars to cost 1.19 × their typical fee; from the ledger they cost 0.92 ×. So we quoted far above what dealers accepted.</p>
+<p>Before the model, our hand-fit formula expected won cars to cost 1.19 × their typical fee; the ledger said 0.92 ×. So before the model we quoted far above what the cars really cost us, and lost requests we should have won.</p>
 </div><div class="col">
-<table><thead><tr><th style="text-align:left">Holdout worlds, never trained on</th><th style="text-align:right">fee error (× typical)</th><th style="text-align:right">late log loss</th></tr></thead><tbody>
-<tr><td style="text-align:left">constant</td><td style="text-align:right">0.309</td><td style="text-align:right">0.133</td></tr>
-<tr><td style="text-align:left">hand-fit formula (model 2)</td><td style="text-align:right">0.274</td><td style="text-align:right">0.121</td></tr>
-<tr><td style="text-align:left"><strong>learned (model 3)</strong></td><td style="text-align:right"><strong>0.232</strong></td><td style="text-align:right"><strong>0.101</strong></td></tr></tbody></table>
+<table><thead><tr><th style="text-align:left">Error on worlds it never trained on</th><th style="text-align:right">fee error (× typical)</th><th style="text-align:right">late log loss</th></tr></thead><tbody>
+<tr><td style="text-align:left">no model: one constant</td><td style="text-align:right">0.309</td><td style="text-align:right">0.133</td></tr>
+<tr><td style="text-align:left">our hand-fit formula</td><td style="text-align:right">0.274</td><td style="text-align:right">0.121</td></tr>
+<tr><td style="text-align:left"><strong>machine learning model</strong></td><td style="text-align:right"><strong>0.232</strong></td><td style="text-align:right"><strong>0.101</strong></td></tr></tbody></table>
 <div class="effect">
-<p><strong>+€32,271</strong> over the same 40 weeks with the learned model (ahead in 29), 390 orders a week instead of 364; the lowest week <strong>rose</strong> from 90.2% to 92.0% on time.</p>
+<p><strong>+19% margin</strong> with the model instead of the hand-fit formula, on the same 10 weeks (ahead in all 10); <strong>360 → 401</strong> orders a week; weakest week <strong>93.4% → 95.5%</strong> on time.</p>
 </div>
-<div class="caveat">
-<p><strong>Honest correction.</strong> The last retrain (model 5) gained +€14,444 over 40 weeks, but it had trained on those worlds. On 30 worlds it never saw: <strong>−€1,875</strong> (ahead in 14), yet the weakest weeks rose (93.5 / 93.8 / 94.3% against 91.8 / 92.5 / 93.1%). Kept for the safer floor; since then a model is judged on unseen worlds only.</p>
-</div>
-</div></div>
-<div class="source">
-<p>tracks/ml/FINDINGS.md (41,497 holdout orders, 10 worlds); docs/pricing-fix-report.md (1.19 / 0.92); <code>b37-fee3</code> vs <code>t3s15-safe-flat15</code>; model 5: <code>b84-fee5</code> vs <code>b68</code>, tracks/orch/FINDINGS.md 21:30 and 21:40.</p>
-</div></div><div class="num">3 / 10</div></section>
-<section class="slide " id="s4"><div class="inner"><div class="kicker">
+</div></div></div><div class="num">2 / 10</div></section>
+<section class="slide " id="s3"><div class="inner"><div class="kicker">
 <p>Idea 2 · Prices</p>
 </div>
-<h1>Each quote is the price with the most expected margin at what dealers accept today</h1>
+<h1>Each quote is the price with the most expected margin</h1>
 <div class="cols c46"><div class="col">
 <h3>The idea</h3>
-<p>For each option, try prices from the car's cost upward; keep the one where margin × chance to win is highest. The chance follows one learned price level: up after every win, down after every loss. A dealer's trust in us raises the price it accepts.</p>
+<p>For each delivery option we try every price from the car's cost upward and quote the one at the top of the curve. The chance to win follows one learned price level: up after every win, down after every loss. Dealers who got their cars on time from us accept a little more.</p>
+<p>The cost is the model's fee with a safety margin: 10% on top, or 15% off for trips under 100 km, where the model ran high.</p>
 <h3>Why</h3>
-<p>In copies of whole weeks, the price at which dealers switch moved between 1.10 and 1.67 × list from day to day. One number that follows wins and losses is enough.</p>
-<p>A request quoted both same-day and next-day is won <strong>67%</strong> of the time, next-day alone <strong>34%</strong>; an old gate dropped our same-day quote on 4,117 dev requests.</p>
+<p>The price dealers accept moved between 1.10 and 1.67 × list from day to day: one number that follows our wins and losses keeps up with it.</p>
 </div><div class="col">
-<figure role="img" aria-label="Margin change and lowest week of four variants"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" font-family="Inter, 'Helvetica Neue', Arial, sans-serif">
-<rect width="640" height="300" fill="white"/>
-<line x1="175.0" x2="175.0" y1="24" y2="270" stroke="#e4e3df"/>
-<text x="175.0" y="290.0" font-size="13" fill="#8a8984" text-anchor="middle" font-weight="400" >€0</text>
-<line x1="261.2" x2="261.2" y1="24" y2="270" stroke="#e4e3df"/>
-<text x="261.2" y="290.0" font-size="13" fill="#8a8984" text-anchor="middle" font-weight="400" >+€10,000</text>
-<line x1="347.5" x2="347.5" y1="24" y2="270" stroke="#e4e3df"/>
-<text x="347.5" y="290.0" font-size="13" fill="#8a8984" text-anchor="middle" font-weight="400" >+€20,000</text>
-<line x1="433.8" x2="433.8" y1="24" y2="270" stroke="#e4e3df"/>
-<text x="433.8" y="290.0" font-size="13" fill="#8a8984" text-anchor="middle" font-weight="400" >+€30,000</text>
-<line x1="520.0" x2="520.0" y1="24" y2="270" stroke="#e4e3df"/>
-<text x="520.0" y="290.0" font-size="13" fill="#8a8984" text-anchor="middle" font-weight="400" >+€40,000</text>
-<text x="534.0" y="18.0" font-size="13" fill="#8a8984" text-anchor="start" font-weight="400" >lowest week</text>
-<rect x="175" y="37.5" width="63.8" height="34.4" rx="4" fill="#2a78d6"/>
-<text x="165.0" y="59.8" font-size="14" fill="#52514e" text-anchor="end" font-weight="400" >cost tilt 1.0</text>
-<text x="246.8" y="59.8" font-size="15" fill="#0b0b0b" text-anchor="start" font-weight="700" >+€7,395</text>
-<text x="534.0" y="59.8" font-size="15" fill="#52514e" text-anchor="start" font-weight="400" >94.2%</text>
-<rect x="175" y="99.0" width="78.3" height="34.4" rx="4" fill="#2a78d6"/>
-<text x="165.0" y="121.2" font-size="14" fill="#52514e" text-anchor="end" font-weight="400" >cost tilt 1.05</text>
-<text x="261.3" y="121.2" font-size="15" fill="#0b0b0b" text-anchor="start" font-weight="700" >+€9,074</text>
-<text x="534.0" y="121.2" font-size="15" fill="#52514e" text-anchor="start" font-weight="400" >95.2%</text>
-<rect x="175" y="160.5" width="221.9" height="34.4" rx="4" fill="#eb6834"/>
-<text x="165.0" y="174.8" font-size="14" fill="#52514e" text-anchor="end" font-weight="400" >same-day whenever</text>
-<text x="165.0" y="191.6" font-size="14" fill="#52514e" text-anchor="end" font-weight="400" >8 h of slack</text>
-<text x="404.9" y="182.8" font-size="15" fill="#0b0b0b" text-anchor="start" font-weight="700" >+€25,732</text>
-<text x="534.0" y="174.8" font-size="15" fill="#b8461a" text-anchor="start" font-weight="700" >89.2%</text>
-<text x="534.0" y="192.8" font-size="15" fill="#b8461a" text-anchor="start" font-weight="700" >unranked</text>
-<rect x="175" y="222.0" width="235.3" height="34.4" rx="4" fill="#2a78d6"/>
-<text x="165.0" y="236.2" font-size="14" fill="#52514e" text-anchor="end" font-weight="400" >both: same-day</text>
-<text x="165.0" y="253.1" font-size="14" fill="#52514e" text-anchor="end" font-weight="400" >+ tilt 1.05</text>
-<text x="418.3" y="244.2" font-size="15" fill="#0b0b0b" text-anchor="start" font-weight="700" >+€27,281</text>
-<text x="534.0" y="244.2" font-size="15" fill="#52514e" text-anchor="start" font-weight="400" >94.7%</text>
-</svg>
-</figure>
+<figure role="img" aria-label="Expected margin at each price for one real request"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 300" font-family="inherit">
+<line x1="46" x2="546" y1="264" y2="264" stroke="#8a8984"/>
+<line x1="63.2" x2="63.2" y1="264" y2="269" stroke="#8a8984"/><text x="63.2" y="284" text-anchor="middle" font-size="13" fill="#52514e">173 €</text><line x1="149.4" x2="149.4" y1="264" y2="269" stroke="#8a8984"/><text x="149.4" y="284" text-anchor="middle" font-size="13" fill="#52514e">202 €</text><line x1="235.7" x2="235.7" y1="264" y2="269" stroke="#8a8984"/><text x="235.7" y="284" text-anchor="middle" font-size="13" fill="#52514e">230 €</text><line x1="321.9" x2="321.9" y1="264" y2="269" stroke="#8a8984"/><text x="321.9" y="284" text-anchor="middle" font-size="13" fill="#52514e">259 €</text><line x1="408.1" x2="408.1" y1="264" y2="269" stroke="#8a8984"/><text x="408.1" y="284" text-anchor="middle" font-size="13" fill="#52514e">288 €</text><line x1="494.3" x2="494.3" y1="264" y2="269" stroke="#8a8984"/><text x="494.3" y="284" text-anchor="middle" font-size="13" fill="#52514e">317 €</text>
+<text x="303.0" y="299" text-anchor="middle" font-size="13" fill="#52514e">our price for the next-day option of one request (list price €144)</text>
+<text x="38" y="258.0" text-anchor="end" font-size="12" fill="#8a8984">€0</text>
+<text x="46" y="14" font-size="13" fill="#52514e">expected margin = (price − cost) × chance the dealer says yes</text>
+<path d="M46.0,256.9 L63.2,200.7 L80.5,153.5 L97.7,115.5 L115.0,87.0 L132.2,67.4 L149.4,56.1 L166.7,51.8 L183.9,53.7 L201.2,60.3 L218.4,70.5 L235.7,83.2 L252.9,97.4 L270.1,112.2 L287.4,127.3 L304.6,141.7 L321.9,155.7 L339.1,168.4 L356.3,180.5 L373.6,191.1 L390.8,200.7 L408.1,209.2 L425.3,216.8 L442.6,223.4 L459.8,229.3 L477.0,234.3 L494.3,238.7 L511.5,242.5 L528.8,245.6 L546.0,248.4" fill="none" stroke="#2a78d6" stroke-width="3"/>
+<line x1="171.7" x2="171.7" y1="51.8" y2="264" stroke="#eb6834" stroke-width="1.5" stroke-dasharray="4 4"/>
+<circle cx="171.7" cy="51.8" r="6" fill="#eb6834"/>
+<text x="181.7" y="41.8" font-size="15" font-weight="700" fill="#0b0b0b">quote €209.04: the highest point</text>
+<text x="181.7" y="59.8" font-size="13" fill="#52514e">31% chance to win, €12.95 expected margin</text>
+<text x="50.0" y="246.9" font-size="12" fill="#8a8984">cheap: likely won, little margin</text>
+<text x="542.0" y="236.4" text-anchor="end" font-size="12" fill="#8a8984">dear: big margin, rarely won</text>
+</svg></figure>
 <div class="effect">
-<p>Same-day whenever 8 h of slack remain wins those requests, but alone it lost a week (89.2%, unranked). Together with a cost tilt (count the model's fee at 1.05 ×) that keeps the marginal cars out: <strong>+€31,975 over 40 weeks</strong>, ahead in 31, lowest week 93.8%.</p>
+<ul><li><strong>+50% margin</strong> with this quote instead of a fixed markup over list, same 10 weeks, ahead in all 10. Without it one week fell to 87.1% on time and out of the ranking.</li><li><strong>Offer the dealer same-day delivery whenever a driver still has 8 hours to make it</strong> (before: 12 hours): a request with both same-day and next-day is won 67% of the time, next-day alone 34%. <strong>+16% margin</strong>, 332 → 401 orders a week.</li></ul>
 </div>
-</div></div>
-<div class="source">
-<p>Chart: 30 dev + rob weeks against <code>b37-fee3</code> (<code>b44-car100</code>, <code>b43-car105</code>, <code>b45-sameday480</code>, <code>b46-car105-sameday480</code>); 40-week figure: tracks/orch/FINDINGS.md 15:05. Day levels: tracks/t2/FINDINGS.md.</p>
-</div></div><div class="num">4 / 10</div></section>
-<section class="slide " id="s5"><div class="inner"><div class="kicker">
+</div></div></div><div class="num">3 / 10</div></section>
+<section class="slide " id="s4"><div class="inner"><div class="kicker">
 <p>Idea 3 · Drivers and fees</p>
 </div>
-<h1>Drivers learn our fees, so a gig opens at one flat fee and rarely rises</h1>
+<h1>A gig opens at one flat fee and rarely rises</h1>
 <div class="cols c55"><div class="col">
 <h3>The idea</h3>
-<p>A gig opens at the model's expected fee minus 0.15 × typical, never below 0.75 × typical (0.95 for a lane under 40 km or a car with under 5 hours left), and holds it. It rises by 0.15 at most twice: after 6 hours of the drivers' day without a booking, and a day before the last pickup. The urgent ladder waits for the deadline warning.</p>
+<p>Drivers learn our fees: if they expect a raise, they wait for it. So a gig opens at <strong>(expected fee − 0.15) × typical fee</strong>, the expected fee coming from the machine learning model, and holds it. It never opens below 0.75 × typical (0.95 for a very short trip or a car with little time left).</p>
+<p>It rises by 0.15 × typical at most twice: after 6 daytime hours (07–21) without a booking, and a day before the last pickup. Close to the deadline, an urgent fee takes over.</p>
 <h3>Why</h3>
-<p>Drivers wait for raises they expect. When we held raises back, Friday's bookings came <strong>306 minutes</strong> after the driver's first view instead of <strong>84</strong>, at 1.18 × instead of 1.11 × the fee first seen. A fee with no raise ahead gives no reason to wait.</p>
+<p>With a fee that rose every hour, drivers saw the gig, waited for the next raise, and booked late and dear.</p>
 </div><div class="col">
 <div class="tiles stack">
-<ul><li><strong>86 → 7–12 min</strong> median time from posting to booking for a one-car gig, flat fee against the hourly ladder (10 dev weeks)</li><li><strong>7.0% → about 5.9%</strong> of one-car gigs late, same comparison</li><li><strong>+€69,993</strong> over 40 weeks for flat fees together with the safe-car rule (next slide), ahead in 38 of 40</li></ul>
+<ul><li><strong>86 → 7–12 min</strong> median time from posting to booking for a one-car gig</li><li><strong>7.0% → about 5.9%</strong> of one-car gigs late</li><li><strong>+18% margin</strong> with flat fees instead of the hourly rising fee, same 10 weeks, ahead in all 10</li></ul>
 </div>
-</div></div>
-<div class="source">
-<p>tracks/t3/FINDINGS.md (hold-the-ladder study <code>s11_viewratio.py</code>; flat-fee screens <code>t3s14</code>); <code>t3s15-safe-flat15</code> vs <code>t3s10-calm</code>, tracks/orch/FINDINGS.md 13:40. Code: <code>dispatch/fees.py</code>.</p>
-</div></div><div class="num">5 / 10</div></section>
-<section class="slide " id="s6"><div class="inner"><div class="kicker">
-<p>Idea 4 · Which cars, and when we combine them</p>
+</div></div></div><div class="num">4 / 10</div></section>
+<section class="slide " id="s5"><div class="inner"><div class="kicker">
+<p>Idea 4 · Which cars, and how many per driver</p>
 </div>
-<h1>We take more of the cars that stay on time, and let one driver carry two or three</h1>
+<h1>We take only the cars we can staff, and let one driver carry two or three</h1>
 <div class="cols c55"><div class="col">
+<h3>What breaks when we take more</h3>
 <figure role="img" aria-label="On-time share by kind of car, normal intake against 55% more orders"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 380" font-family="Inter, 'Helvetica Neue', Arial, sans-serif">
 <rect width="620" height="380" fill="white"/>
 <line x1="50" x2="612" y1="310.0" y2="310.0" stroke="#e4e3df"/>
@@ -410,47 +241,158 @@ tr.us td, td strong { color: var(--ink); }
 <text x="480.0" y="371.0" font-size="14" fill="#52514e" text-anchor="start" font-weight="400" >55% more orders</text>
 </svg>
 </figure>
-<p>We made the system win 55% more orders to see what breaks: margin fell from €127,567 to €103,440 over 10 dev weeks. Long lanes and private addresses broke; short cars stayed on time.</p>
+<p>We tried taking 55% more orders to see what breaks: margin fell 19%. Long trips and private addresses went late; short, ordinary cars stayed on time.</p>
 </div><div class="col">
-<h3>Safe cars</h3>
-<p>Past 45 cars waiting for a driver (55 before noon), only cars under 300 km without a private address still get a quote, up to 100.</p>
+<h3>Easy cars when drivers are short</h3>
+<p>If we don't think we can get a driver, we don't take the car. When many of our cars are still waiting for a driver, we keep quoting only the cars that are easy to staff.</p>
 <h3>Bundles</h3>
-<p>A newly won car joins a gig no driver holds yet when one driver can do the stops in a row, up to 3 cars, at 0.85 × the sum of their fees.</p>
+<p>A new car joins a gig no driver has booked yet when one driver can do the stops in a row, up to 3 cars. The gig pays 0.85 × the cars' fees together, so each car costs less.</p>
 <div class="effect">
-<ul><li>Safe cars + flat fees: <strong>+€69,993 (+14.3%)</strong> over 40 weeks, 364 orders a week instead of 277.</li><li>In a two-car gig a car costs <strong>0.79 ×</strong> typical and is <strong>1.0%</strong> late; alone <strong>0.97 ×</strong> and <strong>3.7%</strong>.</li><li>Bundles on: +6.4% margin over 7 dev weeks (€74,982 against €70,496).</li></ul>
+<ul><li>Bundles: <strong>+27% margin</strong>, 359 → 401 orders a week. In a two-car gig a car costs 0.79 × typical and is 1.0% late; alone 0.97 × and 3.7%.</li><li>Easy cars only when drivers are short: <strong>+2% margin</strong>, 390 → 401 orders a week.</li></ul>
 </div>
-</div></div>
-<div class="source">
-<p>tracks/t1/FINDINGS.md (<code>t1s13-flood</code> vs <code>t1s11-base</code>, "What breaks, by group"); tracks/orch/FINDINGS.md 13:40; tracks/t3/FINDINGS.md (bundles in the 40 saved <code>b46</code> weeks); tracks/t5/FINDINGS.md (<code>b13-bundle2</code> vs <code>t3s5-model2</code>).</p>
-</div></div><div class="num">6 / 10</div></section>
+</div></div></div><div class="num">5 / 10</div></section>
+<section class="slide " id="s6"><div class="inner"><h1>How the ideas work together</h1>
+<figure role="img" aria-label="The parts and how a request flows through them"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -16 1160 416" font-family="Inter, 'Helvetica Neue', Arial, sans-serif">
+<!-- Hand-drawn: how one request moves through the parts. Edit the text here; charts.py does not touch this file. -->
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#52514e"/></marker>
+  <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#eb6834"/></marker>
+</defs>
+<style>
+  .w { fill: #f1f0ec; stroke: #c9c8c2; stroke-width: 1.2; }
+  .o { fill: #ffffff; stroke: #2a78d6; stroke-width: 2; }
+  .m { fill: #eaf2fc; stroke: #2a78d6; stroke-width: 2.4; }
+  .t { font-size: 16px; font-weight: 650; fill: #0b0b0b; }
+  .s { font-size: 12.5px; letter-spacing: -0.01em; fill: #52514e; }
+  .l { font-size: 12px; fill: #8a5a00; font-style: italic; }
+  .f { stroke: #52514e; stroke-width: 1.6; fill: none; }
+  .fb { stroke: #eb6834; stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+  .k { font-size: 13px; font-weight: 600; fill: #8a8984; letter-spacing: .08em; }
+</style>
+
+<text x="4" y="16" class="k">WIN THE WORK</text>
+<text x="4" y="392" class="k">DELIVER IT</text>
+
+<!-- row 1 -->
+<rect x="4" y="26" width="208" height="92" rx="10" class="w"/>
+<text x="108" y="50" text-anchor="middle" class="t">Dealer request</text>
+<text x="108" y="70" text-anchor="middle" class="s">cars, lanes, a note;</text>
+<text x="108" y="86" text-anchor="middle" class="s">options, each with a</text>
+<text x="108" y="102" text-anchor="middle" class="s">deadline and a list price</text>
+
+<rect x="240" y="26" width="208" height="92" rx="10" class="o"/>
+<text x="344" y="50" text-anchor="middle" class="t">Notes reader</text>
+<text x="344" y="70" text-anchor="middle" class="s">Finnish, Swedish, English</text>
+<text x="344" y="86" text-anchor="middle" class="s">→ ready times, hours,</text>
+<text x="344" y="102" text-anchor="middle" class="s">plates, manual licence</text>
+
+<rect x="476" y="26" width="208" height="92" rx="10" class="o"/>
+<text x="580" y="50" text-anchor="middle" class="t">Do we want the request?</text>
+<text x="580" y="70" text-anchor="middle" class="s">quote an option only if a</text>
+<text x="580" y="86" text-anchor="middle" class="s">driver has time to make it;</text>
+<text x="580" y="102" text-anchor="middle" class="s">drivers short: easy cars only</text>
+
+<rect x="712" y="26" width="208" height="92" rx="10" class="o"/>
+<text x="816" y="50" text-anchor="middle" class="t">Quoter</text>
+<text x="816" y="70" text-anchor="middle" class="s">calculates the price with the</text>
+<text x="816" y="86" text-anchor="middle" class="s">highest expected margin:</text>
+<text x="816" y="102" text-anchor="middle" class="s">margin × chance to win</text>
+
+<rect x="948" y="26" width="208" height="92" rx="10" class="w"/>
+<text x="1052" y="50" text-anchor="middle" class="t">Dealer decides</text>
+<text x="1052" y="70" text-anchor="middle" class="s">our price against the</text>
+<text x="1052" y="86" text-anchor="middle" class="s">competitor's</text>
+<text x="1052" y="102" text-anchor="middle" class="s">→ won or lost</text>
+
+<line x1="212" y1="72" x2="238" y2="72" class="f" marker-end="url(#a)"/>
+<line x1="448" y1="72" x2="474" y2="72" class="f" marker-end="url(#a)"/>
+<line x1="684" y1="72" x2="710" y2="72" class="f" marker-end="url(#a)"/>
+<line x1="920" y1="72" x2="946" y2="72" class="f" marker-end="url(#a)"/>
+<!-- win/loss moves the level -->
+<path d="M 1040 26 C 1040 2, 840 2, 830 24" class="fb" marker-end="url(#b)"/>
+<text x="935" y="-4" text-anchor="middle" class="l">every win or loss moves the price level</text>
+
+<!-- middle: the model -->
+<rect x="682" y="150" width="268" height="100" rx="12" class="m"/>
+<text x="816" y="176" text-anchor="middle" class="t">Machine learning model</text>
+<text x="816" y="196" text-anchor="middle" class="s">the driver fee we expect to pay,</text>
+<text x="816" y="212" text-anchor="middle" class="s">as a coefficient of the typical fee,</text>
+<text x="816" y="228" text-anchor="middle" class="s">and the car's late risk</text>
+<line x1="816" y1="150" x2="816" y2="120" class="f" marker-end="url(#a)"/>
+<line x1="816" y1="250" x2="816" y2="280" class="f" marker-end="url(#a)"/>
+
+<line x1="1052" y1="118" x2="1052" y2="280" class="f" marker-end="url(#a)"/>
+<text x="1062" y="204" class="s">won →</text>
+<text x="1062" y="220" class="s">an order</text>
+
+<!-- row 3 -->
+<rect x="948" y="282" width="208" height="92" rx="10" class="o"/>
+<text x="1052" y="306" text-anchor="middle" class="t">Bundles</text>
+<text x="1052" y="326" text-anchor="middle" class="s">up to 3 cars share a gig</text>
+<text x="1052" y="342" text-anchor="middle" class="s">when one driver can do</text>
+<text x="1052" y="358" text-anchor="middle" class="s">the stops in a row</text>
+
+<rect x="712" y="282" width="208" height="92" rx="10" class="o"/>
+<text x="816" y="306" text-anchor="middle" class="t">Fees</text>
+<text x="816" y="326" text-anchor="middle" class="s">opens at (expected fee − 0.15)</text>
+<text x="816" y="342" text-anchor="middle" class="s">× typical fee; +0.15 after</text>
+<text x="816" y="358" text-anchor="middle" class="s">6 daytime h, and a day before</text>
+
+<rect x="476" y="282" width="208" height="92" rx="10" class="w"/>
+<text x="580" y="306" text-anchor="middle" class="t">Drivers book</text>
+<text x="580" y="326" text-anchor="middle" class="s">a driver books when the</text>
+<text x="580" y="342" text-anchor="middle" class="s">fee beats their cost and</text>
+<text x="580" y="358" text-anchor="middle" class="s">beats waiting for more</text>
+
+<rect x="240" y="282" width="208" height="92" rx="10" class="w"/>
+<text x="344" y="306" text-anchor="middle" class="t">Delivery</text>
+<text x="344" y="326" text-anchor="middle" class="s">picked up and delivered</text>
+<text x="344" y="342" text-anchor="middle" class="s">by the deadline</text>
+<text x="344" y="358" text-anchor="middle" class="s"></text>
+
+<rect x="4" y="282" width="208" height="92" rx="10" class="o"/>
+<text x="108" y="306" text-anchor="middle" class="t">Record everything</text>
+<text x="108" y="326" text-anchor="middle" class="s">every request, decision</text>
+<text x="108" y="342" text-anchor="middle" class="s">and result, kept for</text>
+<text x="108" y="358" text-anchor="middle" class="s">analysis and training</text>
+
+<line x1="948" y1="328" x2="922" y2="328" class="f" marker-end="url(#a)"/>
+<line x1="712" y1="328" x2="686" y2="328" class="f" marker-end="url(#a)"/>
+<line x1="476" y1="328" x2="450" y2="328" class="f" marker-end="url(#a)"/>
+<line x1="240" y1="328" x2="214" y2="328" class="f" marker-end="url(#a)"/>
+
+<!-- repairs -->
+<path d="M 580 282 C 580 262, 700 262, 712 296" class="fb" marker-end="url(#b)"/>
+<text x="560" y="262" text-anchor="middle" class="l">no booking yet: the two planned raises</text>
+
+<!-- retrain -->
+<path d="M 108 282 L 108 200 L 680 200" class="fb" marker-end="url(#b)"/>
+<text x="130" y="192" class="l">every saved week → retrain the model on 1.9 million orders</text>
+</svg>
+</figure></div><div class="num">6 / 10</div></section>
 <section class="slide " id="s7"><div class="inner"><div class="kicker">
-<p>How we know · the effect of each idea</p>
+<p>The effect of each idea</p>
 </div>
 <h1>Switch any one idea off and the same 10 weeks earn less</h1>
 <div class="ablation">
-<table><thead><tr><th style="text-align:left">Idea switched off (the final's code, one switch changed)</th><th style="text-align:right">Margin, 10 weeks</th><th style="text-align:right">Change</th><th style="text-align:right">Orders a week</th><th style="text-align:right">On time, mean / lowest week</th><th style="text-align:right">Full system ahead</th></tr></thead><tbody>
-<tr><td style="text-align:left"><strong>none: the full system</strong></td><td style="text-align:right"><strong>€177,043</strong></td><td style="text-align:right"></td><td style="text-align:right"><strong>401</strong></td><td style="text-align:right"><strong>97.2% / 95.5%</strong></td><td style="text-align:right"></td></tr>
-<tr><td style="text-align:left">Expected-margin quoter (fixed markup instead)</td><td style="text-align:right">€118,016</td><td style="text-align:right"><strong>−€59,027</strong></td><td style="text-align:right">259</td><td style="text-align:right">93.0% / 87.1% ✗</td><td style="text-align:right">10 of 10</td></tr>
-<tr><td style="text-align:left">Bundles (one car per gig)</td><td style="text-align:right">€138,985</td><td style="text-align:right"><strong>−€38,058</strong></td><td style="text-align:right">359</td><td style="text-align:right">96.8% / 94.5%</td><td style="text-align:right">10 of 10</td></tr>
-<tr><td style="text-align:left">Note reader (the kit's starter)</td><td style="text-align:right">€141,823</td><td style="text-align:right"><strong>−€35,219</strong></td><td style="text-align:right">320</td><td style="text-align:right">97.0% / 94.6%</td><td style="text-align:right">10 of 10</td></tr>
-<tr><td style="text-align:left">Learned cost model (hand-fit formula)</td><td style="text-align:right">€148,742</td><td style="text-align:right"><strong>−€28,301</strong></td><td style="text-align:right">360</td><td style="text-align:right">94.9% / 93.4%</td><td style="text-align:right">10 of 10</td></tr>
-<tr><td style="text-align:left">Flat fees (the rising hourly ladder)</td><td style="text-align:right">€150,450</td><td style="text-align:right"><strong>−€26,592</strong></td><td style="text-align:right">403</td><td style="text-align:right">96.8% / 95.6%</td><td style="text-align:right">10 of 10</td></tr>
-<tr><td style="text-align:left">Same-day quoted at 8 h of slack (12 h gate)</td><td style="text-align:right">€152,203</td><td style="text-align:right"><strong>−€24,839</strong></td><td style="text-align:right">332</td><td style="text-align:right">97.5% / 95.9%</td><td style="text-align:right">10 of 10</td></tr>
-<tr><td style="text-align:left">Cost tilt (fee counted at 1.0 ×)</td><td style="text-align:right">€168,296</td><td style="text-align:right"><strong>−€8,746</strong></td><td style="text-align:right">398</td><td style="text-align:right">95.6% / 92.8%</td><td style="text-align:right">9 of 10</td></tr>
-<tr><td style="text-align:left">Dealer trust</td><td style="text-align:right">€171,617</td><td style="text-align:right"><strong>−€5,425</strong></td><td style="text-align:right">413</td><td style="text-align:right">96.6% / 95.2%</td><td style="text-align:right">8 of 10</td></tr>
-<tr><td style="text-align:left">Safe cars</td><td style="text-align:right">€173,827</td><td style="text-align:right"><strong>−€3,216</strong></td><td style="text-align:right">390</td><td style="text-align:right">96.6% / 94.9%</td><td style="text-align:right">7 of 10</td></tr>
-<tr><td style="text-align:left">Queue limit (no limit)</td><td style="text-align:right">€177,085</td><td style="text-align:right">+€42</td><td style="text-align:right">409</td><td style="text-align:right">96.2% / 92.7%</td><td style="text-align:right">7 of 10</td></tr></tbody></table>
+<table><thead><tr><th style="text-align:left">Idea switched off</th><th style="text-align:right">Margin, 10 weeks</th><th style="text-align:right">The idea adds</th><th style="text-align:right">Orders a week</th><th style="text-align:right">On time, mean / weakest</th><th style="text-align:right">Full system wins</th></tr></thead><tbody>
+<tr><td style="text-align:left"><strong>None off: all ideas in use</strong></td><td style="text-align:right"><strong>€177,043</strong></td><td style="text-align:right"></td><td style="text-align:right"><strong>401</strong></td><td style="text-align:right"><strong>97.2% / 95.5%</strong></td><td style="text-align:right"></td></tr>
+<tr><td style="text-align:left">Idea 2 · Expected-margin quote</td><td style="text-align:right">€118,016</td><td style="text-align:right"><strong>+50%</strong></td><td style="text-align:right">259</td><td style="text-align:right">93.0% / 87.1% ✗</td><td style="text-align:right">10 of 10</td></tr>
+<tr><td style="text-align:left">Idea 4 · Bundles</td><td style="text-align:right">€138,985</td><td style="text-align:right"><strong>+27%</strong></td><td style="text-align:right">359</td><td style="text-align:right">96.8% / 94.5%</td><td style="text-align:right">10 of 10</td></tr>
+<tr><td style="text-align:left">Idea 1 · Machine learning cost model</td><td style="text-align:right">€148,742</td><td style="text-align:right"><strong>+19%</strong></td><td style="text-align:right">360</td><td style="text-align:right">94.9% / 93.4%</td><td style="text-align:right">10 of 10</td></tr>
+<tr><td style="text-align:left">Idea 3 · Flat fees</td><td style="text-align:right">€150,450</td><td style="text-align:right"><strong>+18%</strong></td><td style="text-align:right">403</td><td style="text-align:right">96.8% / 95.6%</td><td style="text-align:right">10 of 10</td></tr>
+<tr><td style="text-align:left">Idea 2 · Same-day offers</td><td style="text-align:right">€152,203</td><td style="text-align:right"><strong>+16%</strong></td><td style="text-align:right">332</td><td style="text-align:right">97.5% / 95.9%</td><td style="text-align:right">10 of 10</td></tr>
+<tr><td style="text-align:left">Idea 2 · Safety margin on the cost</td><td style="text-align:right">€168,296</td><td style="text-align:right"><strong>+5%</strong></td><td style="text-align:right">398</td><td style="text-align:right">95.6% / 92.8%</td><td style="text-align:right">9 of 10</td></tr>
+<tr><td style="text-align:left">Idea 2 · Dealer trust</td><td style="text-align:right">€171,617</td><td style="text-align:right"><strong>+3%</strong></td><td style="text-align:right">413</td><td style="text-align:right">96.6% / 95.2%</td><td style="text-align:right">8 of 10</td></tr>
+<tr><td style="text-align:left">Idea 4 · Easy cars when drivers are short</td><td style="text-align:right">€173,827</td><td style="text-align:right"><strong>+2%</strong></td><td style="text-align:right">390</td><td style="text-align:right">96.6% / 94.9%</td><td style="text-align:right">7 of 10</td></tr></tbody></table>
 </div>
 <div class="note">
-<p>The same 10 worlds for every row, played on the morning of the final; ✗ marks a week under 90%, not ranked. The queue limit earns nothing on its own, but without it the weakest week falls from 95.5% to 92.7%. Each idea was first adopted on 40 worlds with the weakest week as a gate; those gains are on the idea slides.</p>
-</div>
-<div class="source">
-<p>Labels in data/runs.jsonl: <code>main@8c7e522</code> and <code>main[&lt;switch&gt;]@…</code> (the later hash differs only in demo/ files); tracks/t1, t2, t3/ablation-20261115.md. Adoption steps: tracks/orch/FINDINGS.md 10:45–21:45.</p>
+<p>The final's exact code, one idea switched off per row, on the same 10 weeks, played on the morning of the final. ✗ marks a week under 90% on time, which does not rank. The limit on how many cars may wait for a driver is not listed: it adds no margin, but without it the weakest week falls from 95.5% to 92.7%, close to the 90% line.</p>
 </div></div><div class="num">7 / 10</div></section>
 <section class="slide " id="s8"><div class="inner"><div class="kicker">
-<p>The test final</p>
+<p>The Saturday 20:00 test final</p>
 </div>
-<h1>The live leaderboard showed our gap: about 110 short, cheap cars</h1>
+<h1>How our strategy differs from others</h1>
 <div class="cols c55"><div class="col">
 <figure role="img" aria-label="Every ranked team: orders won against margin per order"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 430" font-family="Inter, 'Helvetica Neue', Arial, sans-serif">
 <rect width="600" height="430" fill="white"/>
@@ -559,23 +501,20 @@ tr.us td, td strong { color: var(--ink); }
 </svg>
 </figure>
 </div><div class="col">
-<h3>What we saw</h3>
-<p>We recorded the public leaderboard (every team, every 2 s) and set it against our own books. The leader's 113 extra orders brought €48 of revenue and €19 of margin each. Only one reading fits orders, revenue and cost together: about 110 cars under 100 km at the typical fee.</p>
-<h3>Why we lost them</h3>
-<p>73% of our one-car gigs opened exactly at our 0.85 fee floor; every lane under 40 km opened at 1.15 and booked in one minute. Short cars were dear to move, so dear to quote.</p>
+<h3>A selective desk</h3>
+<p>Every team played the same week. We finished 5th of 75 ranked teams with fewer orders than the teams around us (356 against 440–500), but the highest margin per order of the top five: €49 against €36–42, and the largest share of revenue kept as margin, 41%.</p>
+<h3>Why</h3>
+<p>We price every car over its own predicted cost and stay out of the price fight for cars that would cost more than they pay. The teams above us won volume on short, cheap trips; we won the middle distances, where our cost estimate is sharp.</p>
 <div class="effect">
-<p><strong>The fix, that evening:</strong> floors 0.75 / 0.95 and short lanes costed at 0.85 ×. <strong>+€31,187</strong> over 40 weeks (ahead in 34); holdout +€10,243 (9 of 10); unseen rob-21..30 +€5,993.</p>
+<p><strong>What we took from it:</strong> the short trips we lost were dear for us to staff, not unwinnable. A lower opening fee for them and a cheaper cost for trips under 100 km won more of them without giving up the rule.</p>
 </div>
-</div></div>
-<div class="source">
-<p>tracks/orch/finals/testfinal-20261114-1800/ANALYSIS.md (feed: leaderboard-feed.sse.gz); <code>b68-floor075-short095-carshort085</code> vs <code>b52-fee4-car110</code>, tracks/orch/FINDINGS.md 19:45 and 21:40.</p>
-</div></div><div class="num">8 / 10</div></section>
+</div></div></div><div class="num">8 / 10</div></section>
 <section class="slide " id="s9"><div class="inner"><div class="kicker">
 <p>Robust</p>
 </div>
-<h1>It holds on weeks it has never seen, and rejoins after a crash</h1>
+<h1>It holds on weeks it has never seen</h1>
 <div class="cols c64"><div class="col">
-<figure role="img" aria-label="Paired margin change per unseen week"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="Inter, 'Helvetica Neue', Arial, sans-serif">
+<figure role="img" aria-label="Margin change per unseen week, the final&#x27;s code against the version before"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="Inter, 'Helvetica Neue', Arial, sans-serif">
 <rect width="720" height="320" fill="white"/>
 <line x1="80" x2="710" y1="304.0" y2="304.0" stroke="#e4e3df" stroke-width="1"/>
 <text x="70.0" y="309.0" font-size="14" fill="#8a8984" text-anchor="end" font-weight="400" >−€3,000</text>
@@ -624,31 +563,29 @@ tr.us td, td strong { color: var(--ink); }
 <text x="86.0" y="22.0" font-size="17" fill="#0b0b0b" text-anchor="start" font-weight="700" >Ahead in 20 of 30 weeks, +€14,342 in total</text>
 </svg>
 </figure>
-<p><strong>40 unseen weeks</strong> (worlds rob-21 to rob-60, never used to tune anything): all ranked, mean 96.1% on time (sd 1.6 points), lowest 92.4%, €17,308 and 399 orders a week.</p>
+<p><strong>40 weeks the final's code never saw:</strong> all ranked, mean 96.1% on time, weakest 92.4%, €17,308 and 399 orders a week. <strong>Best ranking round,</strong> with the final's exact code: 6th of 43 ranked teams, all 5 weeks ranked, 96.6% on time.</p>
 </div><div class="col">
-<div class="tiles stack small">
-<ul><li><strong>Restart</strong> the live runner journals every action and answer, then rebuilds orders and gigs from the world and the journal. Rehearsal of the final setting, killed mid-week and restarted: €27,655, 460 orders, 93.7% on time, against €28,447, 467, 94.6% for the same world played without a restart.</li><li><strong>Slow network</strong> slowest decision batch 91 ms in that rehearsal (121 ms worst seen); slowest action round trip 564 ms; a quote has 15 world minutes, 4.5 real seconds in the final.</li><li><strong>Live</strong> the test final was played end to end by this runner: nothing undelivered.</li><li><strong>Surprises</strong> the test final had a price-war day and a 30-car bulk send from one yard: 5th of 75, 97.2% on time.</li></ul>
-</div>
-</div></div>
-<div class="source">
-<p>Chart: margin change per week, <code>b89-main</code> (the final's code) minus <code>b68</code> (19:45 mainline), rob-21..50, sorted. rob-21..60: tracks/orch/FINDINGS.md 21:50; tracks/t3/LIVE.md (<code>t3-live-2</code> vs <code>t3-live-ref2</code>, <code>t3-live-5</code>); testfinal README.</p>
-</div></div><div class="num">9 / 10</div></section>
+<h3>How an idea gets in</h3>
+<ol><li><strong>See it</strong> in the live leaderboard, our books or a study of saved weeks.</li><li><strong>Build it as a switch</strong>, off by default: with the switch off the code must give the old result to the cent.</li><li><strong>Try it</strong> on the 10 development weeks, both versions on the same worlds.</li><li><strong>Check it</strong> on 30 weeks it was never tuned on: total margin must rise and no week may come near 90% on time.</li><li><strong>Adopt it.</strong> The next idea is measured against the new mainline.</li></ol>
+</div></div></div><div class="num">9 / 10</div></section>
 <section class="slide " id="s10"><div class="inner"><div class="kicker">
-<p>Limits</p>
+<p>Limits and next steps</p>
 </div>
-<h1>What did not work, what would break it, what we don't know</h1>
+<h1>What did not work, what would break it, what we would do next</h1>
 <div class="cols c333 limits"><div class="col">
 <h2>Did not work</h2>
-<ul><li><strong>Holding fees back:</strong> −€65,251 over 30 weeks; unbooked gigs fill the intake.</li><li><strong>Direct offers to drivers:</strong> −€2,016; 91 of 3,783 offers accepted.</li><li><strong>Cheaper quotes for volume:</strong> each extra order cost about €75 of margin.</li><li><strong>Bundles of 4 or 5 cars:</strong> −€5,653 / −€1,915 over 30 weeks.</li><li><strong>Outage detector:</strong> −€2,732 over 30 weeks.</li><li><strong>Model 5's margin gain:</strong> in-sample only; on unseen worlds money-neutral.</li></ul>
+<ul><li><strong>Holding fees back:</strong> unbooked gigs filled our queue and cost margin.</li><li><strong>Direct offers to drivers:</strong> 91 of 3,783 accepted.</li><li><strong>Cheaper quotes for volume:</strong> each extra order cost more margin than it brought.</li><li><strong>Bundles of 4 or 5 cars:</strong> lost margin against 3.</li></ul>
+<h2>We don't know</h2>
+<ul><li>How much of the model's skill comes from our own books, which change when the policy changes.</li></ul>
 </div><div class="col">
 <h2>Would break it</h2>
-<ul><li><strong>A late car for the biggest dealer.</strong> In the test final one car, 3 minutes late, halved its trust count (25 → 12); we won 60% of its requests that day, 30% the next.</li><li><strong>A price war day.</strong> Our quote stops at the car's cost: we won 23% of that day's requests, 32–48% on the others.</li><li><strong>A crash between the world's answer and our journal write:</strong> the replay misses that action.</li></ul>
+<ul><li><strong>Far fewer or pickier drivers:</strong> flat fees would sit unbooked and the urgent fees would eat the margin.</li><li><strong>A competitor that undercuts for days:</strong> our quote stops at the car's cost; on the one price-war day we won 23% of requests against 32–48%.</li><li><strong>Dealer prices that jump within a day:</strong> one price level follows them only step by step.</li><li><strong>A world unlike the ones we trained on:</strong> the fee estimates, and the quotes with them, would be off.</li></ul>
 </div><div class="col">
-<h2>We don't know</h2>
-<ul><li>How the top teams move more cars per driver.</li><li>The separate effect of the price level, dealer trust and the note reader: each was measured only together with other parts.</li><li>How the cost model holds when the policy changes: our own books are among its inputs.</li></ul>
+<h2>What we would do next</h2>
+<ul><li><strong>Retrain on real bookings</strong> and keep judging every model on weeks it never saw.</li><li><strong>Learn each dealer's own price level</strong>, not one for the whole market.</li><li><strong>Forecast free drivers</strong> near each pickup and price that supply into the quote.</li><li><strong>Plan bundles ahead</strong> across the day instead of as cars arrive.</li></ul>
 </div></div>
-<div class="source">
-<p>docs/jury.md §5 and the tracks' FINDINGS.md files; tracks/orch/finals/testfinal-20261114-1800/ANALYSIS.md; tracks/orch/FINDINGS.md 21:40.</p>
+<div class="note">
+<p><strong>Try the demo at spread.langsjo.dev:</strong> Replay a real week on the map, then open any request and follow its decision through every part, with the numbers.</p>
 </div></div><div class="num">10 / 10</div></section>
 </main>
 <script>
