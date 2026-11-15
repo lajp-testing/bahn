@@ -39,36 +39,29 @@ ROSTER = FINAL / "roster.json.gz"
 AS_PLAYED = dict(fee_model=4, car=1.1, car_short=0, fee_flat_floor=0.85, fee_flat_short=1.15,
                  limit=35, morning_limit=45, safe_limit=80, same_day_slack=480, same_day_drivers=0)
 
-# Finland, drawn by hand for the demo's background (the towns and roads are real data).
-OUTLINE = [
-    (59.82, 22.90), (59.92, 23.15), (60.02, 23.40), (60.10, 23.60), (60.13, 23.90),
-    (60.15, 24.20), (60.17, 24.60), (60.17, 24.95), (60.22, 25.15), (60.28, 25.35),
-    (60.33, 25.60), (60.38, 25.80), (60.42, 26.10), (60.46, 26.35), (60.50, 26.65),
-    (60.52, 26.95), (60.56, 27.25), (60.58, 27.60), (60.60, 27.95), (60.63, 28.30),
-    (60.65, 28.60), (60.68, 29.00), (61.00, 28.45), (61.30, 28.60), (61.60, 28.80),
-    (61.95, 29.20), (62.30, 29.55), (62.55, 29.90), (62.85, 30.20), (63.15, 30.25),
-    (63.45, 30.35), (63.80, 30.50), (64.15, 30.75), (64.50, 30.95), (64.80, 31.15),
-    (65.15, 31.30), (65.55, 31.40), (65.95, 31.50), (66.35, 31.45), (66.75, 31.25),
-    (67.15, 31.00), (67.55, 30.65), (67.95, 30.25), (68.35, 29.85), (68.75, 29.40),
-    (69.05, 29.00), (69.20, 28.75), (69.45, 28.60), (69.75, 28.40), (70.00, 28.10),
-    (70.08, 27.90), (69.95, 27.30), (69.85, 26.70), (69.75, 26.10), (69.65, 25.50),
-    (69.58, 24.90), (69.50, 24.30), (69.38, 23.80), (69.25, 23.50), (69.15, 23.30),
-    (69.08, 22.70), (69.05, 22.00), (69.06, 21.30), (69.05, 20.65), (68.85, 20.75),
-    (68.55, 20.95), (68.25, 21.20), (67.95, 21.45), (67.65, 21.60), (67.35, 21.75),
-    (67.05, 21.90), (66.75, 22.10), (66.45, 22.35), (66.15, 22.55), (65.85, 22.85),
-    (65.75, 23.10), (65.80, 23.40), (65.84, 24.10), (65.73, 24.50), (65.55, 24.75),
-    (65.35, 24.65), (65.15, 24.90), (64.95, 25.05), (64.75, 25.20), (64.55, 25.30),
-    (64.35, 25.10), (64.15, 24.90), (63.95, 24.40), (63.85, 23.90), (63.75, 23.40),
-    (63.72, 23.00), (63.65, 22.60), (63.60, 22.20), (63.45, 22.00), (63.25, 21.80),
-    (63.10, 21.60), (62.95, 21.45), (62.80, 21.35), (62.65, 21.25), (62.50, 21.25),
-    (62.35, 21.30), (62.20, 21.35), (62.05, 21.30), (61.90, 21.40), (61.75, 21.50),
-    (61.60, 21.60), (61.50, 21.70), (61.40, 21.55), (61.25, 21.45), (61.13, 21.55),
-    (61.00, 21.60), (60.90, 21.75), (60.80, 21.90), (60.70, 21.80), (60.60, 21.70),
-    (60.50, 21.75), (60.45, 21.95), (60.42, 22.15), (60.40, 22.35), (60.38, 22.55),
-    (60.36, 22.75), (60.33, 22.95), (60.30, 23.15), (60.27, 23.40), (60.22, 23.60),
-    (60.18, 23.75), (60.13, 23.85), (60.10, 23.65), (60.02, 23.40), (59.95, 23.20),
-    (59.85, 23.00), (59.82, 22.90),
-]
+# Finland's real border (Natural Earth via datasets/geo-countries, public domain):
+# demo/assets/finland.geojson, a MultiPolygon — the mainland ring and the islands.
+# prepare.py simplifies each ring (points closer than MIN_DEG are dropped) and writes
+# it as lat/lon rings into assets/map.json; the browser projects it like the towns.
+MIN_DEG = 0.008
+
+
+def load_border() -> list[list[list[float]]]:
+    geo = json.loads((ROOT / "demo/assets/finland.geojson").read_text())["geometry"]
+    rings = []
+    for poly in geo["coordinates"]:
+        for ring in poly:
+            keep = []
+            for lon, lat in ring:   # GeoJSON rings are [lon, lat]
+                if not keep or abs(lat - keep[-1][0]) + abs(lon - keep[-1][1]) >= MIN_DEG:
+                    keep.append([round(lat, 4), round(lon, 4)])
+            if len(keep) > 3:
+                rings.append(keep)
+    rings.sort(key=len, reverse=True)
+    return rings
+
+
+BORDER = load_border()
 
 
 def read_jsonl(path: Path):
@@ -104,7 +97,7 @@ def write_map(world_map: dict) -> None:
             continue
         seen.add(pair)
         roads.append([road["from"], road["to"], road["km"]])
-    data = {"places": world_map["places"], "roads": roads, "outline": OUTLINE}
+    data = {"places": world_map["places"], "roads": roads, "border": BORDER}
     (OUT / "map.json").write_text(json.dumps(data, separators=(",", ":")))
     print(f"map.json: {len(world_map['places'])} places, {len(roads)} roads")
 

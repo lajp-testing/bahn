@@ -33,8 +33,10 @@ one day, `space` plays or pauses.
 ## The five views
 
 1. **The week** — the test final replayed on a night map of Finland. The towns and
-   road distances are the world's real map; the outline and graticule are drawn for
-   the demo. Requests pulse at their pickup town, won orders wear a ring until
+   road distances are the world's real map; the border is real too — Natural Earth
+   via `datasets/geo-countries` (public domain, `assets/finland.geojson`), simplified
+   by `prepare.py` and drawn with the same projection as the towns; only the
+   graticule is drawn for the demo. Requests pulse at their pickup town, won orders wear a ring until
    collected, cars travel the fastest road route (Dijkstra over the map's minutes),
    late cars leave a red scar. The right rail is a running manifest; the strip under
    the map is the whole week at a glance — day ticks, an hourly activity sparkline
@@ -121,7 +123,7 @@ and writes `demo/assets/{map,week,decisions,race,settings}.json` (~0.8 MB total)
 | `style.css` | the design system (tokens in `:root`) |
 | `fonts/` | Fraunces (display), IBM Plex Sans (UI), IBM Plex Mono (numbers) — vendored woff2, loaded offline |
 | `prepare.py` | regenerates `assets/*.json` from the saved week |
-| `assets/map.json` | places, roads, a hand-drawn outline of Finland |
+| `assets/map.json` | places, roads, and Finland's real border (rings of lat/lon points) |
 | `assets/week.json` | the week as absolute-time arrays (requests, decisions, gigs, bookings, car moves with road paths, ledger) |
 | `assets/decisions.json` | per-request internals from the desk replay |
 | `assets/settings.json` | the as-played settings, fee floors and the exact-match rate |
@@ -138,8 +140,9 @@ and writes `demo/assets/{map,week,decisions,race,settings}.json` (~0.8 MB total)
   recorded pickup and delivery minutes; the world's actual driving time varies
   around the map's minutes, so a car's position between those two moments is
   illustrative.
-- The Finland outline is a hand-drawn polygon, not survey data; the towns, roads
-  and distances are the challenge's real map.
+- The border is Natural Earth 1:10m data (public domain, via `datasets/geo-countries`):\  
+  generalised at source and lightly simplified by `prepare.py`, so at deep zoom the coast
+  is smoother than a survey map; the towns, roads and distances are the challenge's real map.
 - A bundle gig's fee divides evenly across its cars; the world charges one fee per gig.
 - The event feed shows the eleven most recent request/win/loss/gig/booking/move
   events, not every ledger line.

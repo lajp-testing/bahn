@@ -206,9 +206,13 @@ function drawMapBase() {
     gAtmos.appendChild(svgEl("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1],
       stroke: "#1B2E47", "stroke-width": 1, opacity: .6, "vector-effect": "non-scaling-stroke" }));
   }
-  gOutline.appendChild(svgEl("polygon", {
-    points: MAP.outline.map((p) => proj.f(p[0], p[1])).map((p) => p.join(",")).join(" "),
-    fill: "#142A44", stroke: "#33608C", "stroke-width": 1.5, opacity: .9, "vector-effect": "non-scaling-stroke" }));
+  // the real border: the mainland ring and the islands (Natural Earth, public domain)
+  for (const ring of MAP.border) {
+    gOutline.appendChild(svgEl("polygon", {
+      points: ring.map((p) => proj.f(p[0], p[1])).map((p) => p.join(",")).join(" "),
+      fill: "#142A44", stroke: "#33608C", "stroke-width": 1.2, opacity: .9,
+      "vector-effect": "non-scaling-stroke", "stroke-linejoin": "round" }));
+  }
   const place = {}; MAP.places.forEach((p) => place[p.id] = p);
   MAP.roads.forEach(([a, b, km]) => {
     const used = week.usedEdges.has(a < b ? a + "|" + b : b + "|" + a);
