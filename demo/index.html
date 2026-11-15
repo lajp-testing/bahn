@@ -14,16 +14,11 @@
     <p class="sub">How our team played <b>Spread</b>, the car-transport challenge at Junction 2026.
     This is the organiser's test final of 14 November — one real week, recorded and replayed decision by decision.</p>
   </div>
-  <div class="manifest">
-    <div><b>5<span>/75</span></b><i>rank</i></div>
-    <div><b>€17,442.75</b><i>margin</i></div>
-    <div><b>356</b><i>orders</i></div>
-    <div><b>97.2%</b><i>on time</i></div>
-    <div><b>1,030</b><i>requests</i></div>
-  </div>
+  <p class="manifest">Final result: <b>5th of 75</b> ranked teams,
+    <b>€17,442.75</b> margin, <b>356</b> orders, <b>97.2%</b> on time, <b>1,030</b> requests.</p>
 </header>
 
-<nav class="load-2" id="tabs" aria-label="Views">
+<nav class="load-2" id="tabs" role="tablist" aria-label="Views">
   <button data-tab="week">The week</button>
   <button data-tab="challenge">The challenge</button>
   <button data-tab="decision">Inspect a decision</button>
@@ -49,7 +44,7 @@
         <span><i class="k late"></i>late</span>
       </figcaption>
       <div class="hint" id="hint" hidden>
-        <p>This is the recorded test final, replayed as a pure function of the clock — scrub
+        <p>This is the recorded test final, replayed as a pure function of the clock: scrub
         <b>forwards and backwards</b> and every counter, car and feed line is exact.</p>
         <p class="keys"><kbd>←</kbd><kbd>→</kbd> step one event &nbsp; <kbd>shift</kbd>+<kbd>←</kbd> one hour
         &nbsp; <kbd>ctrl</kbd>+<kbd>←</kbd> one day &nbsp; <kbd>space</kbd> play</p>
@@ -70,17 +65,17 @@
     </figure>
 
     <aside class="side load-4">
-      <div class="bigmargin"><span id="cMargin">€0</span><i>margin</i></div>
+      <div class="bigmargin"><span id="cMargin">€0</span><i>margin so far</i></div>
       <dl class="rail">
         <div><dt>requests</dt><dd id="cReq">0</dd></div>
         <div><dt>orders won</dt><dd id="cWon">0</dd></div>
-        <div><dt>lost to the competitor</dt><dd id="cLost">0</dd></div>
+        <div><dt>lost or declined</dt><dd id="cLost">0</dd></div>
         <div><dt>cars en route</dt><dd id="cMove">0</dd></div>
-        <div><dt>delivered</dt><dd id="cDone">0</dd></div>
-        <div><dt>late</dt><dd id="cLate">0</dd></div>
+        <div><dt>cars delivered</dt><dd id="cDone">0</dd></div>
+        <div><dt>orders late</dt><dd id="cLate">0</dd></div>
       </dl>
       <div class="ontime"><div id="onTimeBar"><i id="onTimeFill"></i><b id="onTimePct">–</b></div>
-        <i>on time — 90% ranks, or nothing counts</i></div>
+        <i>on time; below 90% nothing ranks</i></div>
       <h3 class="rail-h">Right now</h3>
       <ol id="feed" class="feed"></ol>
     </aside>
@@ -148,6 +143,7 @@
           <option value="all">all requests</option>
           <option value="won">won</option>
           <option value="lost">lost</option>
+          <option value="declined">declined by our intake</option>
           <option value="late">delivered late</option>
           <option value="note">with a note</option>
           <option value="bundle">moved in a bundle</option>
@@ -155,7 +151,7 @@
       </div>
       <p class="stats" id="laneStats"></p>
       <div class="dtable-wrap"><table class="dtable"><thead><tr>
-        <th>when</th><th>request</th><th>lane</th><th class="r">km</th><th class="r">quote/list</th><th>outcome</th>
+        <th>when</th><th>request</th><th>lane</th><th class="r">km</th><th class="r" title="our lowest quoted price as a multiple of the list price">price vs list</th><th>outcome</th>
       </tr></thead><tbody id="drows"></tbody></table></div>
     </div>
     <div class="detail" id="detail"><p class="hint-text">Pick a request to follow it through the desk.</p></div>
@@ -164,8 +160,8 @@
 
 <!-- ============================== HOW IT WORKS ============================== -->
 <main id="tab-system" class="tab">
-  <p class="lead">This is the system as it stands <b>now</b> — the eight parts each with one reason and one
-  measured effect. The week in <a href="#" data-goto="week">The week</a> was played by the version of
+  <p class="lead">This is the system as it stands <b>now</b>: eight parts, each with one reason,
+  six of them with a measured effect. The week in <a href="#" data-goto="week">The week</a> was played by the version of
   Saturday 18:00; the analysis of that very evening changed the fee floors and added the short-lane tilt.</p>
   <div class="parts" id="pipeline"></div>
   <section class="twocol">

@@ -3,7 +3,7 @@
    minute on the map), so scrubbing backwards is exact. Design: demo/DESIGN.md. */
 "use strict";
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Mon 2", "Tue 2", "Wed 2"];
 const END = 14280;            // the world ends Wed 22:00, minute 14280
 const OPEN_MIN = 570;         // the page opens at Mon 09:30, with the first cars moving
 const APPROX = "approximate: the desk replay in prepare.py could not reproduce this "
@@ -24,7 +24,8 @@ function svgEl(tag, attrs) {
 }
 function fmtEur(cents) {
   const e = (cents || 0) / 100;
-  return "€" + e.toLocaleString("en-GB", { minimumFractionDigits: e % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const body = Math.abs(e).toLocaleString("en-GB", { minimumFractionDigits: e % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  return (e < 0 ? "−€" : "€") + body;
 }
 function clockStr(min) {
   const day = Math.floor(min / 1440), m = min % 1440;
@@ -39,27 +40,58 @@ function bisect(arr, t) { // count of rows with row[0] <= t
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 async function load() {
-  [MAP, WEEK, DEC, STORY, RACE, SETTINGS] = await Promise.all(
-    ["map", "week", "decisions", "story", "race", "settings"].map((n) =>
-      fetch(`assets/${n}.json`).then((r) => r.json())));
+  try {
+    [MAP, WEEK, DEC, STORY, RACE, SETTINGS] = await Promise.all(
+      ["map", "week", "decisions", "story", "race", "settings"].map((n) =>
+        fetch(`assets/${n}.json`).then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status} for assets/${n}.json`);
+          return r.json();
+        })));
+  } catch (err) {
+    document.body.innerHTML = `<div style="max-width:60ch;margin:18vh auto;padding:24px;
+      border:1px solid #33465E;border-left:3px solid #F0A532;border-radius:4px">
+      <h2 style="margin-top:0">The demo's data did not load</h2>
+      <p>${esc(String(err && err.message || err))}</p>
+      <p>Serve the folder with any static server, not from the file system:</p>
+      <pre style="background:#0E1B2C;padding:10px;border-radius:4px">cd demo
+python3 -m http.server 8000</pre>
+      <p>then open <span style="font-family:monospace">http://localhost:8000/</span></p></div>`;
+    return;
+  }
   WEEK.reqMap = {}; WEEK.requests.forEach((r) => WEEK.reqMap[r.id] = r);
   MAP.places.forEach((p) => nameOf[p.id] = p.name);
-  const hash = location.hash.slice(1).split("@");
-  showTab(hash[0] && document.getElementById("tab-" + hash[0]) ? hash[0] : "week");
+  const initialHash = location.hash.slice(1);   // the deep link, before any view rewrites it
+  window.addEventListener("hashchange", () => readHash());
+  showTab("week", true);
   buildChallenge();
   buildWeek();
   buildDecision();
   buildSystem();
   buildRace();
-  if (hash[1]) setTime(+hash[1]);
+  readHash(initialHash);   // deep links like #week@3720 or #decision/R00683, once the views exist
 }
 
 /* ============================== header + tabs ============================== */
 
 document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
-function showTab(tab) {
-  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+function showTab(tab, keepHash) {
+  document.querySelectorAll("nav button").forEach((b) => {
+    b.classList.toggle("on", b.dataset.tab === tab);
+    b.setAttribute("aria-selected", b.dataset.tab === tab);
+    b.setAttribute("role", "tab");
+  });
   document.querySelectorAll("main").forEach((m) => m.classList.toggle("on", m.id === "tab-" + tab));
+  if (!keepHash) writeHash(tab);
+}
+function writeHash(hash) {
+  if (location.hash.slice(1) !== hash) history.replaceState(null, "", "#" + hash);
+}
+function readHash(initial) {
+  const hash = initial != null ? initial : location.hash.slice(1);
+  const [tab, arg] = hash.split(/[@/]/);
+  if (tab && document.getElementById("tab-" + tab)) showTab(tab, true);
+  if (tab === "week" && arg) setTime(+arg);
+  if (tab === "decision" && arg && DEC && DEC[arg]) selectRequest(arg);
 }
 document.querySelectorAll("[data-goto]").forEach((a) =>
   a.addEventListener("click", (e) => { e.preventDefault(); showTab(a.dataset.goto); }));
@@ -139,11 +171,11 @@ function buildWeek() {
   WEEK.moves.forEach((m) => { legs[m.rid] = (legs[m.rid] || 0) + 1; });
   WEEK.moves.forEach((m) => { if (m.de != null) done[m.rid] = Math.max(done[m.rid] || 0, m.de); });
   const nLegs = {}; WEEK.requests.forEach((r) => nLegs[r.id] = r.n);
+  const lateSet = new Set(WEEK.lateOrders);   // the account's refund lines: exact
   week.orderDone = [];
   for (const [rid, de] of Object.entries(done)) {
     if (legs[rid] !== nLegs[rid]) continue;
-    const late = WEEK.moves.some((m) => m.rid === rid && m.late);
-    week.orderDone.push([de, late ? 0 : 1, rid]);
+    week.orderDone.push([de, lateSet.has(rid) ? 0 : 1, rid]);
   }
   week.orderDone.sort((a, b) => a[0] - b[0]);
   week.orderDoneAt = week.orderDone.map((r) => [r[0]]);
@@ -266,6 +298,7 @@ function townRank(id) {
 function applyView() {
   $("#map").setAttribute("viewBox", `${week.view.x} ${week.view.y} ${week.view.w} ${week.view.h}`);
   layoutTowns();
+  if (week.g) renderWeek();   // cars and rings are sized in map units: redraw at the new scale
 }
 function clientToMap(e) {
   const svg = $("#map"), r = svg.getBoundingClientRect();
@@ -278,7 +311,8 @@ function zoomAt(factor, cx, cy) {
   const h = w * proj.H / proj.W;
   v.x = Math.min(proj.W - w, Math.max(0, cx - (cx - v.x) * w / v.w));
   v.y = Math.min(proj.H - h, Math.max(0, cy - (cy - v.y) * h / v.h));
-  v.w, v.h = w, h;
+  v.w = w;
+  v.h = h;
   applyView();
 }
 
@@ -296,6 +330,7 @@ function pathD(i) { return week.seg.get(i).pts.map((p) => p.join(",")).join(" ")
 
 function setTime(t) {
   week.t = Math.max(0, Math.min(END, Math.round(t)));
+  week.tf = week.t;
   renderWeek();
 }
 
@@ -312,7 +347,10 @@ function renderWeek() {
       stroke: "#F0A532", "stroke-width": 2, opacity: .9 * (1 - age / 25), "vector-effect": "non-scaling-stroke",
       "pointer-events": "all" });
     c.style.cursor = "pointer";
+    c.tabIndex = 0;
+    c.setAttribute("role", "button");
     c.addEventListener("click", () => { if (!week.dragged) openRequest(r.id); });
+    c.addEventListener("keydown", (e) => { if (e.key === "Enter") openRequest(r.id); });
     g.markers.appendChild(c);
   }
   const nLost = bisect(week.lostByAt, t);
@@ -321,9 +359,9 @@ function renderWeek() {
     g.markers.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: u(5), fill: "#5C7188",
       opacity: .7 * (1 - (t - week.lostByAt[i][0]) / 15) }));
   }
-  const nWon = bisect(week.wonByAt, t);
+  const nWon = bisect(week.wonByAt, t) - bisect(WEEK.cancelled.map((c) => [c[0]]), t);
   const wonSet = new Set();
-  for (let i = 0; i < nWon; i++) wonSet.add(week.wonByAt[i][1]);
+  for (let i = 0; i < bisect(week.wonByAt, t); i++) wonSet.add(week.wonByAt[i][1]);
   let moving = 0, carsDone = 0;
   WEEK.moves.forEach((m, i) => {
     if (m.pu > t) return;
@@ -358,7 +396,10 @@ function renderWeek() {
     const c = svgEl("circle", { cx: p[0], cy: p[1], r: u(8), fill: "none", stroke: "#54C08A",
       "stroke-width": 2.5, opacity: .85, "vector-effect": "non-scaling-stroke", "pointer-events": "all" });
     c.style.cursor = "pointer";
+    c.tabIndex = 0;
+    c.setAttribute("role", "button");
     c.addEventListener("click", () => { if (!week.dragged) openRequest(m.rid); });
+    c.addEventListener("keydown", (e) => { if (e.key === "Enter") openRequest(m.rid); });
     g.markers.appendChild(c);
   });
   if (week.hl && Date.now() < week.hl.until) {
@@ -384,14 +425,19 @@ function renderWeek() {
   $("#onTimePct").textContent = share == null ? "–" : (share * 100).toFixed(1) + "%";
 
   const kf = bisect(week.feedAt, t);
-  $("#feed").innerHTML = week.feed.slice(Math.max(0, kf - 11), kf).reverse().map(feedLine).join("");
-  document.querySelectorAll("#feed li[data-rid]").forEach((li) =>
-    li.addEventListener("click", () => openRequest(li.dataset.rid)));
+  $("#feed").innerHTML = week.feed.slice(Math.max(0, kf - 11), kf).reverse().map((e) => feedLine(e, t)).join("");
+  document.querySelectorAll("#feed li[data-rid]").forEach((li) => {
+    li.tabIndex = 0;
+    li.addEventListener("click", () => openRequest(li.dataset.rid));
+    li.addEventListener("keydown", (e) => { if (e.key === "Enter") openRequest(li.dataset.rid); });
+  });
   moveCursor(t);
 }
 
-function feedLine(e) {
-  const t = `<span class="t">${hhmm(e.at)}</span>`;
+function feedLine(e, now) {
+  const day = Math.floor(e.at / 1440) !== Math.floor(now / 1440)
+    ? DAYS[Math.min(Math.floor(e.at / 1440), 9)] + " " : "";
+  const t = `<span class="t">${day}${hhmm(e.at)}</span>`;
   const rid = e.rid ? ` data-rid="${e.rid}"` : "";
   switch (e.kind) {
     case "req": return `<li class="req"${rid}>${t}${e.rid} asks: ${nameOf[WEEK.reqMap[e.rid].p]} to ${nameOf[WEEK.reqMap[e.rid].d]}</li>`;
@@ -451,18 +497,25 @@ function showOnMap(rid) {
 
 function buildTimeline() {
   const svg = $("#tline");
-  const W = 1000, H = 96, X = (min) => 8 + min / END * (W - 16);
+  const W = 1000, H = 96, QUIET = 7440;   // Friday 18:00: the last request of the week
+  // minutes to x: the working week gets 85% of the strip, the quiet tail 15%
+  const X = (min) => min <= QUIET
+    ? 8 + min / QUIET * (W - 16) * 0.85
+    : 8 + (W - 16) * (0.85 + (min - QUIET) / (END - QUIET) * 0.15);
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   // day bands + labels
   for (let d = 0; d <= 9; d++) {
     const a = Math.min(d * 1440, END), b = Math.min((d + 1) * 1440, END);
     if (a >= END) break;
     if (d % 2 === 1) svg.appendChild(svgEl("rect", { x: X(a), y: 0, width: X(b) - X(a), height: H, fill: "#FFFFFF", opacity: .022 }));
+    if (d >= 5) continue;   // the quiet tail is compressed: one label at its end
     const t = svgEl("text", { x: X(a) + 5, y: 12, class: "daylab" });
-    t.textContent = DAYS[d] + (d > 6 ? " 2" : "");
+    t.textContent = DAYS[d];
     t.addEventListener("click", () => setTime(Math.min(d * 1440 + 510, END)));
     svg.appendChild(t);
   }
+  svg.appendChild(svgEl("text", { x: X(9 * 1440) + 2, y: 12, class: "daylab" })).textContent = "Wed 2";
+  svg.appendChild(svgEl("line", { x1: X(QUIET), y1: 0, x2: X(QUIET), y2: H - 14, stroke: "#223349", "stroke-dasharray": "3 3" }));
   // hourly activity: requests (area) and wins (line)
   const hours = Math.ceil(END / 60);
   const reqH = new Array(hours).fill(0), wonH = new Array(hours).fill(0);
@@ -488,7 +541,7 @@ function buildTimeline() {
     tri.addEventListener("click", () => setTime(from));
     svg.appendChild(tri);
   };
-  mark(2880, 3960, "#F0A532", "Wednesday: the price war — the competitor cut prices 20% for the day");
+  mark(2880, 3960, "#F0A532", "Wednesday: the price war. The competitor cut its prices 20% for the day");
   mark(3600, 3720, "#F0A532", "Wednesday noon: a dealer group sent 30 cars from one yard in Vantaa");
   WEEK.moves.filter((m) => m.late && m.de != null).forEach((m) => {
     const t = svgEl("path", { d: `M ${X(m.de)},${H - 8} l 3,6 l -6,0 z`, fill: "#EF6D6D", style: "cursor:pointer" });
@@ -503,7 +556,9 @@ function buildTimeline() {
   // drag / click anywhere to scrub
   const scrub = (e) => {
     const r = svg.getBoundingClientRect();
-    const min = ((e.clientX - r.left) / r.width * W - 8) / (W - 16) * END;
+    const x = (e.clientX - r.left) / r.width * W - 8, span = W - 16;
+    const min = x <= span * 0.85 ? x / (span * 0.85) * QUIET
+      : QUIET + (x / span - 0.85) / 0.15 * (END - QUIET);
     setTime(min);
   };
   let down = false;
@@ -564,7 +619,7 @@ function wireControls() {
     const day = e.ctrlKey || e.altKey || e.metaKey;
     if (e.key === "ArrowLeft") { e.preventDefault(); setTime(day ? week.t - 1440 : e.shiftKey ? week.t - 60 : stepMinute(-1)); }
     else if (e.key === "ArrowRight") { e.preventDefault(); setTime(day ? week.t + 1440 : e.shiftKey ? week.t + 60 : stepMinute(1)); }
-    else if (e.key === " " && e.target === document.body) { e.preventDefault(); togglePlay(); }
+    else if (e.key === " ") { e.preventDefault(); togglePlay(); }
   });
   window.addEventListener("resize", layoutTowns);
 }
@@ -583,10 +638,12 @@ function togglePlay() {
   $("#play").innerHTML = week.playing ? "&#10074;&#10074; Pause" : "&#9654; Play";
   $("#play").classList.toggle("on", week.playing);
   if (week.playing) { week.last = performance.now(); requestAnimationFrame(tickPlay); }
+  else if (document.getElementById("tab-week").classList.contains("on")) writeHash(`week@${week.t}`);
 }
 function tickPlay(now) {
   if (!week.playing) return;
-  week.t = Math.round(week.t + (now - week.last) / 1000 * week.speed);
+  week.tf = Math.min(END, (week.tf ?? week.t) + (now - week.last) / 1000 * week.speed);
+  week.t = Math.floor(week.tf);   // a float clock: 15 min/s must still move
   week.last = now;
   if (week.t >= END) { week.t = END; togglePlay(); }
   renderWeek();
@@ -602,7 +659,7 @@ function startTour() {
   const bundle = WEEK.bookings.filter(([at, gid]) => (WEEK.gigOrders[gid] || []).length > 1)[0];
   const lateMove = WEEK.moves.filter((m) => m.late && m.de != null)
     .sort((a, b) => (b.de - WEEK.deadline[b.rid]) - (a.de - WEEK.deadline[a.rid]))[0];
-  const lateMin = Math.round((lateMove.de - WEEK.deadline[lateMove.rid]) / 60);
+  const lateHours = Math.round((lateMove.de - WEEK.deadline[lateMove.rid]) / 60);
   const first = WEEK.requests[0];
   const firstRid = WEEK.won[0][1];
   const bundleRids = WEEK.gigOrders[bundle[1]];
@@ -610,20 +667,24 @@ function startTour() {
     { t: 510, title: "Monday, 08:30", view: defaultView(),
       text: "The desk is open. From 09:00 dealers across Finland will start asking for prices; every amber ring is a request that gives us fifteen minutes to quote." },
     { t: first.at, title: `The first request, ${first.id}`, view: laneView([first.id]), hl: [first.id],
-      text: `${nameOf[first.p]} to ${nameOf[first.d]}, ${DEC[first.id].km} km. We quoted ${Object.entries(DEC[first.id].quote).map(([k, v]) => `${fmtEur(v)} for ${k.replace(/_/g, " ")}`).join(" and ")} — and lost it to the competitor. A loss teaches the quoter's level to step down.` },
+      text: `${nameOf[first.p]} to ${nameOf[first.d]}, ${DEC[first.id].km} km. We quoted ${Object.entries(DEC[first.id].quote).map(([k, v]) => `${fmtEur(v)} for ${k.replace(/_/g, " ")}`).join(" and ")} ; we lost it to the competitor. A loss teaches the quoter's level to step down.` },
     { t: WEEK.won[0][0], title: `The first win, ${firstRid}`, view: laneView([firstRid]), hl: [firstRid],
-      text: `At ${fmtEur(DEC[firstRid].won.price)} the dealer chose us. The gig opens at what the cost model expects the car to cost, and a driver books within minutes — watch the blue car leave ${nameOf[WEEK.reqMap[firstRid].p]}.` },
+      text: `At ${fmtEur(DEC[firstRid].won.price)} the dealer chose us. The gig opens at what the cost model expects the car to cost, and a driver books within minutes; watch the blue car leave ${nameOf[WEEK.reqMap[firstRid].p]}.` },
     { t: bundle[0], title: "A bundle", view: laneView(bundleRids), hl: bundleRids,
       text: `${bundleRids.join(" and ")} share one gig: when two or three cars fit a route, they travel together at 0.85 of the sum of their fees — one trip for the driver, less paid by us.` },
     { t: 2880, title: "Wednesday: the price war", view: defaultView(),
-      text: "Nobody announces it, but today the competitor quotes 20% under its usual prices. We won 23% of Wednesday's requests, against 48% on Thursday — the quoter's level spends the day stepping down." },
+      text: "Nobody announces it, but today the competitor quotes 20% under its usual prices. Our cost, not the quoter's level, held the quote up: the median stayed at 1.33 to 1.38 times list all Wednesday. We won 23% of the day's requests, against 48% on Thursday." },
     { t: 3620, title: "Wednesday noon: the bulk order", view: proj.box(59.95, 60.75, 24.15, 25.55),
-      text: "A dealer group sends 30 cars from one yard in Vantaa. The intake's queue is near its limit of 35 unbooked orders, so we quote only the cars the flood screen says stay on time. We won 4 of the 30." },
+      text: "A dealer group sends 30 cars from one yard in Vantaa, and we win 4. Not because the queue was full: it held at most 25 of 35 orders on Wednesday and declined no request. The price war held our quotes up, and short cars were dear to move that week." },
     { t: lateMove.de - 30, rid: lateMove.rid, title: `A late car, ${lateMove.rid}`, view: laneView([lateMove.rid]), hl: [lateMove.rid],
-      text: `${lateMin} minutes late: the dealer gets part of its price back and its trust count halves. Ten of our 356 orders ran late; 97.2% arrived on time — above the 90% the ranking demands.` },
+      text: `${lateHours} hours late: the dealer gets half its price back and its trust count halves. Ten of our 356 orders ran late; 97.2% arrived on time, above the 90% the ranking demands.` },
     { t: END, title: "The end of the week", view: defaultView(),
       text: "€17,442.75 of margin, 356 orders, 97.2% on time: 5th of 75 teams. The gap to the top was about 110 short cars — the fee floors priced them out. The fix went in the same evening; it is in the How it works tab." },
   ];
+  if (!bundle || !lateMove) {   // a different week's data: skip what is not there
+    tour.steps = tour.steps.filter((s) => (s.title === "A bundle" && !bundle) ||
+      (String(s.title).startsWith("A late car") && !lateMove) ? false : true);
+  }
   tour.i = 0;
   $("#hint").hidden = true;
   $("#tourbox").hidden = false;
@@ -693,8 +754,9 @@ function renderRows() {
   const rows = WEEK.requests.filter((r) => {
     const d = DEC[r.id]; if (!d) return false;
     if (dec.filter === "won" && !d.won) return false;
-    if (dec.filter === "lost" && !d.lost) return false;
-    if (dec.filter === "late" && !(d.won && d.won.delivered && d.won.delivered.some((x) => x != null && x > d.won.deadline))) return false;
+    if (dec.filter === "lost" && (!d.lost || d.declined)) return false;
+    if (dec.filter === "declined" && !d.declined) return false;
+    if (dec.filter === "late" && !(d.won && d.won.late)) return false;
     if (dec.filter === "note" && !r.note) return false;
     if (dec.filter === "bundle" && !(d.won && week.ridGid[r.id] && WEEK.gigOrders[week.ridGid[r.id]]?.length > 1)) return false;
     if (dec.search && !(r.id.toLowerCase().includes(dec.search) || r.k.toLowerCase().includes(dec.search)
@@ -705,14 +767,18 @@ function renderRows() {
     const d = DEC[r.id];
     const ratioList = Object.entries(d.quote).map(([k, c]) => c / (r.o.find((o) => o[0] === k)[2]));
     const badge = d.won
-      ? (d.won.delivered.some((x) => x != null && x > d.won.deadline) ? `<span class="badge late">late</span>` : `<span class="badge won">won</span>`)
-      : d.cancelled ? `<span class="badge cancel">cancelled</span>` : `<span class="badge lost">lost</span>`;
+      ? (d.won.late ? `<span class="badge late">late</span>` : `<span class="badge won">won</span>`)
+      : d.cancelled ? `<span class="badge cancel">cancelled</span>`
+      : d.declined ? `<span class="badge decline">declined</span>` : `<span class="badge lost">lost</span>`;
     return `<tr data-r="${r.id}" class="${dec.sel === r.id ? "sel" : ""}">
       <td class="mono">${clockStr(r.at)}</td><td class="mono">${r.id}</td><td>${nameOf[r.p]} to ${nameOf[r.d]}</td>
       <td class="r">${d.km}</td><td class="r mono">&times;${Math.min(...ratioList).toFixed(2)}</td><td>${badge}</td></tr>`;
   }).join("");
-  document.querySelectorAll("#drows tr").forEach((tr) =>
-    tr.addEventListener("click", () => selectRequest(tr.dataset.r)));
+  document.querySelectorAll("#drows tr").forEach((tr) => {
+    tr.tabIndex = 0;
+    tr.addEventListener("click", () => selectRequest(tr.dataset.r));
+    tr.addEventListener("keydown", (e) => { if (e.key === "Enter") selectRequest(tr.dataset.r); });
+  });
 }
 
 function stage(n, title, body, tag) {
@@ -721,35 +787,72 @@ function stage(n, title, body, tag) {
   return `<div class="stage"><span class="node">${n}</span><h4>${title}${tagHtml}</h4><div class="body">${body}</div></div>`;
 }
 
+// why the intake declined a request, from the numbers the inspector already shows
+function declineReason(r, d) {
+  const offered = Object.keys(d.quote);
+  const slacks = offered.map((k) => d.slack[k]).filter((x) => x != null);
+  if (!offered.length || (slacks.length && Math.max(...slacks) < 12)) return "no option had 12 hours of slack";
+  if (d.queue[0] >= d.queue[1]) return "the queue of orders without a driver was full";
+  if (r.priv) return "the pickup or delivery is a private address";
+  if (d.noteFacts && !d.noteFacts.sure) return "the note left the reader unsure";
+  return "the car cost more than the day's prices would pay";
+}
+
+function lateText(mins) {
+  if (mins < 120) return `${mins} min`;
+  return `${Math.floor(mins / 60)} h ${mins % 60} min`;
+}
+
+function gigHistory(gigs) {
+  if (!gigs || !gigs.length) return "";
+  const word = { posted: "posted", refused: "post refused", withdrawn: "withdrawn",
+                 repriced: "repriced", booked: "booked", dropped: "dropped by its driver",
+                 expired: "expired without a driver" };
+  const rows = gigs.map((g) => {
+    let text = `${word[g.kind] || g.kind} ${g.gig ? `gig ${g.gig}` : ""}`.trim();
+    if (g.kind === "posted") text += `, opens at ${fmtEur(g.fee)} (${g.info})`;
+    if (g.kind === "repriced") text += `, now ${fmtEur(g.fee)}`;
+    if (g.kind === "booked") text += ` by ${g.info} at ${fmtEur(g.fee)}`;
+    if (g.kind === "refused") text += `: ${g.info}`;
+    return `<div class="gigrow"><span class="t">${clockStr(g.at)}</span>${text}</div>`;
+  }).join("");
+  return `<div class="gigstory">${rows}</div>`;
+}
+
 function selectRequest(rid) {
   dec.sel = rid;
   renderRows();
+  writeHash(`decision/${rid}`);
   const r = WEEK.reqMap[rid], d = DEC[rid];
   const facts = d.noteFacts;
   const floors = SETTINGS.floors;
-  let noteBody = `<p>No note — the reader has nothing to read.</p>`;
+  const cars = (n) => `${n} car${n > 1 ? "s" : ""}`;
+  let noteBody = `<p>No note, so the reader has nothing to read.</p>`;
   if (r.note) {
     const chips = [];
     if (facts.ready != null) chips.push(`<span class="chip">ready from ${clockStr(facts.ready)}</span>`);
-    if (facts.deadline != null) chips.push(`<span class="chip">deadline ${clockStr(facts.deadline)}</span>`);
-    if (facts.hours) chips.push(`<span class="chip">pickup hours ${facts.hours[0] != null ? hhmm(facts.hours[0]) : ""}–${facts.hours[1] != null ? hhmm(facts.hours[1]) : ""}</span>`);
+    if (facts.deadline != null) chips.push(`<span class="chip">must arrive by ${clockStr(facts.deadline)}</span>`);
+    if (facts.hours) chips.push(`<span class="chip">pickup hours ${facts.hours[0] != null ? hhmm(facts.hours[0]) : ""} to ${facts.hours[1] != null ? hhmm(facts.hours[1]) : ""}</span>`);
+    if (facts.deliveryHours) chips.push(`<span class="chip">destination hours ${facts.deliveryHours[0] != null ? hhmm(facts.deliveryHours[0]) : ""} to ${facts.deliveryHours[1] != null ? hhmm(facts.deliveryHours[1]) : "the close of day"}</span>`);
     if (facts.manual) chips.push(`<span class="chip">manual licence needed</span>`);
-    if (facts.plates) chips.push(`<span class="chip">fetch plates</span>`);
+    if (facts.plates) chips.push(`<span class="chip">fetch transfer plates</span>`);
+    if (facts.summerTyres) chips.push(`<span class="chip">summer tyres</span>`);
     if (!facts.sure) chips.push(`<span class="chip bad">reader unsure</span>`);
-    noteBody = `<p class="noteq">&ldquo;${esc(r.note)}&rdquo;</p><div class="chips">${chips.join("") || '<span class="chip">harmless — no constraint</span>'}</div>`;
+    noteBody = `<p class="noteq">&ldquo;${esc(r.note)}&rdquo;</p><div class="chips">${chips.join("") || '<span class="chip">harmless: no constraint</span>'}</div>`;
   }
   const offered = Object.keys(d.quote), all = r.o.map((o) => o[0]);
   const slackChips = all.map((k) => {
     const ok = d.slack[k] != null && d.slack[k] >= 12;
-    return `<span class="chip ${offered.includes(k) ? (ok ? "good" : "") : "off"}">${k.replace(/_/g, " ")} · ${d.slack[k] != null ? d.slack[k] + " h slack" : "not offered"}</span>`;
+    return `<span class="chip ${offered.includes(k) ? (ok ? "good" : "") : "off"}">${k.replace(/_/g, " ")}: ${d.slack[k] != null ? d.slack[k] + " h of slack" : "not offered"}</span>`;
   });
-  const declined = offered.length === 1 && Object.values(d.quote)[0] > 4 * r.o[0][2];
+  const declined = d.declined;
   const intakeBody = `
     <div class="chips">${slackChips.join("")}</div>
-    <div class="kv"><b>queue</b><span>${d.queue[0]} of ${d.queue[1]} unbooked${d.queue[0] >= d.queue[1] ? " — full" : ""}${declined ? " — declined (the quote sits far above the list price, so losing it costs nothing)" : ""}</span></div>`;
+    <div class="kv"><b>queue</b><span>${d.queue[0]} of ${d.queue[1]} unbooked${d.queue[0] >= d.queue[1] ? " (full)" : ""}</span></div>
+    ${declined ? `<p>We <b>declined</b> this one: ${declineReason(r, d)}. The quote sits far above the list price, so losing it costs nothing.</p>` : ""}`;
   const costBody = `
     <div class="kv">
-      <b>expected fee</b><span>${fmtEur(d.cost[0])} = ${d.cost[1].toFixed(2)}&times; the typical fee (${fmtEur(d.typical)})</span>
+      <b>expected fee</b><span>${fmtEur(d.cost[0])}, ${(d.cost[1]).toFixed(2)} times the typical fee (${fmtEur(d.typical)})</span>
       <b>late risk</b><span>${(d.cost[2] * 100).toFixed(1)}%</span>
       <b>cost tilt</b><span>&times;${d.cost[3]} the expected fee</span>
     </div>`;
@@ -757,63 +860,82 @@ function selectRequest(rid) {
     const q = d.quote[o[0]], ch = d.chance[o[0]] ?? 0;
     return `<div class="optrow"><span class="pl">${o[0].replace(/_/g, " ")}</span>
       <div class="bar"><i style="width:${ch * 100}%"></i></div>
-      <span class="val">${fmtEur(q)} · &times;${(q / o[2]).toFixed(2)} list · win chance ${(ch * 100).toFixed(0)}%</span></div>`;
+      <span class="val">${fmtEur(q)} at ${(q / o[2]).toFixed(2)}&times; list, ${(ch * 100).toFixed(0)}% chance to win</span></div>`;
   }).join("");
   const quoterBody = `
-    <div class="kv"><b>market level</b><span>&times;${d.level.toFixed(2)} of list — rises on wins, falls on losses</span>
-    <b>dealer trust</b><span>${d.trust} on-time orders${d.trust ? ` · +${d.trust}% accepted price` : ""}</span></div>
+    <div class="kv"><b>market level</b><span>&times;${d.level.toFixed(2)} of list, rising on wins and falling on losses</span>
+    <b>dealer trust</b><span>${d.trust} on-time orders${d.trust ? `, +${d.trust}% accepted price` : ""}</span></div>
     ${qrows}`;
-  let tail = stage(5, "The outcome", d.won
-    ? `<p>The dealer took our <b>${d.won.option.replace(/_/g, " ")}</b> option at <b>${fmtEur(d.won.price)}</b>.</p>`
-    : d.cancelled
-      ? `<p>The dealer cancelled this order, so it does not count.</p>`
-      : `<p>The dealer went to the competitor. Our level steps down — a loss teaches more the more surprising it was.</p>`);
+  let tail;
+  if (declined) {
+    tail = stage(5, "The outcome",
+      `<p><span class="badge decline">declined</span> We declined this one: ${declineReason(r, d)}.
+      The dealer went to the competitor, and a declined request teaches the level nothing: only a real quote that lost does.</p>`);
+  } else if (d.won) {
+    tail = stage(5, "The outcome",
+      `<p>The dealer took our <b>${d.won.option.replace(/_/g, " ")}</b> option at <b>${fmtEur(d.won.price)}</b>.</p>`);
+  } else if (d.cancelled) {
+    tail = stage(5, "The outcome", `<p>The dealer cancelled this order, so it does not count.</p>`);
+  } else {
+    tail = stage(5, "The outcome",
+      `<p>The dealer went to the competitor. Our level steps down: a loss teaches more the more surprising it was.</p>`);
+  }
   if (d.won) {
     const g = d.won.gig;
+    const nCars = week.ridGid[rid] && WEEK.gigOrders[week.ridGid[rid]]?.length > 1
+      ? WEEK.gigOrders[week.ridGid[rid]].length : 1;
+    const share = g ? Math.round(g.fee / nCars) : 0;
     const sched = g ? g.schedule.map((s, i) =>
       `<span class="gigstep">${i === 0 ? "opens " : "then "}${fmtEur(s.feeCents)}</span>`)
       .join('<span class="gigjoin">&#8250;</span>') : "";
-    const bundle = week.ridGid[rid] && WEEK.gigOrders[week.ridGid[rid]]?.length > 1
-      ? ` <span class="chip">bundle of ${WEEK.gigOrders[week.ridGid[rid]].length} cars</span>` : "";
+    const feeLine = g ? (nCars > 1
+      ? `the gig's fee ${fmtEur(g.fee)} for ${nCars} cars; this car's share ${fmtEur(share)}, ${(share / d.typical).toFixed(2)} times its typical fee`
+      : `${fmtEur(g.fee)}, ${(g.fee / d.typical).toFixed(2)} times the typical fee (floored at &times;${floors[0]}, or &times;${floors[1]} under 40 km)`) : "";
     const pickedUp = d.won.pickedUp.map((x) => x != null ? clockStr(x) : "never").join(", ");
     const delivered = d.won.delivered.map((x) => x != null ? clockStr(x) : "never").join(", ");
-    const lateBy = d.won.delivered.map((x) => x != null ? x - d.won.deadline : null);
-    const isLate = lateBy.some((x) => x != null && x > 0);
+    const isLate = d.won.late;
+    const lateness = Math.max(...d.won.delivered.map((x) => x != null ? x - d.won.deadline : 0));
     tail += stage(6, "The gig", `
       ${g ? `<div class="gigline">${sched}</div>
       <div class="kv">
-        <b>posted</b><span>${clockStr(g.posted)}${bundle}</span>
-        <b>booked</b><span>${g.by} at ${fmtEur(g.fee)} — ${g.at - g.posted} min after ${g.views} view${g.views === 1 ? "" : "s"}</span>
-        <b>fee vs typical</b><span>&times;${(g.fee / d.typical).toFixed(2)} (floored at &times;${floors[0]}, or &times;${floors[1]} under 40 km — this week's settings)</span>
+        <b>booked</b><span>${g.by} at ${fmtEur(g.fee)}, ${g.at - g.posted} min after ${g.views} view${g.views === 1 ? "" : "s"}</span>
+        <b>fee vs typical</b><span>${feeLine}</span>
       </div>` : "<p>No gig moved this car.</p>"}
+      ${gigHistory(d.won.gigs)}
       <div class="kv"><b>collected</b><span>${pickedUp}</span><b>delivered</b><span>${delivered}</span></div>
-      ${isLate ? `<p><span class="badge late">late by ${lateBy.filter((x) => x > 0).map((x) => Math.round(x / 60) + " h").join(", ")}</span> — refunded, and the dealer's trust count halves</p>`
-               : `<p><span class="badge won">on time</span> — the price is ours, and the dealer counts one more on-time order</p>`}`);
+      ${isLate ? `<p><span class="badge late">${lateness > 0 ? `late by ${lateText(lateness)}` : "late against its own delivery window"}</span> The dealer was refunded and its trust count halved.</p>`
+               : `<p><span class="badge won">on time</span> The price is ours, and the dealer counts one more on-time order.</p>`}`);
     const m = d.money || {};
     const price = m.price || d.won.price, fees = m.fees || 0, refund = m.refund || 0, other = m.other || 0;
     const net = price - fees - refund - other;
-    const tot = Math.max(price, fees + refund);
-    const w1 = 100 * price / tot, w2 = 100 * fees / tot, w3 = 100 * refund / tot;
-    tail += stage(7, "The money", `
-      <div class="money">
-        <div class="m-price" style="width:${w1}%">price ${fmtEur(price)}</div>
-        <div class="m-fee" style="width:${w2}%">fee ${fmtEur(Math.round(fees))}</div>
-        ${refund ? `<div class="m-ref" style="width:${w3}%">refund ${fmtEur(Math.round(refund))}</div>` : ""}
-        <div class="m-net">margin ${fmtEur(Math.round(net))}</div>
-      </div>`);
+    const segs = [
+      ["price", price, "m-price"], ["driver fee", fees, "m-fee"],
+      ...(refund ? [["refund", refund, "m-ref"]] : []),
+      ...(other ? [["other costs", other, "m-ref"]] : []),
+    ].filter(([, v]) => v > 0);
+    const tot = segs.reduce((a, [, v]) => a + v, 0) || 1;
+    const bar = `<div class="money">${segs.map(([lab, v, cls]) =>
+      `<div class="${cls}" style="width:${100 * v / tot}%"></div>`).join("")}<div class="m-net"></div></div>`;
+    const legend = `<div class="mlegend">${segs.map(([lab, v, cls]) =>
+      `<span><i class="${cls}"></i>${lab} ${fmtEur(Math.round(v))}</span>`).join("")}` +
+      `<span class="net">margin <b class="${net < 0 ? "neg" : ""}">${fmtEur(Math.round(net))}</b></span></div>`;
+    tail += stage(7, "The money", `${bar}${legend}`);
   }
   const match = SETTINGS.match, pct = Math.round(100 * match[0] / match[1]);
   $("#detail").innerHTML = `
     <div class="dhead">
       <h3>${rid} <span class="lane">${nameOf[r.p]} to ${nameOf[r.d]}, ${d.km} km</span></h3>
-      <span class="when">${clockStr(r.at)} · dealer ${r.k} · ${r.n} car${r.n > 1 ? "s" : ""}</span>
+      <span class="when"><span class="mono">${clockStr(r.at)}</span>, dealer ${r.k}, ${cars(r.n)}</span>
     </div>
-    <p class="settings">One request, answered within its fifteen minutes. The stages below are the parts of our
-    desk, in the order they ran. <b>Replayed with the settings that played this week</b> — fee model
-    ${SETTINGS.model}, cost tilt &times;${SETTINGS.asPlayed.car} on every lane, flat-fee floors
+    <p class="plain">Dealer ${r.k} asks us to move ${cars(r.n)} from ${nameOf[r.p]} to ${nameOf[r.d]},
+    ${d.km} km, and we have fifteen minutes to answer. The stages below are the parts of our desk,
+    in the order they ran.</p>
+    <details class="settings"><summary>Replayed with the settings that played this week
+    (${pct}% of its quotes reproduced to the cent; this one ${d.replay.match ? "is among them" : "is not"})</summary>
+    <p>Fee model ${SETTINGS.model}, cost tilt &times;${SETTINGS.asPlayed.car} on every lane, flat-fee floors
     &times;${floors[0]}/${floors[1]}, intake ${SETTINGS.asPlayed.limit} (${SETTINGS.asPlayed.morning_limit}
-    before noon, safe cars to ${SETTINGS.asPlayed.safe_limit}). The replay reproduces ${pct}% of the week's
-    quotes to the cent; ${d.replay.match ? "this one is among them" : "this one is not among them"}.</p>
+    before noon, safe cars to ${SETTINGS.asPlayed.safe_limit}). The desk replay in prepare.py feeds the
+    recorded events and journal actions through the real parts with the world's own driver list.</p></details>
     <div class="spine">
       ${stage(1, "The note reader", noteBody)}
       ${stage(2, "The intake", intakeBody)}
@@ -829,9 +951,10 @@ function selectRequest(rid) {
 /* ============================== how it works ============================== */
 
 function buildSystem() {
+  const fig = (s) => s.replace(/([+−-]?€[\d,.]+ ?k?|[+−-]?€[\d,.]+)/g, '<span class="fig">$1</span>');
   $("#pipeline").innerHTML = STORY.parts.map((p) => `
     <div class="part"><div><h4>${p.name}</h4><span class="code">${p.code}</span></div>
-    <p>${p.reason}</p><div class="eff">${p.effect}</div></div>`).join("");
+    <p>${p.reason}</p><div class="eff">${fig(p.effect)}</div></div>`).join("");
   $("#method").innerHTML = STORY.method.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join("");
   $("#rejected").innerHTML = "<tr><th>idea</th><th>result</th><th>why rejected</th></tr>" +
     STORY.rejected.map(([a, b, c]) => `<tr><td>${a}</td><td class="lose">${b}</td><td>${c}</td></tr>`).join("");
@@ -848,34 +971,37 @@ function buildSystem() {
 /* ============================== the race ============================== */
 
 function buildRace() {
-  const s = RACE.series, x0 = s[0][0], x1 = RACE.end;
-  const chart = (svgSel, pick, idx, yLabel, fmt) => {
-    const svg = $(svgSel), W = 900, H = 380, ml = 64, mt = 26, mb = 30;
+  const s = RACE.series, x0 = s[0][0];
+  const x1 = Math.min(RACE.end, 5 * 1440);   // Saturday 00:00: no requests after Friday 18:00
+  const chart = (svgSel, pick, idx, yLabel, step, fmt) => {
+    const svg = $(svgSel), W = 900, H = 380, ml = 70, mt = 34, mb = 34;
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-    const yMax = Math.max(...s.map(pick)) * 1.08;
-    const X = (min) => ml + (min - x0) / (x1 - x0) * (W - ml - 12);
+    const yMax = Math.ceil(Math.max(...s.map(pick)) / step) * step;
+    const X = (min) => ml + (min - x0) / (x1 - x0) * (W - ml - 14);
     const Y = (v) => H - mb - v / yMax * (H - mt - mb);
     let grid = "";
-    for (let d = 0; d <= 9; d++) { const min = d * 1440 + 480;
+    for (let d = 1; d <= 4; d++) { const min = d * 1440 + 480;
       if (min < x0 || min > x1) continue;
       grid += `<line x1="${X(min)}" y1="${mt}" x2="${X(min)}" y2="${H - mb}" stroke="#223349"/>
-        <text x="${X(min)}" y="${H - 10}" fill="#5C7188" font-size="12" text-anchor="middle">${DAYS[d]} 08</text>`; }
-    for (let k = 0; k <= 4; k++) { const v = yMax * k / 4;
-      grid += `<line x1="${ml}" y1="${Y(v)}" x2="${W - 12}" y2="${Y(v)}" stroke="#16263B"/>
-        <text x="${ml - 8}" y="${Y(v) + 4}" fill="#5C7188" font-size="11" text-anchor="end">${fmt(v)}</text>`; }
+        <text x="${X(min)}" y="${H - 12}" fill="#7D93AB" font-size="15" text-anchor="middle">${DAYS[d]} 08</text>`; }
+    for (let v = 0; v <= yMax; v += step) {
+      grid += `<line x1="${ml}" y1="${Y(v)}" x2="${W - 14}" y2="${Y(v)}" stroke="#16263B"/>
+        <text x="${ml - 8}" y="${Y(v) + 5}" fill="#7D93AB" font-size="15" text-anchor="end">${fmt(v)}</text>`; }
     const line = (i, color) =>
-      `<polyline points="${s.map((p) => `${X(p[0])},${Y(p[i])}`).join(" ")}" fill="none" stroke="${color}" stroke-width="2.2"/>`;
+      `<polyline points="${s.filter((p) => p[0] <= x1).map((p) => `${X(p[0])},${Y(p[i])}`).join(" ")}" fill="none" stroke="${color}" stroke-width="2.4"/>`;
+    const lastp = s.filter((p) => p[0] <= x1).slice(-1)[0];
     svg.innerHTML = `
-      <text x="${ml}" y="16" fill="#8FA6BE" font-size="13">${yLabel}</text>${grid}
-      ${line(idx[0], "#54C08A")}${line(idx[1], "#F0A532")}
-      <text x="${X(x1) - 4}" y="${Y(s[s.length - 1][idx[0]]) - 8}" fill="#54C08A" font-size="12" text-anchor="end">us ${fmt(s[s.length - 1][idx[0]])}</text>
-      <text x="${X(x1) - 4}" y="${Y(s[s.length - 1][idx[1]]) - 8}" fill="#F0A532" font-size="12" text-anchor="end">top team ${fmt(s[s.length - 1][idx[1]])}</text>`;
+      <text x="${ml}" y="20" fill="#8FA6BE" font-size="16">${yLabel}</text>${grid}
+      ${line(idx[0], "#54C08A")}${line(idx[1], "#B9CCE2")}
+      <text x="${X(x1) - 6}" y="${Y(lastp[idx[0]]) - 9}" fill="#54C08A" font-size="15" text-anchor="end">us ${fmt(lastp[idx[0]])}</text>
+      <text x="${X(x1) - 6}" y="${Y(lastp[idx[1]]) - 9}" fill="#B9CCE2" font-size="15" text-anchor="end">top team ${fmt(lastp[idx[1]])}</text>
+      <text x="${W - 14}" y="${H - 12}" fill="#7D93AB" font-size="14" text-anchor="end">the week runs to Friday 18:00; the chart stops at Saturday 00:00</text>`;
   };
-  chart("#raceMargin", (p) => Math.max(p[1], p[3]), [1, 3], "margin (game euros)", (v) => "€" + Math.round(v / 100 / 1000) + "k");
-  chart("#raceOrders", (p) => Math.max(p[2], p[4]), [2, 4], "orders won", (v) => Math.round(v));
-  $("#raceNotes").innerHTML = STORY.raceNotes.map(([d, t]) => `<div><b>${d}</b> — ${t}</div>`).join("")
-    + `<div><b>The feed</b> — every team's totals, every 2 s; we show only us and the top team. The top team's books,
-       read off the same feed, were ours plus about 110 cars on lanes under 100 km — worth about €19 of margin each.</div>`;
+  chart("#raceMargin", (p) => Math.max(p[1], p[3]), [1, 3], "margin (game euros)", 500000, (v) => "€" + Math.round(v / 100 / 1000) + "k");
+  chart("#raceOrders", (p) => Math.max(p[2], p[4]), [2, 4], "orders won", 100, (v) => v);
+  $("#raceNotes").innerHTML = STORY.raceNotes.map(([d, t]) => `<div><b>${d}:</b> ${t}</div>`).join("")
+    + `<div><b>The feed:</b> every team's totals, every 2 s; we show only us and the top team. The top team's books,
+       read off the same feed, were ours plus about 110 cars on lanes under 100 km, worth about €19 of margin each.</div>`;
 }
 
 load();

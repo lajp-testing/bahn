@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import gzip
 import heapq
+import os
 import json
 import sys
 from pathlib import Path
@@ -25,7 +26,7 @@ from dispatch.policies import load
 from dispatch.quote import decline
 
 FINAL = ROOT / "tracks/orch/finals/testfinal-20261114-1800"
-DATA = Path("/home/agent/.t3/projects/bahn/data")
+DATA = Path(os.environ.get("SPREAD_DATA", "/home/agent/.t3/projects/bahn/data"))
 OUT = ROOT / "demo/assets"
 EVENTS = FINAL / "events-1794678337.jsonl.gz"
 JOURNAL = FINAL / "journal.jsonl.gz"
@@ -152,6 +153,12 @@ def build_week(world_map: dict, events: list, journal: list, reveal: dict):
         elif e["kind"] == "order_cancelled":
             orders.pop(e["orderId"], None)
 
+    # an order is late exactly when the account refunded it (or never delivered it)
+    late_orders = {e["line"]["orderId"] for e in events
+                   if e["kind"] == "ledger" and e["line"]["kind"] in ("late_refund", "undelivered_penalty")
+                   and e["line"].get("orderId")}
+    cancelled = [[e["at"], e["orderId"]] for e in events if e["kind"] == "order_cancelled"]
+
     gigs, bookings, drops, posts = {}, {}, [], {}
     for line in journal:
         action, result = line["action"], line["result"]
@@ -186,7 +193,7 @@ def build_week(world_map: dict, events: list, journal: list, reveal: dict):
                 "pu": pu["at"], "de": de["at"] if de else None,
                 "p": spec["pickup"]["placeId"], "d": spec["delivery"]["placeId"],
                 "path": [[places[p]["lat"], places[p]["lon"]] for p in path],
-                "late": (de["at"] > order["deadline"]) if de else True,
+                "late": oid in late_orders,
             })
 
     week = {
@@ -194,6 +201,7 @@ def build_week(world_map: dict, events: list, journal: list, reveal: dict):
             "id": r["id"], "at": r["arrivedAt"], "k": r["dealerId"],
             "p": r["legs"][0]["pickup"]["placeId"], "d": r["legs"][0]["delivery"]["placeId"],
             "n": len(r["legs"]), "t": r["referenceFeeCents"],
+            "priv": any(l[s]["privateAddress"] for l in r["legs"] for s in ("pickup", "delivery")),
             "o": [[o["kind"], o["deadline"], o["listPriceCents"]] for o in r["options"]],
             "note": r["note"]["text"] if r["note"] else None,
         } for r in requests.values()],
@@ -208,6 +216,8 @@ def build_week(world_map: dict, events: list, journal: list, reveal: dict):
         "gigOrders": {gid: sorted({s["orderId"] for s in line["action"]["stops"]})
                       for gid, line in gigs.items()},
         "deadline": {oid: o["deadline"] for oid, o in orders.items()},
+        "lateOrders": sorted(late_orders),
+        "cancelled": sorted(cancelled),
     }
     return week, orders, ledger_lines
 
@@ -259,11 +269,19 @@ def build_decisions(world_map: dict, events: list, journal: list, reveal: dict, 
                 for member in gig_orders.get(line.get("gigId"), []):
                     share = cost / len(gig_orders[line["gigId"]])
                     money.setdefault(member, {})["fees"] = money.get(member, {}).get("fees", 0) + share
-        elif line["kind"] == "failed_visit":
+        elif line["kind"] in ("failed_visit", "waiting", "fine", "release_fee", "undelivered_penalty") and oid:
+            # every cost line is negative in the ledger; keep costs positive
             money.setdefault(oid, {})["other"] = money.get(oid, {}).get("other", 0) - line["cents"]
-        elif line["kind"] in ("waiting", "fine", "release_fee", "undelivered_penalty") and oid:
-            money.setdefault(oid, {})["other"] = money.get(oid, {}).get("other", 0) + line["cents"]
 
+    attributed = sum((m.get("price", 0) - m.get("fees", 0) - m.get("refund", 0) - m.get("other", 0))
+                     for m in money.values())
+    ledger_total = sum(e["line"]["cents"] for e in ledger_lines)
+    loose = ledger_total - attributed
+    assert abs(loose) < 1e6, f"per-order money is off by {loose / 100:.2f} euros"
+    print(f"money: per-order nets {attributed / 100:.2f} + unattributed {loose / 100:.2f} = {ledger_total / 100:.2f}")
+
+    late_orders = {e["line"]["orderId"] for e in ledger_lines
+                   if e["line"]["kind"] in ("late_refund", "undelivered_penalty") and e["line"].get("orderId")}
     won_at, lost_at, cancelled = {}, set(), set()
     for e in events:
         if e["kind"] == "order_won":
@@ -293,10 +311,40 @@ def build_decisions(world_map: dict, events: list, journal: list, reveal: dict, 
         if e["kind"] == "picked_up":
             gig_of[e["orderId"]] = e["gigId"]
     gig_posts = {}  # gig id -> its post's minute and fee schedule, from the journal
+    gig_history = {}  # order id -> its gigs' story, in minute order
+    def gig_line(oid, at, kind, gig, fee=None, info=None):
+        gig_history.setdefault(oid, []).append(
+            {"at": at, "kind": kind, "gig": gig, "fee": fee, "info": info})
     for line in journal:
         a, res = line["action"], line["result"]
+        members = sorted({s["orderId"] for s in a.get("stops", [])})
+        if a["type"] == "post":
+            for oid in members:
+                if res.get("ok"):
+                    gig_line(oid, line["at"], "posted", res["id"], a["schedule"][0]["feeCents"],
+                             f"{len(members)} car{'s' if len(members) > 1 else ''}")
+                else:
+                    gig_line(oid, line["at"], "refused", None, None, res.get("reason", "")[:90])
+        elif a["type"] == "reprice" and res.get("ok"):
+            for oid in gig_orders.get(a["gigId"], []):
+                gig_line(oid, line["at"], "repriced", a["gigId"], a["schedule"][0]["feeCents"])
+        elif a["type"] == "withdraw" and res.get("ok"):
+            for oid in gig_orders.get(a["gigId"], []):
+                gig_line(oid, line["at"], "withdrawn", a["gigId"])
         if a["type"] == "post" and res.get("ok"):
             gig_posts[res["id"]] = {"at": line["at"], "schedule": a["schedule"]}
+    for e in events:
+        if e["kind"] == "gig_booked":
+            for oid in gig_orders.get(e["gigId"], []):
+                gig_line(oid, e["at"], "booked", e["gigId"], e["feeCents"], e["driverId"])
+        elif e["kind"] == "gig_dropped":
+            for oid in gig_orders.get(e["gigId"], []):
+                gig_line(oid, e["at"], "dropped", e["gigId"])
+        elif e["kind"] == "gig_expired":
+            for oid in gig_orders.get(e["gigId"], []):
+                gig_line(oid, e["at"], "expired", e["gigId"])
+    for oid in gig_history:
+        gig_history[oid].sort(key=lambda x: x["at"])
     out = {}
     matches = 0
     timeline = [(e["at"], 0, i, e) for i, e in enumerate(events)]
@@ -314,7 +362,7 @@ def build_decisions(world_map: dict, events: list, journal: list, reveal: dict, 
                     row, match = capture(desk, parts, request, action, orders, money,
                                          won_at, lost_at, cancelled, booked_at, booked_fee,
                                          booked_by, views_before, picked, delivered, gig_of,
-                                         gig_posts)
+                                         gig_posts, gig_history, late_orders)
                     out[request["id"]] = row
                     matches += match
                 intake = parts.intake
@@ -377,7 +425,7 @@ def apply_event(desk: Desk, parts, e: dict) -> None:
 
 def capture(desk, parts, request: dict, action: dict, orders: dict, money: dict,
             won_at, lost_at, cancelled, booked_at, booked_fee, booked_by, views,
-            picked, delivered, gig_of, gig_posts):
+            picked, delivered, gig_of, gig_posts, gig_history, late_orders):
     quoter, intake, fees, notes = parts.quoter, parts.intake, parts.fees, parts.notes
     lists = {o["kind"]: o["listPriceCents"] for o in request["options"]}
     typical = request["referenceFeeCents"]
@@ -419,7 +467,9 @@ def capture(desk, parts, request: dict, action: dict, orders: dict, money: dict,
         "noteFacts": None if not request["note"] else {
             "ready": facts.ready, "deadline": facts.deadline, "manual": facts.manual,
             "plates": facts.plates, "hours": list(facts.pickup_hours) if facts.pickup_hours else None,
-            "sure": facts.sure},
+            "deliveryHours": list(facts.delivery_hours) if facts.delivery_hours else None,
+            "summerTyres": facts.summer_tyres, "sure": facts.sure},
+        "declined": any(c > 4 * lists[k] for k, c in sent.items() if k in lists),
         "slack": slack,
         "queue": [round(queue, 1), limit],
         "cost": [expected, round(expected / typical, 3) if typical else 0, round(risk, 3), tilt],
@@ -438,6 +488,7 @@ def capture(desk, parts, request: dict, action: dict, orders: dict, money: dict,
         post = gig_posts.get(gid)
         row["won"] = {
             "option": order["option"], "price": order["priceCents"], "deadline": order["deadline"],
+            "late": rid in late_orders, "gigs": gig_history.get(rid, []),
             "gig": None if gid is None else {
                 "posted": post["at"] if post else None,
                 "schedule": post["schedule"] if post else [],
@@ -458,7 +509,7 @@ def capture(desk, parts, request: dict, action: dict, orders: dict, money: dict,
 
 
 def build_race() -> None:
-    us_final = 1744275  # cents, the test final's own account at the end
+    us_margin, us_orders = 1744275, 356  # our account and order count at the end
     frames, last = [], None
     with gzip.open(FEED, "rt") as fh:
         for line in fh:
@@ -473,8 +524,12 @@ def build_race() -> None:
     if not frames:
         return
     final = {t["team"]: t for t in last["teams"]}
-    us = min(final, key=lambda t: abs(final[t]["marginCents"] - us_final))
-    top = max(final, key=lambda t: final[t]["marginCents"])
+    ours = [t for t in final.values()
+            if t["marginCents"] == us_margin and t["wonOrders"] == us_orders]
+    assert ours, "our team not found in the feed"
+    us = ours[0]["team"]
+    ranked = [t for t in final.values() if t.get("ranked")]
+    top = max(ranked or final.values(), key=lambda t: t["marginCents"])["team"]
     series = []
     for i, data in enumerate(frames):
         if i % 8 and data is not frames[-1]:
