@@ -97,7 +97,7 @@ footer { border-top: 1px solid var(--rule); color: var(--faint); font-size: 13.5
 #map { width: 100%; height: var(--map-h); display: block; cursor: grab; }
 #map.panning { cursor: grabbing; }
 #map text { font-family: var(--sans); fill: var(--frost); user-select: none; }
-.towns { pointer-events: none; }
+.towns, .cars, .routes { pointer-events: none; }  /* only the request rings take clicks; moving cars and lanes must not cover them */
 #map text.major { fill: var(--birch); }
 .zoomctrl { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 4px; }
 .zoomctrl button { width: 34px; height: 30px; padding: 0; background: rgba(10,20,31,.85); }
