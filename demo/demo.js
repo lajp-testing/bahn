@@ -104,8 +104,17 @@ function makeProjection() {
   const LAT0 = 59.6, LAT1 = 70.4, LON0 = 20.3, LON1 = 31.9;
   const kmLat = 111, kmLon = 111 * Math.cos(65 * Math.PI / 180);
   const W = (LON1 - LON0) * kmLon, H = (LAT1 - LAT0) * kmLat;
-  return { f: (lat, lon) => [(lon - LON0) * kmLon, (LAT1 - lat) * kmLat], W, H };
+  return {
+    f: (lat, lon) => [(lon - LON0) * kmLon, (LAT1 - lat) * kmLat],
+    // the map view (viewBox) for a lat/lon box: [south lat, north lat, west lon, east lon]
+    box: (lat0, lat1, lon0, lon1) => ({
+      x: (lon0 - LON0) * kmLon, y: (LAT1 - lat1) * kmLat,
+      w: (lon1 - lon0) * kmLon, h: (lat1 - lat0) * kmLat }),
+    W, H,
+  };
 }
+// the opening view: southern and central Finland, where the week's work is; Fit shows all
+function defaultView() { return proj.box(59.7, 66.4, 21.2, 30.6); }
 function ll(id) { const q = MAP.places.find((x) => x.id === id); return [q.lat, q.lon]; }
 
 const MINOR = new Set(["espoo", "vantaa", "raisio", "lempaala", "porvoo", "salo", "rauma", "hyvinkaa", "kouvola", "ylivieska"]);
@@ -120,7 +129,7 @@ const week = {
 
 function buildWeek() {
   proj = makeProjection();
-  week.view = { x: 0, y: 0, w: proj.W, h: proj.H };
+  week.view = defaultView();
   week.reqByAt = WEEK.requests.map((r) => [r.at, r]).sort((a, b) => a[0] - b[0]);
   week.wonByAt = WEEK.won.slice().sort((a, b) => a[0] - b[0]);
   week.lostByAt = WEEK.lost.slice().sort((a, b) => a[0] - b[0]);
@@ -165,6 +174,7 @@ function buildWeek() {
   week.feedAt = feed.map((e) => [e.at]);
   week.eventMinutes = [...new Set(feed.map((e) => e.at))];
   drawMapBase();
+  applyView();
   buildTimeline();
   wireControls();
   setTime(OPEN_MIN);
@@ -212,22 +222,41 @@ function drawMapBase() {
 }
 
 function layoutTowns() {
-  // towns and labels, sized to stay readable at any zoom; minor labels only when zoomed in
+  // towns and labels, sized to stay readable at any zoom; a label that would overlap a
+  // higher-ranked label at this zoom is hidden, so the busy south stays legible
   const g = week.townG;
   g.textContent = "";
-  const zoomed = week.view.w < proj.W * 0.55;
-  MAP.places.forEach((p) => {
+  const svg = $("#map");
+  const s = Math.min(svg.clientWidth / week.view.w, svg.clientHeight / week.view.h);
+  const ox = (svg.clientWidth - week.view.w * s) / 2, oy = (svg.clientHeight - week.view.h * s) / 2;
+  const sx = (mx) => ox + (mx - week.view.x) * s, sy = (my) => oy + (my - week.view.y) * s;
+  const shown = [];
+  const order = MAP.places.slice().sort((a, b) => townRank(b.id) - townRank(a.id));
+  for (const p of order) {
     const [x, y] = proj.f(p.lat, p.lon);
     const minor = MINOR.has(p.id);
-    if (minor && !zoomed) {
-      g.appendChild(svgEl("circle", { cx: x, cy: y, r: u(minor ? 3.5 : 4.5), fill: "#7D97C2" }));
-      return;
-    }
-    g.appendChild(svgEl("circle", { cx: x, cy: y, r: u(minor ? 4 : 5.5), fill: "#93AECB" }));
-    const t = svgEl("text", { x: x + u(9), y: y + u(4), "font-size": u(minor ? 12 : 14), class: minor ? "" : "major" });
+    g.appendChild(svgEl("circle", { cx: x, cy: y, r: u(minor ? 3.5 : 4.5), fill: minor ? "#7D97C2" : "#93AECB" }));
+    const fs = minor ? 12 : 14;
+    const lx = sx(x) + 9, ly = sy(y) - fs * 0.32;
+    const lw = p.name.length * fs * 0.56 + 3, lh = fs;
+    const rect = { x: lx - 2, y: ly - lh * 0.8, w: lw + 4, h: lh + 3 };
+    if (shown.some((r) => rect.x < r.x + r.w && r.x < rect.x + rect.w && rect.y < r.y + r.h && r.y < rect.y + rect.h))
+      continue;   // a bigger or busier town's label is already there
+    shown.push(rect);
+    const t = svgEl("text", { x: x + u(9), y: y + u(4.5), "font-size": u(fs), class: minor ? "" : "major",
+      stroke: "rgba(7,14,24,.85)", "stroke-width": u(3), "paint-order": "stroke" });
     t.textContent = p.name;
     g.appendChild(t);
-  });
+  }
+}
+function townRank(id) {
+  if (!week.townReq) {
+    week.townReq = {};
+    WEEK.requests.forEach((r) => { week.townReq[r.p] = (week.townReq[r.p] || 0) + 1; week.townReq[r.d] = (week.townReq[r.d] || 0) + 1; });
+  }
+  const BIG = { helsinki: 400, tampere: 260, turku: 240, oulu: 220, jyvaskyla: 180, kuopio: 180,
+                rovaniemi: 170, lahti: 170, pori: 160, vaasa: 160, joensuu: 160 };
+  return (BIG[id] || 0) + (MINOR.has(id) ? 0 : 60) + (week.townReq[id] || 0);
 }
 
 function applyView() {
@@ -329,9 +358,10 @@ function renderWeek() {
     g.markers.appendChild(c);
   });
   if (week.hl && Date.now() < week.hl.until) {
-    g.routes.appendChild(svgEl("polyline", { points: week.hl.pts.map((p) => p.join(",")).join(" "),
-      fill: "none", stroke: "#F0A532", "stroke-width": 2.5, "stroke-dasharray": "2 6",
-      "stroke-linecap": "round", "vector-effect": "non-scaling-stroke" }));
+    for (const pts of week.hl.polys)
+      g.routes.appendChild(svgEl("polyline", { points: pts.map((p) => p.join(",")).join(" "),
+        fill: "none", stroke: "#F0A532", "stroke-width": 2.5, "stroke-dasharray": "2 6",
+        "stroke-linecap": "round", "vector-effect": "non-scaling-stroke" }));
   } else week.hl = null;
 
   const k = bisect(week.ledgerCum, t);
@@ -372,6 +402,35 @@ function feedLine(e) {
   return "";
 }
 
+function lanePts(rid) {
+  const r = WEEK.reqMap[rid];
+  const move = WEEK.moves.find((m) => m.rid === rid);
+  return move ? week.seg.get(WEEK.moves.indexOf(move)).pts : [proj.f(...ll(r.p)), proj.f(...ll(r.d))];
+}
+// the map view that frames a request's lane, with room around it
+function laneView(rids) {
+  let lat0 = 90, lat1 = 0, lon0 = 90, lon1 = 0;
+  rids.forEach((rid) => {
+    const r = WEEK.reqMap[rid];
+    [[r.p], [r.d]].flat().forEach((id) => {
+      const p = MAP.places.find((q) => q.id === id);
+      lat0 = Math.min(lat0, p.lat); lat1 = Math.max(lat1, p.lat);
+      lon0 = Math.min(lon0, p.lon); lon1 = Math.max(lon1, p.lon);
+    });
+  });
+  const pad = Math.max(0.45, (lat1 - lat0) * 0.25, (lon1 - lon0) * 0.25);
+  lat0 -= pad; lat1 += pad; lon0 -= pad; lon1 += pad;
+  // keep the frame from becoming a thin sliver on nearly north-south lanes
+  const kmLat = 111, kmLon = 111 * Math.cos(65 * Math.PI / 180);
+  const hKm = (lat1 - lat0) * kmLat, wKm = (lon1 - lon0) * kmLon;
+  if (wKm < hKm * 0.45) {
+    const lonMid = (lon0 + lon1) / 2, half = hKm * 0.45 / 2 / kmLon;
+    lon0 = lonMid - half; lon1 = lonMid + half;
+  }
+  return proj.box(lat0, lat1, lon0, lon1);
+}
+function flyTo(view) { week.view = { ...view }; applyView(); }
+
 function openRequest(rid) {
   showTab("decision");
   selectRequest(rid);
@@ -380,9 +439,7 @@ function showOnMap(rid) {
   const r = WEEK.reqMap[rid];
   showTab("week");
   setTime(r.at);
-  const move = WEEK.moves.find((m) => m.rid === rid);
-  const pts = move ? week.seg.get(WEEK.moves.indexOf(move)).pts : [proj.f(...ll(r.p)), proj.f(...ll(r.d))];
-  week.hl = { pts, until: Date.now() + 12000 };
+  week.hl = { polys: [lanePts(rid)], until: Date.now() + 12000 };
   renderWeek();
 }
 
@@ -543,22 +600,24 @@ function startTour() {
     .sort((a, b) => (b.de - WEEK.deadline[b.rid]) - (a.de - WEEK.deadline[a.rid]))[0];
   const lateMin = Math.round((lateMove.de - WEEK.deadline[lateMove.rid]) / 60);
   const first = WEEK.requests[0];
+  const firstRid = WEEK.won[0][1];
+  const bundleRids = WEEK.gigOrders[bundle[1]];
   tour.steps = [
-    { t: 510, title: "Monday, 08:30",
+    { t: 510, title: "Monday, 08:30", view: defaultView(),
       text: "The desk is open. From 09:00 dealers across Finland will start asking for prices; every amber ring is a request that gives us fifteen minutes to quote." },
-    { t: first.at, title: `The first request, ${first.id}`,
+    { t: first.at, title: `The first request, ${first.id}`, view: laneView([first.id]), hl: [first.id],
       text: `${nameOf[first.p]} to ${nameOf[first.d]}, ${DEC[first.id].km} km. We quoted ${Object.entries(DEC[first.id].quote).map(([k, v]) => `${fmtEur(v)} for ${k.replace(/_/g, " ")}`).join(" and ")} — and lost it to the competitor. A loss teaches the quoter's level to step down.` },
-    { t: WEEK.won[0][0], title: `The first win, ${WEEK.won[0][1]}`,
-      text: `At ${fmtEur(DEC[WEEK.won[0][1]].won.price)} the dealer chose us. The gig opens at what the cost model expects the car to cost, and a driver books within minutes — watch the blue car leave ${nameOf[WEEK.reqMap[WEEK.won[0][1]].p]}.` },
-    { t: bundle[0], title: "A bundle",
-      text: `${WEEK.gigOrders[bundle[1]].join(" and ")} share one gig: when two or three cars fit a route, they travel together at 0.85 of the sum of their fees — one trip for the driver, less paid by us.` },
-    { t: 2880, title: "Wednesday: the price war",
+    { t: WEEK.won[0][0], title: `The first win, ${firstRid}`, view: laneView([firstRid]), hl: [firstRid],
+      text: `At ${fmtEur(DEC[firstRid].won.price)} the dealer chose us. The gig opens at what the cost model expects the car to cost, and a driver books within minutes — watch the blue car leave ${nameOf[WEEK.reqMap[firstRid].p]}.` },
+    { t: bundle[0], title: "A bundle", view: laneView(bundleRids), hl: bundleRids,
+      text: `${bundleRids.join(" and ")} share one gig: when two or three cars fit a route, they travel together at 0.85 of the sum of their fees — one trip for the driver, less paid by us.` },
+    { t: 2880, title: "Wednesday: the price war", view: defaultView(),
       text: "Nobody announces it, but today the competitor quotes 20% under its usual prices. We won 23% of Wednesday's requests, against 48% on Thursday — the quoter's level spends the day stepping down." },
-    { t: 3620, title: "Wednesday noon: the bulk order",
+    { t: 3620, title: "Wednesday noon: the bulk order", view: proj.box(59.95, 60.75, 24.15, 25.55),
       text: "A dealer group sends 30 cars from one yard in Vantaa. The intake's queue is near its limit of 35 unbooked orders, so we quote only the cars the flood screen says stay on time. We won 4 of the 30." },
-    { t: lateMove.de - 30, rid: lateMove.rid, title: `A late car, ${lateMove.rid}`,
+    { t: lateMove.de - 30, rid: lateMove.rid, title: `A late car, ${lateMove.rid}`, view: laneView([lateMove.rid]), hl: [lateMove.rid],
       text: `${lateMin} minutes late: the dealer gets part of its price back and its trust count halves. Ten of our 356 orders ran late; 97.2% arrived on time — above the 90% the ranking demands.` },
-    { t: END, title: "The end of the week",
+    { t: END, title: "The end of the week", view: defaultView(),
       text: "€17,442.75 of margin, 356 orders, 97.2% on time: 5th of 75 teams. The gap to the top was about 110 short cars — the fee floors priced them out. The fix went in the same evening; it is in the How it works tab." },
   ];
   tour.i = 0;
@@ -569,6 +628,9 @@ function startTour() {
 function showTourStep() {
   const s = tour.steps[tour.i];
   setTime(s.t);
+  if (s.view) flyTo(s.view);
+  week.hl = s.hl ? { polys: s.hl.map(lanePts), until: Infinity } : null;
+  renderWeek();
   $("#tourTitle").textContent = `${s.title}`;
   $("#tourText").textContent = s.text;
   $("#tourStep").textContent = `${tour.i + 1} / ${tour.steps.length}`;
@@ -584,7 +646,12 @@ function showTourStep() {
     $(".tourctrl").insertBefore(b, $("#tourStep"));
   }
 }
-function endTour() { $("#tourbox").hidden = true; }
+function endTour() {
+  $("#tourbox").hidden = true;
+  week.hl = null;
+  flyTo(defaultView());
+  renderWeek();
+}
 
 function wireTour() {
   $("#tourNext").addEventListener("click", () => {

@@ -25,6 +25,7 @@ Opening `index.html` over `file://` does not work (the page fetches its JSON, wh
 browsers block on `file://`). Tabs link directly with a hash: `#week`, `#challenge`,
 `#decision`, `#system`, `#race`; `#week@3720` opens the map at world minute 3720.
 
+The map sizes itself to the viewport, so the timeline stays on screen at 1280×800.
 The page opens on **The week** at Monday 09:30, with a dismissible hint. Keyboard,
 on the week tab: `←`/`→` step one event, `shift`+`←`/`→` one hour, `ctrl`/`alt`+`←`/`→`
 one day, `space` plays or pauses.
@@ -40,10 +41,14 @@ one day, `space` plays or pauses.
    (requests and wins), amber markers for the story moments (the Wednesday price
    war, the bulk order, each late car) — drag it, click a marker, click a day.
    **Scrubbing is first-class**: every view is a pure function of the minute, so
-   stepping, jumping and dragging backwards render the exact state. Zoom with the
-   wheel or buttons, drag to pan, **Fit** restores the country; minor town labels
-   appear as you zoom in. The **guided tour** walks eight annotated moments, from
-   the first request to the final score.
+   stepping, jumping and dragging backwards render the exact state. The map opens
+   framed on southern and central Finland, where the week's work is; **Fit** shows
+   the whole country, and the wheel or buttons zoom, drag pans. Town labels are
+   ranked (big cities, then busyness) and any label that would overlap a
+   higher-ranked one at the current zoom hides, so the busy south stays legible.
+   The **guided tour** walks eight annotated moments — each one pans and zooms the
+   map to its place and highlights the lanes it talks about — from the first
+   request to the final score.
 2. **The challenge** — the game in five steps, the road a request travels, the
    vocabulary, and the 90% rule.
 3. **Inspect a decision** — every one of the 1,030 requests, filterable (won,
@@ -123,7 +128,7 @@ and writes `demo/assets/{map,week,decisions,race,settings}.json` (~0.8 MB total)
 | `assets/race.json` | the leaderboard race, us vs the top team |
 | `assets/story.json` | hand-written explainer and system content |
 | `DESIGN.md` | the design plan and its review against the generic defaults |
-| `screenshots/` | headless-browser captures of the five views plus the tour (`before/` = the first build) |
+| `screenshots/` | browser captures: the five views plus the tour at 1440×900, and the week at 1280×800 (`before/` = the first build) |
 
 ## Known limitations
 

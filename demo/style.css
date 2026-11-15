@@ -28,7 +28,7 @@
 }
 
 :root {
-  --map-h: 590px;         /* the map's height; the side rail matches it */
+  --map-h: clamp(420px, calc(100vh - 300px), 780px);  /* the map's height; the side rail matches it */
   --night: #0A141F;      /* polar night — page ground */
   --land: #142A44;       /* kartta land */
   --sea: #0C1A2C;        /* the map's water */
@@ -98,7 +98,7 @@ footer { border-top: 1px solid var(--rule); color: var(--faint); font-size: 12.5
 .weekgrid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; }
 .mapwrap { position: relative; margin: 0; background:
   radial-gradient(120% 90% at 50% 38%, var(--sea) 0%, var(--night) 88%);
-  border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; min-height: 560px; }
+  border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
 #map { width: 100%; height: var(--map-h); display: block; cursor: grab; }
 #map.panning { cursor: grabbing; }
 #map text { font-family: var(--sans); fill: var(--frost); user-select: none; }
@@ -112,7 +112,7 @@ footer { border-top: 1px solid var(--rule); color: var(--faint); font-size: 12.5
 .k.req { background: var(--headlight); } .k.won { background: var(--ontime); }
 .k.car { background: #7FB4E8; } .k.done { background: var(--ontime); opacity: .45; } .k.late { background: var(--late); }
 
-.hint, .tourbox { position: absolute; left: 14px; top: 14px; max-width: 400px; background: rgba(10,20,31,.94);
+.hint, .tourbox { position: absolute; left: 14px; top: 14px; max-width: 340px; background: rgba(10,20,31,.94);
   border: 1px solid var(--rule); border-left: 3px solid var(--headlight); border-radius: 4px; padding: 14px 16px; }
 .hint p, .tourbox p { margin: 4px 0; font-size: 13.5px; color: var(--frost); }
 .hint p:first-child { color: var(--birch); }
@@ -309,6 +309,21 @@ table.rej td.lose { color: var(--late); font-family: var(--mono); font-size: 12p
   .weekgrid, .decgrid, .twocol, .racecharts { grid-template-columns: 1fr; }
   .steps #steps { grid-template-columns: 1fr; }
   .part { grid-template-columns: 1fr; gap: 4px; }
-  :root { --map-h: 520px; } .mapwrap { min-height: 480px; }
+  :root { --map-h: 440px; }
   h1 { font-size: 27px; }
+}
+
+
+/* short viewports: tighten the page so a tall map and the timeline both stay on screen */
+@media (max-height: 980px) {
+  header { padding: 10px 28px 8px; }
+  h1 { font-size: 24px; }
+  .sub { display: none; }   /* a mid-word ellipsis reads as broken; the title stands alone here */
+  .manifest b { font-size: 16px; }
+  .manifest div { padding: 2px 14px; }
+  nav button { padding: 6px 14px 5px; font-size: 14px; }
+  main { padding-top: 10px; }
+  #tab-week { padding-bottom: 10px; }
+  #tab-week .note { display: none; }
+  #tline { height: 88px; }
 }
